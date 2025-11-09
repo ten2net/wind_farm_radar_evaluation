@@ -1,0 +1,212 @@
+# 风电场雷达影响评估系统配置文件
+# 配置版本
+version: "1.0"
+description: "风电场对海岸监视雷达影响评估系统配置"
+
+# 雷达系统参数
+radar:
+  # 基本参数
+  name: "海岸对海监视雷达"
+  frequency: 9.4e9  # 载频 (Hz)
+  bandwidth: 10e6   # 带宽 (Hz)
+  pulse_width: 50e-6  # 脉冲宽度 (s)
+  tx_power: 40      # 发射功率 (dBm)
+  
+  # 波形参数
+  pulses: 512       # 脉冲数
+  prp: 1e-3         # 脉冲重复周期 (s)
+  fs: 20e6          # 采样率 (Hz)
+  
+  # 接收机参数
+  noise_figure: 6   # 噪声系数 (dB)
+  rf_gain: 30       # RF增益 (dB)
+  baseband_gain: 50 # 基带增益 (dB)
+  load_resistor: 1000 # 负载电阻 (Ω)
+  
+  # 天线参数
+  antenna_gain: 30  # 天线增益 (dBi)
+  beamwidth_azimuth: 1.5   # 方位波束宽度 (度)
+  beamwidth_elevation: 20  # 俯仰波束宽度 (度)
+  polarization: "horizontal"  # 极化方式
+  
+  # 雷达地理定位
+  geolocation:
+    latitude: 36.5    # 纬度 (度)
+    longitude: 120.5  # 经度 (度)
+    altitude: 50      # 海拔高度 (m)
+    heading: 90       # 朝向角 (度，从北顺时针)
+    name: "青岛海岸雷达站"
+
+# 风电场配置
+wind_farm:
+  # 风机通用参数
+  turbine_common:
+    height: 100          # 轮毂高度 (m)
+    rotor_diameter: 120  # 转子直径 (m)
+    blade_length: 60     # 叶片长度 (m)
+    rotation_speed: 15   # 转速 (RPM)
+    tower_diameter: 8    # 塔筒直径 (m)
+    material: "steel"    # 材料类型
+    rcs_model: "complex" # RCS模型类型: simple/complex
+  
+  # 风机位置数据源配置
+  data_source:
+    type: "array"  # array/file
+    file_path: "data/turbine_coordinates.csv"  # 当type=file时使用
+    file_format: "csv"  # csv/json/excel
+    coordinate_format: "wgs84"  # wgs84/cartesian
+  
+  # 风机坐标数组 (当type=array时使用)
+  turbine_coordinates:
+    - [36.600, 120.600, 0]  # [纬度, 经度, 海拔]
+    - [36.610, 120.550, 0]
+    - [36.590, 120.580, 0]
+    - [36.620, 120.620, 0]
+    - [36.580, 120.520, 0]
+
+# 评估目标配置
+evaluation_targets:
+  # 空中目标配置
+  airborne:
+    - name: "中型飞机"
+      target_type: "airborne"
+      rcs: 10.0  # RCS (dBsm)
+      speed_range: [100, 300]  # 速度范围 (m/s)
+      altitude_range: [1000, 10000]  # 高度范围 (m)
+      operational_profile:
+        cruise_altitude: 5000
+        maneuverability: "medium"
+        flight_pattern: "straight"  # 飞行模式: straight/circular/random
+  
+  # 海面目标配置
+  surface:
+    - name: "中型船舶"
+      target_type: "surface"
+      rcs: 20.0  # RCS (dBsm)
+      speed_range: [5, 15]  # 速度范围 (m/s)
+      altitude_range: [-10, 10]  # 高度范围 (m)，海面目标为负值
+      operational_profile:
+        sea_state: 3
+        visibility: "good"
+        vessel_type: "cargo"  # 船舶类型
+
+# 仿真控制参数
+simulation:
+  # 基本仿真参数
+  duration: 600      # 仿真时长 (s)
+  time_step: 10.0    # 时间步长 (s)
+  
+  # 多径效应配置
+  multipath:
+    enable: true     # 是否启用多径效应
+    reflection_coeff: 0.4  # 反射系数
+    sea_level: 0.0   # 海平面高度 (m)
+    
+  # 信号处理参数
+  signal_processing:
+    range_fft_size: 1024    # 距离FFT点数
+    doppler_fft_size: 512   # 多普勒FFT点数
+    stft_nperseg: 128       # STFT每段点数
+    stft_noverlap: 120      # STFT重叠点数
+    detection_threshold_db: 20  # 检测门限 (dB)
+  
+  # 仿真精度控制
+  accuracy:
+    density: 1       # 仿真密度
+    level: "sample"  # 仿真级别: sample/precise
+    monte_carlo_runs: 1  # 蒙特卡洛仿真次数
+
+# 信号处理参数
+signal_processing:
+  # 脉冲压缩参数
+  pulse_compression:
+    window_type: "hamming"  # 窗函数类型
+    sidelobe_level: -40     # 旁瓣电平 (dB)
+    
+  # 多普勒处理参数
+  doppler_processing:
+    clutter_filter: "mtl"  # 杂波滤波器类型: none/mti/mtl
+    filter_order: 3        # 滤波器阶数
+    
+  # CFAR检测参数
+  cfar:
+    enable: true           # 是否启用CFAR
+    type: "ca"             # CFAR类型: ca/so/go
+    guard_cells: 2         # 保护单元数
+    training_cells: 10     # 参考单元数
+    false_alarm_rate: 1e-6 # 虚警概率
+
+# 可视化配置
+visualization:
+  # 图形输出配置
+  output:
+    directory: "results/figures"  # 输出目录
+    format: "png"          # 输出格式: png/jpg/pdf
+    dpi: 300              # 分辨率
+    width: 1200           # 图像宽度
+    height: 800           # 图像高度
+    
+  # 绘图样式配置
+  style:
+    theme: "plotly_white"  # 主题风格
+    color_map: "Viridis"   # 颜色映射
+    font_family: "Arial"   # 字体
+    font_size: 12         # 字体大小
+    
+  # 特定图形配置
+  plots:
+    range_doppler:
+      enable: true
+      colorscale: "Jet"
+      dynamic_range: 40    # 动态范围 (dB)
+      
+    ppi:
+      enable: true
+      range_rings: [2000, 5000, 10000]  # 距离环 (m)
+      max_range: 15000     # 最大显示距离 (m)
+      
+    amplitude_analysis:
+      enable: true
+      time_series: true
+      frequency_domain: true
+
+# 报告生成配置
+reporting:
+  # 报告输出配置
+  output:
+    directory: "results/reports"  # 报告输出目录
+    format: "pdf"         # 报告格式: pdf/html
+    include_appendix: true # 是否包含附录
+    
+  # 报告内容配置
+  content:
+    executive_summary: true  # 执行摘要
+    methodology: true       # 方法说明
+    detailed_results: true  # 详细结果
+    recommendations: true    # 建议措施
+    appendices: true        # 附录
+    
+  # 数据导出配置
+  data_export:
+    enable: true
+    formats: ["csv", "json"]  # 导出格式
+    include_raw_data: false   # 是否包含原始数据
+
+# 系统性能配置
+system:
+  # 并行计算配置
+  parallel:
+    enable: true          # 是否启用并行计算
+    max_workers: 4        # 最大工作进程数
+    
+  # 内存管理
+  memory:
+    max_cache_size: "2GB" # 最大缓存大小
+    cleanup_interval: 60  # 清理间隔 (秒)
+    
+  # 日志配置
+  logging:
+    level: "INFO"         # 日志级别: DEBUG/INFO/WARNING/ERROR
+    file: "logs/system.log"  # 日志文件
+    max_size: "10MB"      # 最大文件大小
+    backup_count: 5       # 备份文件数

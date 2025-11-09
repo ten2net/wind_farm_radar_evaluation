@@ -1,0 +1,15 @@
+# 开发环境配置
+# 继承主配置并覆盖开发特定设置
+
+_base: "config.yaml"
+
+system:
+  logging:
+    level: "DEBUG"  # 开发环境使用DEBUG级别
+    
+simulation:
+  duration: 60       # 开发环境缩短仿真时间
+  time_step: 5.0
+  accuracy:
+    level: "sample"  # 开发环境使用采样级别
+    monte_carlo_runs: 1
