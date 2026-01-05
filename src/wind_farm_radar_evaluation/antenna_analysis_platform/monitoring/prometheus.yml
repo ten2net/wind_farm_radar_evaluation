@@ -1,0 +1,93 @@
+# 天线分析平台 - Prometheus监控配置
+# 用于收集和存储性能指标
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'antenna-analysis-platform'
+
+# 告警规则
+rule_files:
+  - "alerts.yml"
+
+# 抓取配置
+scrape_configs:
+  # Prometheus自身指标
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+
+  # 应用指标
+  - job_name: 'antenna-analysis'
+    static_configs:
+      - targets: ['antenna-analysis:8501']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*):\d+'
+        replacement: '${1}'
+      - source_labels: [__address__]
+        target_label: job
+        regex: '(.*):\d+'
+        replacement: 'antenna-analysis'
+
+  # 节点指标 (需要Node Exporter)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*):\d+'
+        replacement: '${1}'
+
+  # Docker指标 (需要cAdvisor)
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*):\d+'
+        replacement: '${1}'
+
+  # 数据库指标 (如果使用PostgreSQL)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*):\d+'
+        replacement: '${1}'
+
+# 远程写入配置 (可选，用于长期存储)
+remote_write:
+  - url: "http://thanos-receive:10908/api/v1/receive"
+    queue_config:
+      capacity: 2500
+      max_shards: 200
+      min_shards: 1
+      max_samples_per_send: 500
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 100ms
+    write_relabel_configs:
+      - action: keep
+        regex: "antenna.*"
+        source_labels: [job]
+
+# 远程读取配置 (可选)
+remote_read:
+  - url: "http://thanos-query:10912/api/v1/read"
+    read_recent: true

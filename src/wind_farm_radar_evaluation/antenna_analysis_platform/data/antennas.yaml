@@ -1,0 +1,16 @@
+antennas:
+- description: 基本的半波偶极子天线
+  frequency: 1.0
+  gain: 2.15
+  name: 半波偶极子天线
+  type: dipole
+- description: 2.4GHz WiFi微带贴片天线
+  frequency: 2.45
+  gain: 7.0
+  name: 微带贴片天线
+  type: patch
+- description: X波段标准增益喇叭天线
+  frequency: 10.0
+  gain: 20.0
+  name: 喇叭天线
+  type: horn

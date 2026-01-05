@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 from pathlib import Path
 import logging
+from .loader import ScientificFloatLoader
 
 @dataclass
 class RadarConfig:
@@ -77,7 +78,8 @@ class ConfigurationManager:
                 raise FileNotFoundError(f"配置文件不存在: {config_path}")
             
             with open(config_path, 'r', encoding='utf-8') as f:
-                self.config = yaml.safe_load(f)
+                # self.config = yaml.safe_load(f)
+                self.config = yaml.load(f, Loader=ScientificFloatLoader)
             
             logging.info(f"配置文件加载成功: {config_path}")
             return self.config

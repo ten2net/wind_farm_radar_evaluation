@@ -1,0 +1,374 @@
+# 天线分析平台 - 部署配置文件示例
+# 复制此文件为 config.prod.yaml、config.test.yaml 等，根据环境修改
+
+# 通用配置
+common:
+  app_name: "天线分析平台"
+  version: "1.0.0"
+  description: "专业的天线性能分析与可视化平台"
+  
+  # 日志配置
+  logging:
+    level: "INFO"
+    format: "json"
+    retention_days: 30
+    
+  # 监控配置
+  monitoring:
+    enabled: true
+    prometheus_port: 9090
+    grafana_port: 3000
+    alertmanager_port: 9093
+
+# Docker配置
+docker:
+  # 镜像配置
+  image:
+    repository: "registry.example.com/antenna-analysis"
+    tag: "latest"
+    pull_policy: "IfNotPresent"
+    
+  # 容器配置
+  container:
+    name: "antenna-analysis-app"
+    port: 8501
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    
+  # 卷挂载
+  volumes:
+    - name: "data"
+      host_path: "/opt/antenna-analysis/data"
+      container_path: "/app/data"
+    - name: "config"
+      host_path: "/opt/antenna-analysis/config"
+      container_path: "/app/config"
+    - name: "logs"
+      host_path: "/opt/antenna-analysis/logs"
+      container_path: "/app/logs"
+      
+  # 环境变量
+  environment:
+    - name: "STREAMLIT_SERVER_PORT"
+      value: "8501"
+    - name: "STREAMLIT_SERVER_ADDRESS"
+      value: "0.0.0.0"
+    - name: "LOG_LEVEL"
+      value: "INFO"
+    - name: "PYTHONUNBUFFERED"
+      value: "1"
+
+# 数据库配置 (可选)
+database:
+  enabled: false
+  type: "postgresql"
+  host: "postgres.example.com"
+  port: 5432
+  name: "antenna_db"
+  username: "antenna_user"
+  password_secret: "db-password"
+  ssl_mode: "require"
+  
+  # 连接池配置
+  pool:
+    min_connections: 2
+    max_connections: 20
+    idle_timeout: 300
+
+# Redis缓存配置 (可选)
+redis:
+  enabled: false
+  host: "redis.example.com"
+  port: 6379
+  password_secret: "redis-password"
+  database: 0
+  
+  # 缓存配置
+  cache:
+    default_ttl: 3600
+    max_memory: "1gb"
+    eviction_policy: "allkeys-lru"
+
+# 对象存储配置 (可选)
+storage:
+  enabled: false
+  type: "s3"
+  endpoint: "https://s3.example.com"
+  bucket: "antenna-analysis"
+  access_key_secret: "storage-access-key"
+  secret_key_secret: "storage-secret-key"
+  region: "us-east-1"
+  
+  # 存储路径
+  paths:
+    uploads: "uploads/"
+    exports: "exports/"
+    backups: "backups/"
+
+# 外部服务配置
+external_services:
+  # 邮件服务
+  email:
+    enabled: false
+    host: "smtp.example.com"
+    port: 587
+    username_secret: "email-username"
+    password_secret: "email-password"
+    from_address: "noreply@antenna-analysis.com"
+    use_tls: true
+    
+  # 短信服务
+  sms:
+    enabled: false
+    provider: "twilio"
+    account_sid_secret: "twilio-account-sid"
+    auth_token_secret: "twilio-auth-token"
+    from_number: "+1234567890"
+    
+  # 消息队列
+  message_queue:
+    enabled: false
+    type: "rabbitmq"
+    host: "rabbitmq.example.com"
+    port: 5672
+    username_secret: "rabbitmq-username"
+    password_secret: "rabbitmq-password"
+    vhost: "/"
+    
+  # API网关
+  api_gateway:
+    enabled: false
+    endpoint: "https://api.antenna-analysis.com"
+    api_key_secret: "api-gateway-key"
+
+# 安全配置
+security:
+  # HTTPS配置
+  tls:
+    enabled: true
+    certificate_secret: "tls-cert"
+    private_key_secret: "tls-key"
+    
+  # CORS配置
+  cors:
+    allowed_origins:
+      - "https://antenna.example.com"
+      - "https://test.antenna.example.com"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+    allowed_headers:
+      - "*"
+    allow_credentials: true
+    
+  # 速率限制
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    
+  # 认证
+  authentication:
+    enabled: true
+    jwt_secret: "jwt-secret-key"
+    token_expiry: 3600
+    refresh_token_expiry: 2592000
+
+# 监控和告警
+monitoring:
+  # 应用指标
+  metrics:
+    enabled: true
+    path: "/metrics"
+    port: 9090
+    
+  # 健康检查
+  health_checks:
+    enabled: true
+    path: "/health"
+    interval: 30
+    timeout: 5
+    startup_delay: 60
+    
+  # 性能监控
+  performance:
+    enabled: true
+    sampling_rate: 0.1
+    trace_exporter: "jaeger"
+    
+  # 日志聚合
+  log_aggregation:
+    enabled: true
+    type: "elk"
+    endpoint: "https://logs.example.com"
+
+# 备份配置
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # 每天凌晨2点
+  retention_days: 30
+  destination: "s3://antenna-analysis-backups"
+  
+  # 备份内容
+  include:
+    - "data/"
+    - "config/"
+    - "logs/"
+  exclude:
+    - "**/cache/"
+    - "**/temp/"
+
+# 扩展配置
+extensions:
+  # 机器学习扩展
+  ml_extension:
+    enabled: false
+    model_path: "/app/models/ml_model.pkl"
+    gpu_enabled: false
+    
+  # 数据分析扩展
+  data_analysis:
+    enabled: false
+    spark_master: "local[*]"
+    spark_memory: "2g"
+    
+  # 报告生成扩展
+  reporting:
+    enabled: true
+    templates_dir: "/app/templates"
+    output_dir: "/app/exports/reports"
+
+# 环境特定配置
+environments:
+  # 开发环境
+  dev:
+    debug: true
+    log_level: "DEBUG"
+    database:
+      host: "localhost"
+    
+  # 测试环境
+  test:
+    debug: false
+    log_level: "INFO"
+    database:
+      host: "test-db.example.com"
+    external_services:
+      email:
+        enabled: true
+        from_address: "test@antenna-analysis.com"
+    
+  # 生产环境
+  prod:
+    debug: false
+    log_level: "WARNING"
+    database:
+      host: "prod-db.example.com"
+      ssl_mode: "require"
+    security:
+      tls:
+        enabled: true
+    monitoring:
+      enabled: true
+    backup:
+      enabled: true
+
+# 部署策略
+deployment_strategy:
+  # 滚动更新配置
+  rolling_update:
+    enabled: true
+    max_unavailable: "25%"
+    max_surge: "25%"
+    
+  # 蓝绿部署配置
+  blue_green:
+    enabled: true
+    active_service: "antenna-analysis-blue"
+    preview_service: "antenna-analysis-green"
+    switch_delay: 60
+    
+  # 金丝雀发布配置
+  canary:
+    enabled: false
+    percentage: 10
+    duration: 300
+    
+  # 自动回滚配置
+  auto_rollback:
+    enabled: true
+    failure_threshold: 3
+    timeout_seconds: 300
+
+# 网络配置
+network:
+  # 服务发现
+  service_discovery:
+    enabled: true
+    type: "consul"
+    endpoint: "https://consul.example.com"
+    
+  # 负载均衡
+  load_balancer:
+    enabled: true
+    type: "nginx"
+    sticky_sessions: true
+    health_check_path: "/health"
+    
+  # 网络策略
+  network_policy:
+    enabled: true
+    allow_internal: true
+    allowed_external_ips:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+
+# 资源配额
+resource_quotas:
+  # 计算资源
+  compute:
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+      
+  # 存储资源
+  storage:
+    requests:
+      ephemeral: "10Gi"
+      persistent: "100Gi"
+      
+  # 网络资源
+  network:
+    requests:
+      ingress: "100Mi"
+      egress: "100Mi"
+
+# 密钥管理
+secrets:
+  # 密钥来源
+  source: "vault"
+  
+  # 密钥列表
+  list:
+    - name: "db-password"
+      description: "数据库密码"
+      rotation_period: 90
+      
+    - name: "jwt-secret"
+      description: "JWT签名密钥"
+      rotation_period: 180
+      
+    - name: "api-keys"
+      description: "外部API密钥"
+      rotation_period: 365

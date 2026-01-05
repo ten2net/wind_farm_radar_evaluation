@@ -7,6 +7,7 @@ import os
 import sys
 import logging
 from pathlib import Path
+import pprint
 
 # 添加配置模块路径
 sys.path.insert(0, str(Path(__file__).parent))
@@ -22,14 +23,15 @@ def setup_logging(config: dict):
     
     # 创建日志目录
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    
+
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(log_file, encoding='utf-8'),
             logging.StreamHandler(sys.stdout)
-        ]
+        ],
+        force=True  # Python 3.8+ 新增，强制重新配置
     )
 
 def create_radar_parameters_from_config(radar_config: dict) -> RadarParameters:
@@ -103,16 +105,18 @@ def main():
             return 1
         
         config = config_manager.config
-        
         # 设置日志
         setup_logging(config.get('system', {}))
+        
+        # config_str = pprint.pformat(config, indent=2)
+        # logging.info("系统配置:\n%s", config_str)
         
         logging.info("风电场雷达影响评估系统启动")
         
         # 创建雷达参数
         radar_params = create_radar_parameters_from_config(config['radar'])
         radar_geolocation = create_radar_geolocation_from_config(config['radar'])
-        
+
         logging.info(f"雷达配置加载完成: {radar_params.name}")
         
         # 创建评估目标

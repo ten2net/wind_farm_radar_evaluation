@@ -1,0 +1,186 @@
+# 天线分析平台 - 告警规则配置
+# 定义监控指标阈值和告警条件
+
+groups:
+  - name: antenna_analysis_alerts
+    interval: 30s
+    rules:
+
+    # 应用可用性告警
+    - alert: AntennaAnalysisDown
+      expr: up{job="antenna-analysis"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "天线分析平台不可用"
+        description: "天线分析平台实例 {{ $labels.instance }} 已停机超过1分钟。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/application-down"
+
+    # 高响应时间告警
+    - alert: HighResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="antenna-analysis"}[5m])) > 2
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "高响应时间检测到"
+        description: "天线分析平台实例 {{ $labels.instance }} 的95%响应时间超过2秒。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/high-response-time"
+
+    # 高错误率告警
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{job="antenna-analysis", status=~"5.."}[5m]) / rate(http_requests_total{job="antenna-analysis"}[5m]) > 0.05
+      for: 2m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "高错误率检测到"
+        description: "天线分析平台实例 {{ $labels.instance }} 的错误率超过5%。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/high-error-rate"
+
+    # 高CPU使用率告警
+    - alert: HighCPUUsage
+      expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle", job="node"}[5m])) * 100) > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "高CPU使用率检测到"
+        description: "节点 {{ $labels.instance }} 的CPU使用率超过80%。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/high-cpu-usage"
+
+    # 高内存使用率告警
+    - alert: HighMemoryUsage
+      expr: (1 - (node_memory_MemAvailable_bytes{job="node"} / node_memory_MemTotal_bytes{job="node"})) * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "高内存使用率检测到"
+        description: "节点 {{ $labels.instance }} 的内存使用率超过85%。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/high-memory-usage"
+
+    # 高磁盘使用率告警
+    - alert: HighDiskUsage
+      expr: 100 - (node_filesystem_free_bytes{job="node", mountpoint="/"} / node_filesystem_size_bytes{job="node", mountpoint="/"} * 100) > 90
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "高磁盘使用率检测到"
+        description: "节点 {{ $labels.instance }} 的根磁盘使用率超过90%。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/high-disk-usage"
+
+    # 容器重启告警
+    - alert: ContainerRestarts
+      expr: changes(kube_pod_container_status_restarts_total{namespace="antenna-analysis"}[15m]) > 2
+      for: 0m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "容器频繁重启检测到"
+        description: "容器 {{ $labels.container }} 在15分钟内重启超过2次。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/container-restarts"
+
+    # 仿真性能告警
+    - alert: SlowSimulation
+      expr: antenna_simulation_duration_seconds{quantile="0.95"} > 30
+      for: 10m
+      labels:
+        severity: warning
+        team: antenna
+      annotations:
+        summary: "仿真性能下降"
+        description: "天线仿真95%分位响应时间超过30秒。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/slow-simulation"
+
+    # 高并发用户告警
+    - alert: HighConcurrentUsers
+      expr: antenna_concurrent_users > 50
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "高并发用户检测到"
+        description: "并发用户数超过50。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/high-concurrent-users"
+
+    # 导出失败告警
+    - alert: ExportFailures
+      expr: rate(antenna_export_failures_total[5m]) > 0
+      for: 2m
+      labels:
+        severity: critical
+        team: antenna
+      annotations:
+        summary: "导出失败检测到"
+        description: "数据导出发生失败。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/export-failures"
+
+  - name: antenna_analysis_prediction
+    interval: 5m
+    rules:
+
+    # 磁盘空间预测告警
+    - alert: DiskSpacePrediction
+      expr: predict_linear(node_filesystem_free_bytes{job="node", mountpoint="/"}[6h], 24 * 3600) < 0
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "磁盘空间将在24小时内耗尽"
+        description: "基于过去6小时的使用趋势，节点 {{ $labels.instance }} 的磁盘空间将在24小时内耗尽。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/disk-space-prediction"
+
+    # 内存使用预测告警
+    - alert: MemoryUsagePrediction
+      expr: predict_linear(node_memory_MemAvailable_bytes{job="node"}[1h], 6 * 3600) < 0
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "内存将在6小时内耗尽"
+        description: "基于过去1小时的使用趋势，节点 {{ $labels.instance }} 的内存将在6小时内耗尽。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/memory-usage-prediction"
+
+  - name: antenna_analysis_business
+    interval: 1m
+    rules:
+
+    # 活跃用户下降告警
+    - alert: ActiveUsersDrop
+      expr: deriv(antenna_active_users_total[1h]) < -10
+      for: 5m
+      labels:
+        severity: warning
+        team: business
+      annotations:
+        summary: "活跃用户数下降"
+        description: "活跃用户数在过去1小时内下降超过10。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/active-users-drop"
+
+    # 仿真请求下降告警
+    - alert: SimulationRequestsDrop
+      expr: deriv(antenna_simulation_requests_total[30m]) < -5
+      for: 10m
+      labels:
+        severity: warning
+        team: business
+      annotations:
+        summary: "仿真请求数下降"
+        description: "仿真请求数在过去30分钟内下降超过5。"
+        runbook_url: "https://docs.antenna-analysis.com/runbooks/simulation-requests-drop"
+
+# 告警通知配置
+# 在实际使用中，这里会配置Alertmanager的接收器

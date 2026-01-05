@@ -90,3 +90,8 @@ MIT License
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
+
+```shell
+
+history | grep -E "(apt|apk|pip|npm|yarn|wget|curl|tar|./configure|make)" | grep -v "history" > clean_commands.txt
+```

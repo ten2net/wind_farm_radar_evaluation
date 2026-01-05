@@ -1,0 +1,69 @@
+analysis:
+  calculate_axial_ratio: true
+  calculate_efficiency: true
+  default_beamwidth_levels:
+  - 3dB
+  - 10dB
+  find_nulls: true
+  find_sidelobes: true
+  performance_thresholds:
+    fair: 0.6
+    good: 0.8
+    poor: 0.4
+application:
+  auto_save: true
+  cache_enabled: true
+  cache_size: 100
+  language: zh-CN
+  log_level: INFO
+  max_history: 50
+  name: 天线分析平台
+  save_interval: 5
+  theme: light
+  version: 1.0.0
+data_management:
+  auto_backup: true
+  backup_interval: 24
+  cleanup_old_data: true
+  data_retention_days: 30
+  max_backups: 10
+export:
+  auto_open_folder: false
+  compress_exports: true
+  default_dpi: 300
+  default_format: PNG
+  include_metadata: true
+simulation:
+  add_noise: false
+  auto_normalize: true
+  default_component: total
+  default_generator: numerical
+  default_phi_res: 5
+  default_theta_res: 5
+  interpolation: true
+  interpolation_factor: 2
+  noise_level: -30
+system:
+  auto_check_updates: true
+  last_update_check: null
+  send_crash_reports: false
+  send_usage_stats: false
+  update_channel: stable
+user:
+  department: ''
+  email: ''
+  name: 用户
+  newsletter: false
+  notifications: true
+  organization: ''
+visualization:
+  annotate_peaks: true
+  color_theme: viridis
+  default_height: 600
+  default_width: 800
+  dpi: 150
+  font_size: 12
+  show_grid: true
+  show_legend: true
+  show_title: true
+  theme: plotly_white
