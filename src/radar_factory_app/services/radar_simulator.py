@@ -4,6 +4,7 @@
 提供目标检测、信号处理和性能评估功能
 """
 
+import traceback
 import numpy as np
 import radarsimpy as rsp
 from radarsimpy.simulator import sim_radar
@@ -430,7 +431,8 @@ class RadarSimulator:
                 processed_data['detection_map'] = detection_map
             
         except Exception as e:
-            self.logger.error(f"信号处理失败: {str(e)}")
+            exec_str = traceback.format_exc()
+            self.logger.error(f"信号处理失败: {exec_str}")
         
         return processed_data
     
@@ -499,7 +501,7 @@ class RadarSimulator:
                          radar_model: RadarModel) -> np.ndarray:
         """距离处理（脉冲压缩）"""
         # 简化实现 - 实际应使用匹配滤波等算法
-        n_pulses, n_samples = baseband_data.shape
+        _, n_pulses, n_samples = baseband_data.shape
         
         # 对每个脉冲进行FFT得到距离像
         range_profiles =self._range_profile(baseband_data, window_type=WindowType.HANNING, db_scale=True)

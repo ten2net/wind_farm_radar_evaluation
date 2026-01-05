@@ -304,6 +304,13 @@ class RadarFactory:
                     power_w=tx_config.get("power_w", 0),
                     pulse_width_s=tx_config.get("pulse_width_s", 0)
                 )
+            if "receiver" in config:
+                rx_config = config["receiver"]
+                radar.receiver = ReceiverParameters(
+                    noise_figure_db=rx_config.get("noise_figure_db", 6.0),
+                    sensitivity_dbm=rx_config.get("sensitivity_dbm", -100.0),
+                    sampling_rate_hz=rx_config.get("sampling_rate_hz", 1e6)
+                )
             
             # 设置天线参数
             if "antenna" in config:
@@ -340,6 +347,16 @@ PRESET_RADARS = {
             "power_w": 500000,
             "pulse_width_s": 200e-6
         },
+        "receiver": {
+            "noise_figure_db": 6.0,
+            "sensitivity_dbm": -100.0,
+            "sampling_rate_hz": 1e6
+        },
+        "antenna": {
+            "gain_dbi": 30.0,
+            "azimuth_beamwidth": 6.0,
+            "elevation_beamwidth": 12.0
+        },
         "antenna": {
             "gain_dbi": 35.0,
             "azimuth_beamwidth": 3.5,
@@ -361,6 +378,11 @@ PRESET_RADARS = {
             "frequency_hz": 1.4e9,
             "power_w": 10000,
             "pulse_width_s": 50e-6
+        },
+        "receiver": {
+            "noise_figure_db": 6.0,
+            "sensitivity_dbm": -100.0,
+            "sampling_rate_hz": 1e6
         },
         "antenna": {
             "gain_dbi": 38.0,

@@ -4,6 +4,8 @@
 使用Streamlit和Plotly进行交互式可视化
 """
 
+import logging
+import time
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
@@ -22,7 +24,7 @@ from services.radar_simulator import RadarSimulator
 from controllers.radar_controller import RadarController
 from utils.helpers import format_distance, format_frequency, format_time_duration
 
-
+logger = logging.getLogger(__name__)
 class SimulationView:
     """仿真结果可视化视图类"""
     
@@ -878,9 +880,13 @@ class SimulationView:
         """渲染仿真设置界面（如果没有仿真结果时）"""
         st.subheader("⚙️ 仿真参数设置")
         
-        # 这里可以添加仿真参数设置的界面
-        # 由于时间关系，我们先提供一个简单的设置界面
+        # 检查是否有待执行的仿真参数
+        if st.session_state.get('simulation_params') and not st.session_state.get('simulation_results'):
+            # 自动执行仿真
+            self._execute_simulation(st.session_state.simulation_params)
+            return
         
+        # 仿真参数设置
         col1, col2 = st.columns(2)
         
         with col1:
@@ -914,23 +920,149 @@ class SimulationView:
             )
         
         # 雷达选择
-        available_radars = list(self.controller.get_all_radars().keys())
+        controller = st.session_state.radar_controller
+        available_radars = list(controller.get_all_radars().keys())
         selected_radars = st.multiselect(
             "选择参与仿真的雷达",
             options=available_radars,
-            default=available_radars[:min(3, len(available_radars))]
+            default=available_radars[:min(3, len(available_radars))] if available_radars else []
         )
         
+        # 目标参数设置
+        st.subheader("🎯 目标参数")
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            target_rcs = st.selectbox(
+                "目标RCS (m²)",
+                options=[0.01, 0.1, 1.0, 5.0, 10.0, 100.0],
+                index=2,
+                help="选择目标雷达截面积"
+            )
+            
+            target_type = st.selectbox(
+                "目标类型",
+                options=["飞机", "导弹", "无人机", "舰船", "地面车辆"],
+                index=0
+            )
+        
+        with col4:
+            initial_range = st.slider(
+                "初始距离 (km)",
+                min_value=10.0,
+                max_value=500.0,
+                value=100.0,
+                step=10.0
+            )
+            
+            target_speed = st.slider(
+                "目标速度 (m/s)",
+                min_value=0.0,
+                max_value=1000.0,
+                value=300.0,
+                step=50.0
+            )
+        
         # 开始仿真按钮
-        if st.button("🚀 开始仿真", type="primary", width='stretch'):
+        if st.button("🚀 开始仿真", type="primary", use_container_width=True):
             if not selected_radars:
                 st.error("请选择至少一个雷达")
             else:
-                with st.spinner("仿真进行中..."):
-                    # 这里应该调用仿真器运行仿真
-                    # 由于时间关系，我们创建一个模拟结果
-                    st.success("仿真完成！")
-                    st.session_state.current_view = "simulation_results"
+                # 创建仿真参数
+                simulation_params = {
+                    "radars": selected_radars,
+                    "duration": sim_duration,
+                    "time_step": time_step,
+                    "processing_mode": processing_mode,
+                    "noise_level": noise_level,
+                    "target_rcs": target_rcs,
+                    "target_type": target_type,
+                    "initial_range": initial_range * 1000,  # 转换为米
+                    "target_speed": target_speed
+                }
+                
+                # 保存参数
+                st.session_state.simulation_params = simulation_params
+                
+                # 执行仿真
+                self._execute_simulation(simulation_params)
+
+    def _execute_simulation(self, params: Dict[str, Any]):
+        """执行仿真"""
+        with st.spinner("正在运行仿真，请稍候..."):
+            try:
+                # 获取控制器和仿真器
+                controller = st.session_state.radar_controller
+                simulator = st.session_state.radar_simulator
+                
+                # 获取雷达对象
+                radar_ids = params.get('radars', [])
+                radars = []
+                for radar_id in radar_ids:
+                    radar = controller.get_radar_by_id(radar_id)
+                    if radar:
+                        radars.append(radar)
+                
+                if not radars:
+                    st.error("没有有效的雷达进行仿真")
+                    return
+                
+                # 创建仿真场景
+                from models.simulation_models import (
+                    SimulationScenario, TargetParameters, TargetType, RCSModel
+                )
+                import numpy as np
+                
+                # 映射目标类型
+                target_type_map = {
+                    "飞机": TargetType.AIRCRAFT,
+                    "导弹": TargetType.MISSILE, 
+                    "无人机": TargetType.DRONE,
+                    "舰船": TargetType.SHIP,
+                    "地面车辆": TargetType.GROUND_VEHICLE
+                }
+                
+                # 创建目标
+                target = TargetParameters(
+                    target_id="sim_target_001",
+                    target_type=target_type_map.get(params.get('target_type', '飞机'), TargetType.AIRCRAFT),
+                    position=np.array([params.get('initial_range', 100000), 0, 10000]),  # 100km距离，10km高度
+                    velocity=np.array([-params.get('target_speed', 300), 0, 0]),  # 朝向雷达飞行
+                    rcs_sqm=params.get('target_rcs', 5.0),
+                    rcs_model=RCSModel.SWERLING1
+                )
+                
+                # 创建场景
+                scenario = SimulationScenario(
+                    scenario_id=f"sim_{int(time.time())}",
+                    name="用户仿真场景",
+                    description="基于用户设置的仿真场景",
+                    duration=params.get('duration', 60.0),
+                    time_step=params.get('time_step', 0.1),
+                    radar_positions={r.radar_id: np.array([0, 0, 0]) for r in radars},
+                    targets=[target]
+                )
+                
+                # 运行仿真
+                results = simulator.run_simulation(scenario, radars)
+                
+                # 保存结果
+                st.session_state.simulation_results = results
+                
+                # 清除待执行参数
+                if 'simulation_params' in st.session_state:
+                    del st.session_state.simulation_params
+                
+                st.success("仿真完成！")
+                st.rerun()
+                
+            except Exception as e:
+                import traceback
+                logger.error(f"仿真执行错误: {traceback.format_exc()}")
+                st.error(f"仿真执行失败: {str(e)}")
+                
+                # 提供重试选项
+                if st.button("重试仿真"):
                     st.rerun()
     
     def render(self, simulation_results: Optional[SimulationResults] = None):

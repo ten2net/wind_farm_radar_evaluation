@@ -294,8 +294,28 @@ class DashboardView:
         
         with col2:
             if st.button("🎯 开始仿真", key="dashboard_btn_simulation"):
+                # st.session_state.current_view = "simulation"
+                # st.rerun()
+                # 设置默认仿真参数
+                controller = st.session_state.radar_controller
+                all_radars = controller.get_all_radars()
+                radar_ids = list(all_radars.keys())[:3] if len(all_radars) > 0 else []
+                
+                # 创建仿真参数
+                simulation_params = {
+                    "radars": radar_ids,
+                    "duration": 60.0,
+                    "time_step": 0.1,
+                    "target_rcs": 5.0,
+                    "scenario_type": "single_target"
+                }
+                
+                # 保存参数到session state
+                st.session_state.simulation_params = simulation_params
+                
+                # 切换到仿真视图
                 st.session_state.current_view = "simulation"
-                st.rerun()
+                st.rerun()                
         
         with col3:
             if st.button("📊 性能分析", key="dashboard_btn_analysis"):
@@ -395,7 +415,7 @@ class DashboardView:
             st.write(f"**理论探测距离:** {getattr(radar, 'theoretical_range_km', 0):.1f} km")
             
             # 操作按钮
-            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([1, 1, 1, 6])
             with col_btn1:
                 if st.button("编辑", key=f"radar_edit_{idx}_{radar.radar_id}"):
                     st.session_state.editing_radar_id = radar.radar_id
@@ -411,6 +431,12 @@ class DashboardView:
             with col_btn3:
                 if st.button("删除", key=f"radar_del_{idx}_{radar.radar_id}"):
                     self._delete_radar(radar.radar_id)
+                    
+            with col_btn4:
+                if st.button("添加到电子战模型数据库", key=f"radar_to_model_database_{idx}_{radar.radar_id}"):
+                    st.success(f"雷达 {radar.radar_id} 已添加到电子战模型数据库")
+                    # st.rerun()
+                    # self._delete_radar(radar.radar_id)
     
     def _delete_radar(self, radar_id: str):
         """删除雷达"""

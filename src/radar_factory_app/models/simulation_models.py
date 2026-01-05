@@ -19,6 +19,7 @@ class TargetType(Enum):
     SHIP = "舰船"
     STEALTH_AIRCRAFT = "隐身飞机"
     BALLISTIC_MISSILE = "弹道导弹"
+    GROUND_VEHICLE = "地面车辆"
 
 
 class RCSModel(Enum):
@@ -55,8 +56,8 @@ class TargetParameters:
     def to_radarsimpy_ideal_target(self) -> Dict[str, Any]:
         """转换为radarsimpy目标对象的参数字典"""
         return {
-            "location": self.position.tolist(),
-            "speed": self.velocity.tolist(),
+            "location": self.position,
+            "speed": self.velocity,
             "rcs": self.rcs_sqm,
             "phase": 0
         }
