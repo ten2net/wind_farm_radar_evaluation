@@ -53,7 +53,7 @@ class DashboardView:
             padding: 1rem;
             border-radius: 10px;
             border-left: 4px solid #1f77b4;
-        }
+        }       
         .radar-card {
             background-color: white;
             padding: 1rem;
@@ -61,11 +61,18 @@ class DashboardView:
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 1rem;
         }
+
+        .stTabs button[role="tab"] > div > p {
+            font-size: 1.3em !important;
+        }
+    
+
         </style>
         """, unsafe_allow_html=True)
     
     def render_header(self):
-        """渲染页面头部"""
+        """渲染页面头部"""        
+      
         # st.markdown('<h1 class="main-header">🛰️ 雷达工厂</h1>', 
         #            unsafe_allow_html=True)
         
@@ -82,8 +89,22 @@ class DashboardView:
     def render_system_overview(self, tab):
         """渲染系统概览选项卡"""
         with tab:
+            # 在容器中应用自定义样式
+            with st.container():
+                st.markdown("""
+                <style>
+                /* 为metric组件应用自定义样式 */
+                [data-testid="stMetric"] [data-testid="stMetricValue"] {
+                    font-size: 1.2rem !important;
+                    font-weight: 600 !important;
+                }
+                [data-testid="stMetric"] [data-testid="stMetricLabel"] {
+                    font-size: 0.85rem !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)            
             # 系统概览指标
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4 = st.columns([1, 1, 2, 1])
             
             # 获取系统摘要
             summary = self._get_system_summary()
@@ -122,15 +143,15 @@ class DashboardView:
                 )
             
             # 频段分布图表
-            st.subheader("📈 频段分布分析")
+            st.markdown("##### 📈 频段分布分析")
             self._render_band_distribution(summary["band_distribution"])
             
             # 雷达性能对比
-            st.subheader("⚡ 雷达性能对比")
+            st.markdown("##### ⚡ 雷达性能对比")
             self._render_performance_comparison()
             
             # 快速操作面板
-            st.subheader("🚀 快速操作")
+            st.markdown("##### 🚀 快速操作")
             self._render_quick_actions()
     
     def _get_system_summary(self):
@@ -181,7 +202,7 @@ class DashboardView:
                 fig = px.pie(
                     values=counts,
                     names=bands,
-                    title="雷达频段分布",
+                    title="雷达频段分布图",
                     color_discrete_sequence=px.colors.qualitative.Set3
                 )
                 fig.update_layout(height=300)
@@ -243,7 +264,7 @@ class DashboardView:
         ))
         
         fig.update_layout(
-            title="雷达性能对比",
+            title="雷达性能对比图",
             xaxis_title="雷达型号",
             yaxis=dict(
                 title="探测距离 (km)",
@@ -293,7 +314,7 @@ class DashboardView:
     def render_radar_management(self, tab):
         """渲染雷达管理选项卡"""
         with tab:
-            st.header("📡 雷达管理系统")
+            # st.header("📡 雷达管理系统")
             
             # 搜索和过滤
             col1, col2, col3 = st.columns([2, 1, 1])
@@ -401,7 +422,7 @@ class DashboardView:
     def render_simulation_analysis(self, tab):
         """渲染仿真分析选项卡"""
         with tab:
-            st.header("🎯 仿真分析")
+            # st.header("🎯 仿真分析")
             
             # 仿真场景选择
             col1, col2 = st.columns(2)
@@ -456,10 +477,10 @@ class DashboardView:
     def render_system_settings(self, tab):
         """渲染系统设置选项卡"""
         with tab:
-            st.header("⚙️ 系统设置")
+            # st.header("⚙️ 系统设置")
             
             # 数据管理
-            st.subheader("💾 数据管理")
+            st.markdown("###### 💾 数据管理")
             col1, col2 = st.columns(2)
             
             with col1:
@@ -475,12 +496,12 @@ class DashboardView:
                         self._clear_all_data()
             
             # 显示设置
-            st.subheader("🎨 显示设置")
+            st.markdown("###### 🎨 显示设置")
             theme = st.selectbox("界面主题", ["浅色", "深色", "自动"])
             chart_style = st.selectbox("图表样式", ["Plotly", "Matplotlib", "Altair"])
             
             # 性能设置
-            st.subheader("⚡ 性能设置")
+            st.markdown("###### ⚡ 性能设置")
             cache_enabled = st.checkbox("启用缓存", value=True)
             parallel_processing = st.checkbox("启用并行处理", value=False)
             

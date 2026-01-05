@@ -222,53 +222,52 @@ class RadarFactoryApp:
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("📊 仪表板", width='stretch'):
+                if st.button("📊 仪表板", key="sidebar_btn_dashboard", use_container_width=True):
                     st.session_state.current_view = "dashboard"
                     st.rerun()
             
             with col2:
-                if st.button("⚙️ 雷达设计", width='stretch'):
+                if st.button("⚙️ 雷达设计", key="sidebar_btn_editor", use_container_width=True):
                     st.session_state.current_view = "radar_editor"
                     st.rerun()
             
             col3, col4 = st.columns(2)
             with col3:
-                if st.button("🎯 仿真分析", width='stretch'):
+                if st.button("🎯 仿真分析", key="sidebar_btn_simulation", use_container_width=True):
                     st.session_state.current_view = "simulation"
                     st.rerun()
             
             with col4:
-                if st.button("📈 性能对比", width='stretch'):
+                if st.button("📈 性能对比", key="sidebar_btn_comparison", use_container_width=True):
                     st.session_state.current_view = "comparison"
                     st.rerun()
             
             st.markdown("---")
             
-            # 雷达系统状态
+            # 雷达系统状态 - 优化布局
             st.subheader("📡 系统状态")
             
             controller = st.session_state.radar_controller
             stats = controller.get_statistics()
             
-            st.metric("雷达总数", stats['total_radars'])
-            st.metric("频段数量", stats['bands_represented'])
-            st.metric("平台类型", stats['platforms_represented'])
+            # 使用紧凑的水平布局
+            self._render_compact_metrics(stats)
             
             st.markdown("---")
             
             # 快速操作
             st.subheader("🚀 快速操作")
             
-            if st.button("🆕 新建雷达", width='stretch'):
+            if st.button("🆕 新建雷达", key="sidebar_btn_new_radar", use_container_width=True):
                 st.session_state.editing_radar_id = None
                 st.session_state.current_view = "radar_editor"
                 st.rerun()
             
-            if st.button("🔄 运行仿真", width='stretch'):
+            if st.button("🔄 运行仿真", key="sidebar_btn_run_sim", use_container_width=True):
                 st.session_state.current_view = "simulation"
                 st.rerun()
             
-            if st.button("📤 导出数据", width='stretch'):
+            if st.button("📤 导出数据", key="sidebar_btn_export", use_container_width=True):
                 self._export_all_data()
             
             st.markdown("---")
@@ -280,11 +279,12 @@ class RadarFactoryApp:
             theme = st.selectbox(
                 "界面主题",
                 ["浅色", "深色", "自动"],
-                index=0
+                index=0,
+                key="sidebar_theme_select"
             )
             
             # 数据管理
-            if st.button("清空缓存", width='stretch'):
+            if st.button("清空缓存", key="sidebar_btn_clear_cache", use_container_width=True):
                 controller.clear_cache()
                 st.success("缓存已清空")
                 st.rerun()
@@ -293,7 +293,45 @@ class RadarFactoryApp:
             st.markdown("---")
             st.caption("版本: 1.0.0")
             st.caption("最后更新: 2026-01-05")
-    
+
+    def _render_compact_metrics(self, stats: Dict[str, Any]):
+        """使用Streamlit columns渲染紧凑指标"""
+        # 使用三列布局
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                label="雷达总数", 
+                value=stats.get('total_radars', 0),
+                label_visibility="visible"
+            )
+        
+        with col2:
+            st.metric(
+                label="频段数量", 
+                value=stats.get('bands_represented', 0),
+                label_visibility="visible"
+            )
+        
+        with col3:
+            st.metric(
+                label="平台类型", 
+                value=stats.get('platforms_represented', 0),
+                label_visibility="visible"
+            )
+        
+        # 添加分隔线
+        st.markdown("---")
+        
+        # 如果有更多指标，可以继续添加
+        if 'total_power' in stats:
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                st.metric(
+                    label="总功率", 
+                    value=f"{stats['total_power']/1000:.1f}kW",
+                    label_visibility="visible"
+                )
     def _export_all_data(self):
         """导出所有数据"""
         st.info("数据导出功能开发中...")
@@ -400,28 +438,14 @@ class RadarFactoryApp:
     
     def render_header(self):
         """渲染应用头部"""
-        col1, col2, col3 = st.columns([8, 1, 1])
+        col1, col2, col3 = st.columns([8, 1, 2])
         
         with col1:
             st.title("🛰️ 长城数字雷达工厂")
-            st.caption("基于MVC架构的雷达系统设计与仿真平台")
+            st.caption("面向全数字仿真电子战需求的雷达系统设计与仿真平台")
         
         with col2:
             pass
-            # 显示当前视图
-            # view_names = {
-            #     "dashboard": "仪表板",
-            #     "radar_editor": "雷达设计",
-            #     "simulation": "仿真分析",
-            #     "comparison": "性能对比",
-            #     "simulation_results": "仿真结果"
-            # }
-            
-            # current_view_name = view_names.get(
-            #     st.session_state.current_view, 
-            #     st.session_state.current_view
-            # )
-            # st.caption(f"当前视图: **{current_view_name}**")
         
         with col3:
             # 显示当前视图
