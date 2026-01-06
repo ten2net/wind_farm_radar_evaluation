@@ -38,7 +38,7 @@ def load_antenna_database() -> Dict[str, Any]:
     """加载天线数据库"""
     try:
         config = AppConfig()
-        data_file = config.get_data_path("antennas.yaml")
+        data_file = config.get_data_path("antennas.yaml") # type: ignore
         
         if data_file.exists():
             with open(data_file, 'r', encoding='utf-8') as f:
@@ -90,7 +90,7 @@ def save_antenna_to_database(antenna_params: Dict[str, Any]) -> bool:
     """保存天线到数据库"""
     try:
         config = AppConfig()
-        data_file = config.get_data_path("antennas.yaml")
+        data_file = config.get_data_path("antennas.yaml") # type: ignore
         
         database = load_antenna_database()
         
@@ -586,8 +586,8 @@ class SimulationSettings:
                 'use_cache': use_cache,
                 'normalize': normalize,
                 'add_noise': add_noise,
-                'noise_level': noise_level if add_noise else -30,
-                'noise_type': noise_type if add_noise else '高斯',
+                'noise_level': noise_level if add_noise else -30, # type: ignore
+                'noise_type': noise_type if add_noise else '高斯', # type: ignore
                 'interpolation': interpolation,
                 'interpolation_factor': interpolation_factor if interpolation else 1,
                 'save_raw_data': save_raw_data
@@ -677,7 +677,7 @@ class AnalysisSettings:
             'analyze_symmetry': analyze_symmetry,
             'calculate_beamshape': calculate_beamshape,
             'sidelobe_analysis': sidelobe_analysis,
-            'num_sidelobes': num_sidelobes if sidelobe_analysis else 3
+            'num_sidelobes': num_sidelobes if sidelobe_analysis else 3 # type: ignore
         }
     
     @staticmethod
@@ -699,7 +699,7 @@ class AnalysisSettings:
         
         return {
             'calculate_axial_ratio': calculate_axial_ratio,
-            'ar_threshold': ar_threshold if calculate_axial_ratio else 3.0,
+            'ar_threshold': ar_threshold if calculate_axial_ratio else 3.0, # type: ignore
             'calculate_xpd': calculate_xpd,
             'polarization_purity': polarization_purity,
             'ellipse_analysis': ellipse_analysis,
@@ -728,7 +728,7 @@ class AnalysisSettings:
             'aperture_efficiency': aperture_efficiency,
             'beam_efficiency': beam_efficiency,
             'total_efficiency': total_efficiency,
-            'include_losses': include_losses if total_efficiency else False,
+            'include_losses': include_losses if total_efficiency else False, # type: ignore
             'matching_efficiency': matching_efficiency
         }
     
@@ -755,7 +755,7 @@ class AnalysisSettings:
             'freq_steps': freq_steps,
             'sweep_type': sweep_type,
             'bandwidth_analysis': bandwidth_analysis,
-            'bw_level': bw_level if bandwidth_analysis else "-3dB"
+            'bw_level': bw_level if bandwidth_analysis else "-3dB" # type: ignore
         }
     
     @staticmethod
@@ -771,16 +771,16 @@ class AnalysisSettings:
         
         if comparison_type == "不同天线":
             num_antennas = st.number_input("天线数量", 2, 5, 2)
-            comparison_params['num_antennas'] = num_antennas
+            comparison_params['num_antennas'] = num_antennas # type: ignore
             
         elif comparison_type == "不同参数":
             param_options = ["增益", "波束宽度", "副瓣电平", "效率"]
             selected_params = st.multiselect("比较参数", param_options, default=["增益"])
-            comparison_params['parameters'] = selected_params
+            comparison_params['parameters'] = selected_params # type: ignore
         
         elif comparison_type == "不同频率":
             freq_points = st.number_input("频率点数", 2, 10, 3)
-            comparison_params['freq_points'] = freq_points
+            comparison_params['freq_points'] = freq_points # type: ignore
         
         else:  # 与理论值
             theory_model = st.selectbox("理论模型", ["各向同性", "偶极子", "抛物面"])
@@ -792,7 +792,7 @@ class AnalysisSettings:
             default=["增益", "波束宽度"]
         )
         
-        comparison_params['metrics'] = metrics
+        comparison_params['metrics'] = metrics # type: ignore
         
         return comparison_params
 

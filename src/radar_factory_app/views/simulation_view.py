@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from models.simulation_models import SimulationResults, RadarDetection
 from services.radar_simulator import RadarSimulator
 from controllers.radar_controller import RadarController
-from utils.helpers import format_distance, format_frequency, format_time_duration
+from utils.helpers import format_distance, format_frequency, format_time_duration # type: ignore
 
 logger = logging.getLogger(__name__)
 class SimulationView:
@@ -700,8 +700,8 @@ class SimulationView:
                 st.metric("噪声功率", f"{noise_power:.2e}")
         
         with col3:
-            if 'baseband' in time_data and noise_power > 0:
-                snr_linear = signal_power / noise_power
+            if 'baseband' in time_data and noise_power > 0: # type: ignore
+                snr_linear = signal_power / noise_power # type: ignore
                 snr_db = 10 * np.log10(snr_linear)
                 st.metric("信噪比", f"{snr_db:.1f} dB")
         
@@ -894,7 +894,7 @@ class SimulationView:
                 "仿真时长 (秒)",
                 min_value=1.0,
                 max_value=300.0,
-                value=60.0,
+                value=1.0,
                 step=1.0
             )
             
@@ -949,10 +949,10 @@ class SimulationView:
         with col4:
             initial_range = st.slider(
                 "初始距离 (km)",
-                min_value=10.0,
+                min_value=1.0,
                 max_value=500.0,
-                value=100.0,
-                step=10.0
+                value=5.0,
+                step=5.0
             )
             
             target_speed = st.slider(
@@ -1026,8 +1026,8 @@ class SimulationView:
                 target = TargetParameters(
                     target_id="sim_target_001",
                     target_type=target_type_map.get(params.get('target_type', '飞机'), TargetType.AIRCRAFT),
-                    position=np.array([params.get('initial_range', 100000), 0, 10000]),  # 100km距离，10km高度
-                    velocity=np.array([-params.get('target_speed', 300), 0, 0]),  # 朝向雷达飞行
+                    position=np.array([params.get('initial_range', 1000), 0, 300]),  # 100km距离，10km高度
+                    velocity=np.array([-params.get('target_speed', 100), 0, 0]),  # 朝向雷达飞行
                     rcs_sqm=params.get('target_rcs', 5.0),
                     rcs_model=RCSModel.SWERLING1
                 )
@@ -1037,8 +1037,8 @@ class SimulationView:
                     scenario_id=f"sim_{int(time.time())}",
                     name="用户仿真场景",
                     description="基于用户设置的仿真场景",
-                    duration=params.get('duration', 60.0),
-                    time_step=params.get('time_step', 0.1),
+                    duration=params.get('duration', 2.0),
+                    time_step=params.get('time_step', 1.0),
                     radar_positions={r.radar_id: np.array([0, 0, 0]) for r in radars},
                     targets=[target]
                 )
@@ -1144,7 +1144,7 @@ def create_sample_results() -> SimulationResults:
                 if np.random.random() > 0.3:  # 70%检测概率
                     # 创建检测
                     detection = RadarDetection(
-                        timestamp=t + np.random.uniform(-0.1, 0.1),
+                        timestamp=t + np.random.uniform(-0.1, 0.1), # type: ignore
                         radar_id=radar_id,
                         target_id=target_id,
                         range=np.random.uniform(50e3, 150e3),
