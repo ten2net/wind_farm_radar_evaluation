@@ -4,6 +4,8 @@
 提供目标检测、信号处理和性能评估功能
 """
 
+from pathlib import Path
+import pprint
 import traceback
 import numpy as np
 from numpy.typing import NDArray
@@ -30,6 +32,7 @@ from radar_factory_app.utils.helpers import (
     db_to_linear, linear_to_db, coordinate_transform_cartesian_to_spherical, # type: ignore
     coordinate_transform_spherical_to_cartesian, format_distance, format_frequency # type: ignore
 )
+from services.radar_plotter import RadarPlotter
 
 # 导入新重构的模块
 from .cfar_processor import CFARProcessor
@@ -103,6 +106,7 @@ class RadarSimulator:
         self.current_simulation = None
         self.cfar_processor = None
         self.detection_evaluator = None
+        self.plotter = RadarPlotter()
         
     def _setup_logger(self) -> logging.Logger:
         """设置日志记录器"""
@@ -333,12 +337,18 @@ class RadarSimulator:
         for target in scenario.targets:
             targets.append(target.to_radarsimpy_ideal_target())
         
+        print(f"仿真目标数量: {len(targets)}")
+        print(f"仿真时长: {scenario.duration}秒, 时间步长: {scenario.time_step}秒")
+        pprint.pprint(targets)
+        
         # 运行仿真
         raw_data = {}
         if len(targets) > 0:  # 防止没有目标时浪费资源  
             timesteps = int(scenario.duration / scenario.time_step)
             
-            for t in range(timesteps):
+            # for t in range(timesteps):
+            # >>>>>>>>>>
+            for t in [0]:  # 临时只运行第一个时间步以加快测试速度
                 timestamp = t * scenario.time_step
                 
                 # 运行radarsimpy仿真
@@ -422,6 +432,8 @@ class RadarSimulator:
             rd_map = self._range_doppler_map(baseband_data)
             processed_data['rd_map'] = rd_map
             
+            self.plot_radar(radar_model, processed_data)                       
+            
             # 使用新重构的CFAR检测
             detection_results = self._apply_new_cfar_detection(
                 processed_data, radar_model, config
@@ -435,6 +447,43 @@ class RadarSimulator:
             self.logger.error(f"信号处理失败: {exec_str}")
         
         return processed_data
+
+    def plot_radar(self, radar_model, processed_data, output_dir: str = "./outputs/radar_plots"):
+        # 原有初始化代码保持不变...
+        outputs_dir = Path(output_dir)
+        outputs_dir.mkdir(parents=True, exist_ok=True)        
+        self.plotter.plot_range_doppler_map(
+                processed_data['rd_map'],
+                radar_model,  # 使用第一个雷达
+                save_path=f"{outputs_dir}/range_doppler_map_{radar_model.radar_id}.png", # type: ignore
+                show=True
+            )
+            
+        self.plotter.plot_range_profile(
+                processed_data['range_profile'],
+                radar_model,
+                # detections=detections,
+                # cfar_threshold=processed_data.get('cfar_threshold'),
+                # timestamp=first_timestamp,
+                save_path=f"{outputs_dir}/range_profile_{radar_model.radar_id}.png", # type: ignore
+                show=True
+            )            
+        self.plotter.plot_doppler_profile(
+                processed_data['doppler_profile'],
+                radar_model,
+                # detections=detections,
+                # cfar_threshold=processed_data.get('cfar_threshold'),
+                # timestamp=first_timestamp,
+                save_path=f"{outputs_dir}/doppler_profile_{radar_model.radar_id}.png", # type: ignore
+                show=True
+            ) 
+            
+        self.plotter.plot_antenna_pattern(
+                radar_model,
+                pattern_type="both",
+                save_path=f"{outputs_dir}/antenna_pattern_{radar_model.radar_id}.png", # type: ignore
+                show=True
+            )
     
     def _apply_new_cfar_detection(self, processed_data: Dict[str, Any],
                                 radar_model: RadarModel,
