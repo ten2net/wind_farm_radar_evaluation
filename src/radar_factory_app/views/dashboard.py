@@ -304,7 +304,7 @@ class DashboardView:
                 # 创建仿真参数
                 simulation_params = {
                     "radars": radar_ids,
-                    "duration": 60.0,
+                    "duration": 1.0,
                     "time_step": 0.1,
                     "target_rcs": 5.0,
                     "scenario_type": "single_target"

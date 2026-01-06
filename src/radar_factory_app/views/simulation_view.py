@@ -1097,7 +1097,7 @@ def create_sample_results() -> SimulationResults:
         scenario_id="sample_001",
         name="示例仿真场景",
         description="多目标测试场景",
-        duration=60.0,
+        duration=1.0,
         time_step=0.1,
         radar_positions={
             "JY-27B_UHF001": np.array([0, 0, 0]),

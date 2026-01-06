@@ -309,7 +309,7 @@ PRESET_SCENARIOS = {
         scenario_id="air_defense_001",
         name="区域防空仿真",
         description="多雷达协同防空作战场景",
-        duration=300.0,
+        duration=0.2,
         time_step=0.1,
         radar_positions={
             "JY-27B_UHF001": np.array([0, 0, 0]),
@@ -341,7 +341,7 @@ PRESET_SCENARIOS = {
         scenario_id="maritime_001", 
         name="海上监视仿真",
         description="海上目标探测与跟踪场景",
-        duration=600.0,
+        duration=2.0,
         time_step=1.0,
         radar_positions={
             "MSR-SLR001": np.array([0, 0, 100]),

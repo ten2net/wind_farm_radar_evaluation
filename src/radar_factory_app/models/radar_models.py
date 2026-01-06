@@ -56,8 +56,16 @@ class SignalProcessing:
     doppler_channels: int
     max_tracking_targets: int
     processing_gain: float = 0.0
-
-
+    # CFAR参数
+    cfar_guard_cells = (2, 2)  # 2D保护单元
+    cfar_training_cells = (10, 10)  # 2D训练单元
+    cfar_range_guard_cells = 2  # 1D距离保护单元
+    cfar_range_training_cells = 10  # 1D距离训练单元
+    cfar_doppler_guard_cells = 2  # 1D多普勒保护单元
+    cfar_doppler_training_cells = 10  # 1D多普勒训练单元
+    cfar_pfa = 1e-6  # 虚警概率
+    cfar_method = 'CA'  # CFAR方法: 'CA' 或 'OS'
+    cfar_os_rank = 8  # OS-CFAR的排序秩 
 @dataclass
 class AntennaParameters:
     """天线参数"""
@@ -344,13 +352,13 @@ PRESET_RADARS = {
         "name": "远程预警雷达-UHF波段（JY-27B）",
         "transmitter": {
             "frequency_hz": 0.3e9,
-            "power_w": 500000,
+            "power_w": 100,
             "pulse_width_s": 200e-6
         },
         "receiver": {
             "noise_figure_db": 6.0,
             "sensitivity_dbm": -100.0,
-            "sampling_rate_hz": 1e6
+            "sampling_rate_hz": 200e6
         },
         "antenna": {
             "gain_dbi": 30.0,
@@ -376,13 +384,13 @@ PRESET_RADARS = {
         "name": "预警机雷达-L波段（空警-500）",
         "transmitter": {
             "frequency_hz": 1.4e9,
-            "power_w": 10000,
+            "power_w": 100,
             "pulse_width_s": 50e-6
         },
         "receiver": {
             "noise_figure_db": 6.0,
             "sensitivity_dbm": -100.0,
-            "sampling_rate_hz": 1e6
+            "sampling_rate_hz": 200e6
         },
         "antenna": {
             "gain_dbi": 38.0,

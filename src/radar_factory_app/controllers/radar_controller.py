@@ -607,6 +607,11 @@ if __name__ == "__main__":
             'power_w': 100000,
             'pulse_width_s': 100e-6
         },
+        "receiver": {
+            "noise_figure_db": 6.0,
+            "sensitivity_dbm": -100.0,
+            "sampling_rate_hz": 1e6
+        },
         'antenna': {
             'gain_dbi': 30.0,
             'azimuth_beamwidth': 5.0,
