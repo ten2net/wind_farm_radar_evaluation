@@ -346,7 +346,7 @@ class RadarController:
         if not radars:
             return {'error': '未找到有效的雷达'}
         
-        return self.performance_calculator.compare_radars(radars)
+        return self.performance_calculator.compare_radars(radars) # type: ignore
     
     def generate_performance_report(self, radar_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -364,7 +364,7 @@ class RadarController:
         
         return self.performance_analyzer.generate_performance_report(radar)
     
-    def search_radars(self, query: str, filters: Dict[str, Any] = None) -> List[RadarModel]:
+    def search_radars(self, query: str, filters: Dict[str, Any] = None) -> List[RadarModel]: # type: ignore
         """
         搜索雷达
         
@@ -603,14 +603,17 @@ if __name__ == "__main__":
         'platform': '地面机动',
         'mission_types': ['远程预警', '反隐身'],
         'transmitter': {
-            'frequency_hz': 500e6,
-            'power_w': 100000,
-            'pulse_width_s': 100e-6
+            "frequency_hz": 0.3e9,
+            "pulse_width_s": 200e-6,
+            "power_w": 200,
+            "prp": 0.0002,
+            "pulses": 256,
+            "bandwidth_hz": 200e6  # 带宽             
         },
         "receiver": {
             "noise_figure_db": 6.0,
-            "sensitivity_dbm": -100.0,
-            "sampling_rate_hz": 1e6
+            "sampling_rate_hz": 200e6,
+            "rf_gain_dbi": 41.0
         },
         'antenna': {
             'gain_dbi': 30.0,
@@ -626,11 +629,11 @@ if __name__ == "__main__":
     if success and radar:
         # 测试获取性能
         performance = controller.get_radar_performance(radar.radar_id)
-        print(f"\n雷达性能 - 最大探测距离: {performance['max_detection_range_km']:.1f} km")
+        print(f"\n雷达性能 - 最大探测距离: {performance['max_detection_range_km']:.1f} km") # type: ignore
         
         # 测试生成报告
         report = controller.generate_performance_report(radar.radar_id)
-        print(f"\n性能报告摘要:\n{report['summary']}")
+        print(f"\n性能报告摘要:\n{report['summary']}") # type: ignore
     
     # 测试控制器统计
     stats = controller.get_statistics()

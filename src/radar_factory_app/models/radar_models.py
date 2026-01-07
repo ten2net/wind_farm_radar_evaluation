@@ -80,7 +80,7 @@ class TransmitterParameters:
     """发射机参数"""
     frequency_hz: float = 9.4e9  # 工作频率(Hz)
     power_w: float =100.0  # 发射功率(W)
-    pulses: float = 128  # 脉冲个数
+    pulses: int = 128  # 脉冲个数
     pulse_width_s: float = 1e6  # 脉冲宽度(秒)
     prf_hz: float = 1000.0  # 脉冲重复频率(Hz)
     bandwidth_hz: Optional[float] = 500e6  # 带宽(Hz)
@@ -89,7 +89,6 @@ class TransmitterParameters:
 class ReceiverParameters:
     """接收机参数"""
     noise_figure_db: float = 6.0  # 噪声系数(dB)
-    sensitivity_dbm: float = -100.0  # 灵敏度(dBm)
     sampling_rate_hz: float = 1e6  # 采样率(Hz)
     rf_gain_dbi: float = 35.0  # 天线增益(dBi)
     load_resistor: float = 50.0  # 负载电阻(Ω)
@@ -308,16 +307,21 @@ class RadarFactory:
             if "transmitter" in config:
                 tx_config = config["transmitter"]
                 radar.transmitter = TransmitterParameters(
-                    frequency_hz=tx_config.get("frequency_hz", 0),
+                    frequency_hz=tx_config.get("frequency_hz"),
                     power_w=tx_config.get("power_w", 0),
-                    pulse_width_s=tx_config.get("pulse_width_s", 0)
+                    pulse_width_s=tx_config.get("pulse_width_s"),
+                    prf_hz=1.0 / tx_config.get("prp"), # 脉冲重复频率 
+                    pulses=tx_config.get("pulses"),
+                    bandwidth_hz=tx_config.get("bandwidth_hz")
                 )
             if "receiver" in config:
                 rx_config = config["receiver"]
                 radar.receiver = ReceiverParameters(
                     noise_figure_db=rx_config.get("noise_figure_db", 6.0),
-                    sensitivity_dbm=rx_config.get("sensitivity_dbm", -100.0),
-                    sampling_rate_hz=rx_config.get("sampling_rate_hz", 1e6)
+                    sampling_rate_hz=rx_config.get("sampling_rate_hz"),
+                    rf_gain_dbi=rx_config.get("rf_gain_dbi",30.0),
+                    load_resistor=rx_config.get("load_resistor",1000),
+                    baseband_gain_db=rx_config.get("baseband_gain_db")                    
                 )
             
             # 设置天线参数
@@ -349,26 +353,25 @@ PRESET_RADARS = {
     "JY-27B_UHF001": {
         "type": "early_warning",
         "radar_id": "JY-27B_UHF001",
-        "name": "远程预警雷达-UHF波段（JY-27B）",
+        "name": "AA远程预警雷达-UHF波段（JY-27B）",
         "transmitter": {
             "frequency_hz": 0.3e9,
-            "power_w": 100,
-            "pulse_width_s": 200e-6
+            "pulse_width_s": 200e-6,
+            "power_w": 200,
+            "prp": 0.0002,
+            "pulses": 256,
+            "bandwidth_hz": 200e6  # 带宽 
         },
         "receiver": {
             "noise_figure_db": 6.0,
-            "sensitivity_dbm": -100.0,
-            "sampling_rate_hz": 200e6
+            "sampling_rate_hz": 200e6,
+            "rf_gain_dbi": 35.0,
+            "baseband_gain_db": 35.0
         },
         "antenna": {
             "gain_dbi": 30.0,
-            "azimuth_beamwidth": 6.0,
-            "elevation_beamwidth": 12.0
-        },
-        "antenna": {
-            "gain_dbi": 35.0,
-            "azimuth_beamwidth": 3.5,
-            "elevation_beamwidth": 8.0
+            "azimuth_beamwidth": 12.0,
+            "elevation_beamwidth": 24.0
         },
         "signal_processing": {
             "mti_filter": "3脉冲对消器",
@@ -381,21 +384,25 @@ PRESET_RADARS = {
     "KJ-500_L001": {
         "type": "airborne", 
         "radar_id": "KJ-500_L001",
-        "name": "预警机雷达-L波段（空警-500）",
+        "name": "AA预警机雷达-L波段（空警-500）",
         "transmitter": {
             "frequency_hz": 1.4e9,
-            "power_w": 100,
-            "pulse_width_s": 50e-6
+            "pulse_width_s": 100e-6,
+            "power_w": 700,
+            "prp": 0.0002,
+            "pulses": 256,
+            "bandwidth_hz": 200e6  # 带宽             
         },
         "receiver": {
             "noise_figure_db": 6.0,
-            "sensitivity_dbm": -100.0,
-            "sampling_rate_hz": 200e6
+            "sampling_rate_hz": 200e6,
+            "rf_gain_dbi": 41.0,
+            "baseband_gain_db": 35.0
         },
         "antenna": {
             "gain_dbi": 38.0,
-            "azimuth_beamwidth": 1.2,
-            "elevation_beamwidth": 4.5
+            "azimuth_beamwidth": 5,
+            "elevation_beamwidth": 10
         },
         "signal_processing": {
             "mti_filter": "自适应MTI",

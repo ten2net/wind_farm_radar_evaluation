@@ -312,9 +312,9 @@ PRESET_SCENARIOS = {
         duration=0.2,
         time_step=0.1,
         radar_positions={
-            "JY-27B_UHF001": np.array([0, 0, 0]),
+            "JY-27B_UHF001": np.array([0, 0, 100]),
             "KJ-500_L001": np.array([50e3, 0, 10e3]),
-            "346B_S001": np.array([100e3, 0, 0])
+            "346B_S001": np.array([100e3, 0, 100])
         },
         targets=[
             TargetParameters(

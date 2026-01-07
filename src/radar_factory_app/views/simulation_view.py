@@ -958,9 +958,9 @@ class SimulationView:
             target_speed = st.slider(
                 "目标速度 (m/s)",
                 min_value=0.0,
-                max_value=1000.0,
-                value=300.0,
-                step=50.0
+                max_value=600.0,
+                value=50.0,
+                step=10.0
             )
         
         # 开始仿真按钮

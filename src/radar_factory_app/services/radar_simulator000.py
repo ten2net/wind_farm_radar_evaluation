@@ -302,7 +302,7 @@ class RadarSimulator:
             timesteps = int(scenario.duration / scenario.time_step)
             
             # for t in range(timesteps):
-            # ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            # ">>>>>>"
             targets =[{'location': [500.0, 0.0, 100.0], 'speed': [-50,    0,    0], 'rcs': 15.0, 'phase': 0}]
             print(targets)
             for t in [0]:
@@ -674,7 +674,7 @@ class RadarSimulator:
                 doppler_val = doppler_idx * doppler_res
                 
                 # 计算信噪比（简化）
-                # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+                # print(">>>>>>>")
                 # signal_power = np.abs(processed_data['range_profile'][range_idx]) if processed_data['range_profile'] is not None else 1
                 # noise_power = np.mean(np.abs(processed_data['range_profile'])) if processed_data['range_profile'] is not None else 1
                 # snr_db = 10 * np.log10(signal_power / noise_power) if noise_power > 0 else 0

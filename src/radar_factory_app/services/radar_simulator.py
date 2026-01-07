@@ -33,6 +33,7 @@ from radar_factory_app.utils.helpers import (
     coordinate_transform_spherical_to_cartesian, format_distance, format_frequency # type: ignore
 )
 from services.radar_plotter import RadarPlotter
+from services.radar_plotter_enhance import EnhancedRadarPlotter
 
 # 导入新重构的模块
 from .cfar_processor import CFARProcessor
@@ -106,7 +107,8 @@ class RadarSimulator:
         self.current_simulation = None
         self.cfar_processor = None
         self.detection_evaluator = None
-        self.plotter = RadarPlotter()
+        # self.plotter = RadarPlotter()
+        self.plotter = EnhancedRadarPlotter()
         
     def _setup_logger(self) -> logging.Logger:
         """设置日志记录器"""
@@ -142,112 +144,179 @@ class RadarSimulator:
         Returns:
             radarsimpy雷达对象
         """
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         if not radar_model.transmitter:
             raise ValueError("雷达缺少发射机参数")
         
+        if not radar_model.antenna:
+            raise ValueError("雷达缺少天线参数")
+        
+        # 获取雷达位置（从雷达模型或使用默认值）
+        location = getattr(radar_model, 'location', [0.0, 0.0, 100.0])
+        speed = getattr(radar_model, 'speed', [0.0, 0.0, 0.0])
+        
         # 构建发射机参数
-        transmitter = self._build_transmitter(radar_model)
+        transmitter = self._build_transmitter(radar_model, location, speed)
         
         # 构建接收机参数
-        receiver = self._build_receiver(radar_model)
-        
-        # 构建雷达位置和方向
-        location = [0.0, 0.0, 0.0]  # 默认位置，可以在场景中调整
-        speed = [0.0, 0.0, 0.0]  # 静止雷达
+        receiver = self._build_receiver(radar_model, location, speed)
         
         # 创建radarsimpy雷达对象
-        additional_params = radar_model.basic_info()
         radar = Radar(
             transmitter=transmitter,
             receiver=receiver,
             location=location,
             speed=speed,
-            rotation=[0.0, 0.0, 0.0],  # 默认方向，可以在场景中调整
+            rotation=[0.0, 0.0, 0.0],  # 默认方向
             rotation_rate=[0.0, 0.0, 0.0],  # 静止雷达
-            **additional_params
         )
         
         return radar
-    
-    def _build_transmitter(self, radar_model: RadarModel) -> Transmitter:
+
+    def _build_transmitter(self, radar_model: RadarModel, location: List[float], speed: List[float]) -> Transmitter:
         """构建发射机参数"""
         tx = radar_model.transmitter
         
-        # 计算带宽（如果没有指定，使用脉冲宽度的倒数）
-        if hasattr(tx, 'bandwidth_hz') and tx.bandwidth_hz: # type: ignore
-            bandwidth_hz = tx.bandwidth_hz # type: ignore
+        # 计算带宽
+        if hasattr(tx, 'bandwidth_hz') and tx.bandwidth_hz:
+            bandwidth_hz = tx.bandwidth_hz
         else:
-            bandwidth_hz = 1.0 / tx.pulse_width_s if tx.pulse_width_s > 0 else 1e6 # type: ignore
-            
+            bandwidth_hz = 1.0 / tx.pulse_width_s if tx.pulse_width_s > 0 else 1e6
+        
         # 计算频率范围
-        freq_start = tx.frequency_hz - bandwidth_hz / 2 # type: ignore
-        freq_end = tx.frequency_hz + bandwidth_hz / 2 # type: ignore                   
+        freq_start = tx.frequency_hz - bandwidth_hz / 2
+        freq_end = tx.frequency_hz + bandwidth_hz / 2
         
-        # 创建发射通道
+        # 获取天线方向图参数
+        antenna_params = self._build_antenna_params(radar_model)
+        
+        # 创建发射通道 - 根据官方文档，通道字典包含位置、速度和天线方向图参数
         tx_channel = {
-            'location': [0, 0, 0],
-            'speed': [0, 0, 0],
-            **self._build_antenna_pattern(radar_model)
-        } 
-        
+            'location': location,
+            'speed': speed,
+            'polarization': [0, 0, 1],  # 默认垂直极化
+            **antenna_params
+        }
         # 创建发射机
         transmitter = Transmitter(
             f=[freq_start, freq_end],
-            t=tx.pulse_width_s, # type: ignore
-            tx_power=tx.power_w, # type: ignore
-            prp=1.0 / tx.prf_hz, # type: ignore
-            pulses=tx.pulses, # type: ignore
+            t=tx.pulse_width_s,
+            tx_power=tx.power_w,
+            prp=1.0 / tx.prf_hz,
+            pulses=tx.pulses,
             channels=[tx_channel]
         )
         
         return transmitter
-    
-    def _build_receiver(self, radar_model: RadarModel) -> Receiver:
-        """构建接收机参数"""
-        if not radar_model.antenna:
-            raise ValueError("雷达缺少天线参数")
-        
-        rx = radar_model.receiver
-        rx_channel = {
-            'location': [0, 0, 0],       # 接收机位置，可以在场景中调整
-            'speed': [0, 0, 0],     # 接收机速度，可以在场景中调整
-            **self._build_antenna_pattern(radar_model)
-        }
 
+    def _build_receiver(self, radar_model: RadarModel, location: List[float], speed: List[float]) -> Receiver:
+        """构建接收机参数"""
+        rx = radar_model.receiver
+        
+        # 获取天线方向图参数
+        antenna_params = self._build_antenna_params(radar_model)
+        
+        # 创建接收通道
+        rx_channel = {
+            'location': location,
+            'speed': speed,
+            'polarization': [0, 0, 1],  # 默认垂直极化
+            **antenna_params
+        }
+        
         # 创建接收机
         receiver = Receiver(
-            fs=rx.sampling_rate_hz, # type: ignore
-            noise_figure=rx.noise_figure_db, # type: ignore
+            fs=rx.sampling_rate_hz,
+            noise_figure=rx.noise_figure_db,
             rf_gain=rx.rf_gain_dbi,
             load_resistor=rx.load_resistor,
             baseband_gain=rx.baseband_gain_db,
             channels=[rx_channel]
-        ) 
-        return receiver
-    
-    def _build_antenna_pattern(self, radar_model: RadarModel) -> Dict[str, Any]:
-        """构建天线方向图（简化模型）"""
-        if not radar_model.antenna:
-            return {}
+        )
         
+        return receiver
+
+    def _build_antenna_params(self, radar_model: RadarModel) -> Dict[str, Any]:
+        """
+        构建天线方向图参数
+        """
+
         ant = radar_model.antenna
         
-        # 创建简化的天线方向图
-        az_beamwidth = np.radians(ant.azimuth_beamwidth)
-        el_beamwidth = np.radians(ant.elevation_beamwidth)
+        # 使用扩展的范围以确保覆盖目标方向
+        extension_factor = 8
         
-        # 生成方向图数据（简化模型）
-        az_angles = np.linspace(-az_beamwidth*2, az_beamwidth*2, 100)
-        el_angles = np.linspace(-el_beamwidth*2, el_beamwidth*2, 100)
+        az_beamwidth_deg = ant.azimuth_beamwidth # type: ignore
+        el_beamwidth_deg = ant.elevation_beamwidth # type: ignore
         
-        az_pattern = 10 * np.log10(np.sinc(az_angles / az_beamwidth)**2)
-        el_pattern = 10 * np.log10(np.sinc(el_angles / el_beamwidth)**2)
+        # 计算波束宽度对应的角度范围
+        az_range = max(az_beamwidth_deg * extension_factor, 10.0)  # 至少±10度
+        el_range = max(el_beamwidth_deg * extension_factor, 10.0)
+        
+        # 生成角度数组（度）
+        az_angles = np.linspace(-az_range, az_range, 361)
+        el_angles = np.linspace(-el_range, el_range, 181)
+        
+        # 计算方向图 - 使用sinc函数模拟
+        # 转换为弧度进行计算
+        az_angles_rad = np.radians(az_angles)
+        el_angles_rad = np.radians(el_angles)
+        az_beamwidth_rad = np.radians(az_beamwidth_deg)
+        el_beamwidth_rad = np.radians(el_beamwidth_deg)
+        
+        # 修正：使用正确的系数0.886
+        # sinc(x) = sin(πx)/(πx)
+        # 当x ≈ 0.443时，sinc(x) ≈ 0.707（-3dB点）
+        # 所以为了在波束宽度一半（θ_3dB/2）处达到-3dB，需要0.886 * (θ_3dB/2) / θ_3dB = 0.443
+        az_pattern_linear = np.sinc(0.886 * az_angles_rad / az_beamwidth_rad)
+        el_pattern_linear = np.sinc(0.886 * el_angles_rad / el_beamwidth_rad)
+        
+        # 转换为dB，确保最大值归一化为0dB
+        # 使用20*log10因为这是幅度方向图
+        az_pattern_db = 20 * np.log10(np.abs(az_pattern_linear) + 1e-12)
+        el_pattern_db = 20 * np.log10(np.abs(el_pattern_linear) + 1e-12)
+        
+        # 归一化到最大值为0dB
+        az_pattern_db = az_pattern_db - np.max(az_pattern_db)
+        el_pattern_db = el_pattern_db - np.max(el_pattern_db)
+        
+        # 添加调试信息
+        target_azimuth = 0
+        target_elevation = 0
+        
+        az_idx = np.argmin(np.abs(az_angles - target_azimuth))
+        el_idx = np.argmin(np.abs(el_angles - target_elevation))
+        
+        target_gain_az = az_pattern_db[az_idx]
+        target_gain_el = el_pattern_db[el_idx]
+        
+        # 计算3dB波束宽度
+        # 找到增益下降3dB的位置
+        az_3db_indices = np.where(az_pattern_db >= -3.0)[0]
+        if len(az_3db_indices) > 0:
+            az_3db_width = az_angles[az_3db_indices[-1]] - az_angles[az_3db_indices[0]]
+        else:
+            az_3db_width = 0
+        
+        el_3db_indices = np.where(el_pattern_db >= -3.0)[0]
+        if len(el_3db_indices) > 0:
+            el_3db_width = el_angles[el_3db_indices[-1]] - el_angles[el_3db_indices[0]]
+        else:
+            el_3db_width = 0
+        
+        print(f"天线方向图调试信息:")
+        print(f"  设计波束宽度: 方位{ant.azimuth_beamwidth}°, 俯仰{ant.elevation_beamwidth}°") # type: ignore
+        print(f"  实际3dB波束宽度: 方位{az_3db_width:.2f}°, 俯仰{el_3db_width:.2f}°")
+        print(f"  目标方向增益: 方位{target_gain_az:.1f}dB, 俯仰{target_gain_el:.1f}dB")
+        print(f"  目标是否在主瓣内: {abs(target_azimuth) <= ant.azimuth_beamwidth/2}") # type: ignore
+        print(f"  角度范围: 方位±{az_range:.1f}°, 俯仰±{el_range:.1f}°")
+        print(f"  方向图大小: 方位{len(az_pattern_db)}点, 俯仰{len(el_pattern_db)}点")
         
         return {
-            'azimuth_angle': az_angles,
-            'azimuth_pattern': az_pattern,
-            'elevation_angle': el_angles,
-            'elevation_pattern': el_pattern
+            'azimuth_angle': az_angles,  # 度
+            'azimuth_pattern': az_pattern_db,  # dB
+            'elevation_angle': el_angles,  # 度
+            'elevation_pattern': el_pattern_db  # dB
         }
     
     def run_simulation(self, scenario: SimulationScenario, 
@@ -336,9 +405,11 @@ class RadarSimulator:
         targets = []
         for target in scenario.targets:
             targets.append(target.to_radarsimpy_ideal_target())
-        
+        # (">>>>>>>")
         print(f"仿真目标数量: {len(targets)}")
         print(f"仿真时长: {scenario.duration}秒, 时间步长: {scenario.time_step}秒")
+        target_1 = dict(location=(8000, 0, 100), speed=(-50 , 0, 0), rcs=5, phase=0)
+        targets=[target_1]        
         pprint.pprint(targets)
         
         # 运行仿真

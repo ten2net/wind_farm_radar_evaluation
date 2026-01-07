@@ -769,16 +769,16 @@ class RadarEditorView:
                 'type': 'early_warning',
                 'platform': '地面机动',
                 'mission_types': ['远程预警', '反隐身'],
-                'transmitter': {'frequency_hz': 300e6, 'power_w': 500000, 'pulse_width_s': 200e-6},
-                'antenna': {'gain_dbi': 35.0, 'azimuth_beamwidth': 3.5, 'elevation_beamwidth': 8.0},
+                'transmitter': {'frequency_hz': 300e6, 'power_w': 5000, 'pulse_width_s': 200e-6},
+                'antenna': {'gain_dbi': 35.0, 'azimuth_beamwidth': 10.0, 'elevation_beamwidth': 20.0},
                 'signal_processing': {'mti_filter': '3脉冲对消器', 'doppler_channels': 256, 'max_tracking_targets': 512}
             },
             "机载雷达模板": {
                 'type': 'airborne',
                 'platform': '机载',
                 'mission_types': ['空中预警', '指挥控制'],
-                'transmitter': {'frequency_hz': 1.4e9, 'power_w': 10000, 'pulse_width_s': 50e-6},
-                'antenna': {'gain_dbi': 38.0, 'azimuth_beamwidth': 1.2, 'elevation_beamwidth': 4.5},
+                'transmitter': {'frequency_hz': 1.4e9, 'power_w': 1000, 'pulse_width_s': 50e-6},
+                'antenna': {'gain_dbi': 38.0, 'azimuth_beamwidth': 5.0, 'elevation_beamwidth': 10.0},
                 'signal_processing': {'mti_filter': '自适应MTI', 'doppler_channels': 512, 'max_tracking_targets': 1024}
             },
             "火控雷达模板": {
