@@ -1,0 +1,383 @@
+# config.yaml
+# 长城数字雷达参数设计器 - 军用雷达预设配置文件
+# 包含各国现役常见雷达型号和用途
+# 注意：参数基于开源数据，可能并非精确值
+
+预设雷达:
+  # 中国雷达系列
+  JY-26_远程预警雷达:
+    frequency_hz: 300e6
+    bandwidth_hz: 10e6
+    prf_hz: 400
+    pulse_width_s: 200e-6
+    pulses: 16
+    peak_power_w: 500e3
+    antenna_gain_db: 38.0
+    beamwidth_deg: 4.5
+    sampling_rate_hz: 20e6
+    noise_figure_db: 2.5
+    system_loss_db: 4.0
+    target_rcs_m2: 10.0
+    target_range_m: 300000
+    baseband_gain_db: 25.0
+    load_resistance_ohm: 50.0
+    description: "中国JY-26远程预警雷达，探测距离300km+，用于战略预警"
+    country: "中国"
+    type: "预警雷达"
+    
+  Type_346_舰载相控阵雷达:
+    frequency_hz: 2e9
+    bandwidth_hz: 100e6
+    prf_hz: 3000
+    pulse_width_s: 10e-6
+    pulses: 128
+    peak_power_w: 200e3
+    antenna_gain_db: 35.0
+    beamwidth_deg: 2.0
+    sampling_rate_hz: 250e6
+    noise_figure_db: 3.0
+    system_loss_db: 5.0
+    target_rcs_m2: 5.0
+    target_range_m: 250000
+    baseband_gain_db: 30.0
+    load_resistance_ohm: 50.0
+    description: "中国346型舰载有源相控阵雷达，装备052D/055型驱逐舰"
+    country: "中国"
+    type: "舰载相控阵雷达"
+    
+  KJ-2000_机载预警雷达:
+    frequency_hz: 1.2e9
+    bandwidth_hz: 50e6
+    prf_hz: 2000
+    pulse_width_s: 5e-6
+    pulses: 256
+    peak_power_w: 20e3
+    antenna_gain_db: 30.0
+    beamwidth_deg: 6.0
+    sampling_rate_hz: 100e6
+    noise_figure_db: 3.5
+    system_loss_db: 6.0
+    target_rcs_m2: 3.0
+    target_range_m: 400000
+    baseband_gain_db: 35.0
+    load_resistance_ohm: 50.0
+    description: "空警-2000机载预警雷达，平衡木阵列，远程预警"
+    country: "中国"
+    type: "机载预警雷达"
+    
+  # 美国雷达系列
+  AN_SPY-1_宙斯盾雷达:
+    frequency_hz: 3.1e9
+    bandwidth_hz: 10e6
+    prf_hz: 1000
+    pulse_width_s: 6.4e-6
+    pulses: 32
+    peak_power_w: 4e6
+    antenna_gain_db: 42.0
+    beamwidth_deg: 1.7
+    sampling_rate_hz: 20e6
+    noise_figure_db: 2.8
+    system_loss_db: 4.5
+    target_rcs_m2: 1.0
+    target_range_m: 320000
+    baseband_gain_db: 28.0
+    load_resistance_ohm: 50.0
+    description: "美国AN/SPY-1无源相控阵雷达，装备伯克级驱逐舰"
+    country: "美国"
+    type: "舰载相控阵雷达"
+    
+  AN_TPS-77_远程预警雷达:
+    frequency_hz: 1.2e9
+    bandwidth_hz: 5e6
+    prf_hz: 300
+    pulse_width_s: 100e-6
+    pulses: 8
+    peak_power_w: 250e3
+    antenna_gain_db: 36.0
+    beamwidth_deg: 2.5
+    sampling_rate_hz: 10e6
+    noise_figure_db: 2.2
+    system_loss_db: 3.5
+    target_rcs_m2: 2.0
+    target_range_m: 470000
+    baseband_gain_db: 22.0
+    load_resistance_ohm: 50.0
+    description: "AN/TPS-77 L波段三坐标预警雷达，探测距离470km"
+    country: "美国"
+    type: "远程预警雷达"
+    
+  APG-81_机载火控雷达:
+    frequency_hz: 10e9
+    bandwidth_hz: 500e6
+    prf_hz: 10000
+    pulse_width_s: 1e-6
+    pulses: 256
+    peak_power_w: 15e3
+    antenna_gain_db: 28.0
+    beamwidth_deg: 2.0
+    sampling_rate_hz: 1e9
+    noise_figure_db: 4.0
+    system_loss_db: 6.0
+    target_rcs_m2: 0.5
+    target_range_m: 150000
+    baseband_gain_db: 40.0
+    load_resistance_ohm: 50.0
+    description: "F-35的APG-81有源相控阵雷达，X波段多功能雷达"
+    country: "美国"
+    type: "机载火控雷达"
+    
+  # 俄罗斯雷达系列
+  S-400_91N6E_搜索雷达:
+    frequency_hz: 2.4e9
+    bandwidth_hz: 20e6
+    prf_hz: 500
+    pulse_width_s: 10e-6
+    pulses: 16
+    peak_power_w: 300e3
+    antenna_gain_db: 40.0
+    beamwidth_deg: 1.5
+    sampling_rate_hz: 40e6
+    noise_figure_db: 3.0
+    system_loss_db: 5.0
+    target_rcs_m2: 4.0
+    target_range_m: 600000
+    baseband_gain_db: 25.0
+    load_resistance_ohm: 50.0
+    description: "S-400防空系统91N6E搜索雷达，最大探测距离600km"
+    country: "俄罗斯"
+    type: "防空搜索雷达"
+    
+  N035_雪豹-E_机载雷达:
+    frequency_hz: 9e9
+    bandwidth_hz: 200e6
+    prf_hz: 5000
+    pulse_width_s: 2e-6
+    pulses: 128
+    peak_power_w: 20e3
+    antenna_gain_db: 30.0
+    beamwidth_deg: 1.8
+    sampling_rate_hz: 400e6
+    noise_figure_db: 3.5
+    system_loss_db: 5.5
+    target_rcs_m2: 1.0
+    target_range_m: 200000
+    baseband_gain_db: 35.0
+    load_resistance_ohm: 50.0
+    description: "苏-35战机N035雪豹-E无源相控阵雷达"
+    country: "俄罗斯"
+    type: "机载火控雷达"
+    
+  # 欧洲雷达系列
+  Captor-E_有源相控阵雷达:
+    frequency_hz: 9.5e9
+    bandwidth_hz: 300e6
+    prf_hz: 8000
+    pulse_width_s: 1.5e-6
+    pulses: 256
+    peak_power_w: 12e3
+    antenna_gain_db: 32.0
+    beamwidth_deg: 1.5
+    sampling_rate_hz: 600e6
+    noise_figure_db: 3.2
+    system_loss_db: 5.0
+    target_rcs_m2: 0.5
+    target_range_m: 180000
+    baseband_gain_db: 38.0
+    load_resistance_ohm: 50.0
+    description: "台风战斗机Captor-E有源相控阵雷达"
+    country: "欧洲"
+    type: "机载火控雷达"
+    
+  SAMPSON_多功能相控阵雷达:
+    frequency_hz: 3e9
+    bandwidth_hz: 50e6
+    prf_hz: 2000
+    pulse_width_s: 5e-6
+    pulses: 64
+    peak_power_w: 25e3
+    antenna_gain_db: 38.0
+    beamwidth_deg: 2.0
+    sampling_rate_hz: 100e6
+    noise_figure_db: 2.8
+    system_loss_db: 4.8
+    target_rcs_m2: 0.1
+    target_range_m: 400000
+    baseband_gain_db: 30.0
+    load_resistance_ohm: 50.0
+    description: "英国SAMPSON双面阵多功能相控阵雷达，装备45型驱逐舰"
+    country: "英国"
+    type: "舰载相控阵雷达"
+    
+  # 以色列雷达系列
+  EL_M-2084_远程预警雷达:
+    frequency_hz: 1.3e9
+    bandwidth_hz: 15e6
+    prf_hz: 400
+    pulse_width_s: 20e-6
+    pulses: 32
+    peak_power_w: 200e3
+    antenna_gain_db: 37.0
+    beamwidth_deg: 3.0
+    sampling_rate_hz: 30e6
+    noise_figure_db: 2.5
+    system_loss_db: 4.0
+    target_rcs_m2: 2.0
+    target_range_m: 500000
+    baseband_gain_db: 28.0
+    load_resistance_ohm: 50.0
+    description: "以色列EL/M-2084 Green Pine远程预警雷达"
+    country: "以色列"
+    type: "远程预警雷达"
+    
+  EL_M-2052_机载火控雷达:
+    frequency_hz: 9e9
+    bandwidth_hz: 400e6
+    prf_hz: 6000
+    pulse_width_s: 1e-6
+    pulses: 128
+    peak_power_w: 10e3
+    antenna_gain_db: 29.0
+    beamwidth_deg: 2.5
+    sampling_rate_hz: 800e6
+    noise_figure_db: 3.8
+    system_loss_db: 6.0
+    target_rcs_m2: 0.3
+    target_range_m: 150000
+    baseband_gain_db: 42.0
+    load_resistance_ohm: 50.0
+    description: "EL/M-2052有源相控阵雷达，装备F-16战机"
+    country: "以色列"
+    type: "机载火控雷达"
+    
+  # 印度雷达系列
+  Swordfish_远程跟踪雷达:
+    frequency_hz: 2.5e9
+    bandwidth_hz: 30e6
+    prf_hz: 350
+    pulse_width_s: 15e-6
+    pulses: 16
+    peak_power_w: 800e3
+    antenna_gain_db: 45.0
+    beamwidth_deg: 1.2
+    sampling_rate_hz: 60e6
+    noise_figure_db: 3.0
+    system_loss_db: 5.0
+    target_rcs_m2: 0.1
+    target_range_m: 800000
+    baseband_gain_db: 25.0
+    load_resistance_ohm: 50.0
+    description: "印度Swordfish远程跟踪雷达，基于以色列绿松雷达"
+    country: "印度"
+    type: "远程跟踪雷达"
+    
+  # 日本雷达系列
+  FPS-5_预警雷达:
+    frequency_hz: 1.4e9
+    bandwidth_hz: 12e6
+    prf_hz: 300
+    pulse_width_s: 30e-6
+    pulses: 8
+    peak_power_w: 3.5e6
+    antenna_gain_db: 44.0
+    beamwidth_deg: 1.1
+    sampling_rate_hz: 24e6
+    noise_figure_db: 2.4
+    system_loss_db: 4.2
+    target_rcs_m2: 1.0
+    target_range_m: 2000000
+    baseband_gain_db: 22.0
+    load_resistance_ohm: 50.0
+    description: "日本FPS-5固态有源相控阵预警雷达，探测距离2000km"
+    country: "日本"
+    type: "远程预警雷达"
+    
+  # 通用雷达类型（补充）
+  AN_APG-68_脉冲多普勒雷达:
+    frequency_hz: 9.7e9
+    bandwidth_hz: 100e6
+    prf_hz: 10000
+    pulse_width_s: 2e-6
+    pulses: 64
+    peak_power_w: 8e3
+    antenna_gain_db: 26.0
+    beamwidth_deg: 3.0
+    sampling_rate_hz: 200e6
+    noise_figure_db: 4.5
+    system_loss_db: 6.5
+    target_rcs_m2: 1.0
+    target_range_m: 100000
+    baseband_gain_db: 35.0
+    load_resistance_ohm: 50.0
+    description: "F-16战机标准配置，脉冲多普勒雷达"
+    country: "美国"
+    type: "机载火控雷达"
+    
+  RBE2_AA_有源相控阵雷达:
+    frequency_hz: 9.5e9
+    bandwidth_hz: 250e6
+    prf_hz: 7000
+    pulse_width_s: 1.2e-6
+    pulses: 192
+    peak_power_w: 10e3
+    antenna_gain_db: 31.0
+    beamwidth_deg: 2.0
+    sampling_rate_hz: 500e6
+    noise_figure_db: 3.6
+    system_loss_db: 5.8
+    target_rcs_m2: 0.5
+    target_range_m: 160000
+    baseband_gain_db: 40.0
+    load_resistance_ohm: 50.0
+    description: "阵风战斗机RBE2-AA有源相控阵雷达"
+    country: "法国"
+    type: "机载火控雷达"
+
+# 雷达分类索引（便于应用快速加载）
+雷达分类:
+  中国:
+    - JY-26_远程预警雷达
+    - Type_346_舰载相控阵雷达
+    - KJ-2000_机载预警雷达
+  美国:
+    - AN_SPY-1_宙斯盾雷达
+    - AN_TPS-77_远程预警雷达
+    - AN_APG-68_脉冲多普勒雷达
+    - APG-81_机载火控雷达
+  俄罗斯:
+    - S-400_91N6E_搜索雷达
+    - N035_雪豹-E_机载雷达
+  欧洲:
+    - Captor-E_有源相控阵雷达
+    - SAMPSON_多功能相控阵雷达
+    - RBE2_AA_有源相控阵雷达
+  以色列:
+    - EL_M-2084_远程预警雷达
+    - EL_M-2052_机载火控雷达
+  印度:
+    - Swordfish_远程跟踪雷达
+  日本:
+    - FPS-5_预警雷达
+
+雷达类型分类:
+  远程预警雷达:
+    - JY-26_远程预警雷达
+    - AN_TPS-77_远程预警雷达
+    - EL_M-2084_远程预警雷达
+    - FPS-5_预警雷达
+  舰载相控阵雷达:
+    - Type_346_舰载相控阵雷达
+    - AN_SPY-1_宙斯盾雷达
+    - SAMPSON_多功能相控阵雷达
+  机载火控雷达:
+    - APG-81_机载火控雷达
+    - N035_雪豹-E_机载雷达
+    - Captor-E_有源相控阵雷达
+    - EL_M-2052_机载火控雷达
+    - AN_APG-68_脉冲多普勒雷达
+    - RBE2_AA_有源相控阵雷达
+  机载预警雷达:
+    - KJ-2000_机载预警雷达
+  防空搜索雷达:
+    - S-400_91N6E_搜索雷达
+  远程跟踪雷达:
+    - Swordfish_远程跟踪雷达

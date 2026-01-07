@@ -1,4 +1,4 @@
-# radar_designer_yaml.py
+# radar_designer_final.py
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -16,6 +16,19 @@ logging.getLogger('plotly').setLevel(logging.WARNING)
 
 # 现在导入Streamlit
 import streamlit as st
+import re
+
+class ScientificFloatLoader(yaml.SafeLoader):
+    """优化版YAML加载器，优雅处理科学计数法"""
+    def __init__(self, stream):
+        super().__init__(stream)
+        # 添加自定义类型解析
+        self.add_implicit_resolver('!sci_float', re.compile(r'^\d*\.?\d+[eE][-+]?\d+$'), None)
+        self.add_constructor('!sci_float', self.construct_sci_float)
+    
+    def construct_sci_float(self, loader, node):
+        """科学计数法转换为浮点数"""
+        return float(node.value)
 
 # 页面配置
 st.set_page_config(
@@ -31,7 +44,8 @@ def load_yaml_config(file_path="config.yaml"):
     try:
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
+                # config = yaml.safe_load(f)
+                config = yaml.load(f, Loader=ScientificFloatLoader)
             return config
         else:
             # 创建默认的YAML配置文件
@@ -50,7 +64,9 @@ def load_yaml_config(file_path="config.yaml"):
                         'noise_figure_db': 2.0,
                         'system_loss_db': 4.0,
                         'target_rcs_m2': 10.0,
-                        'target_range_m': 50000
+                        'target_range_m': 50000,
+                        'baseband_gain_db': 20.0,  # 新增
+                        'load_resistance_ohm': 50.0,  # 新增
                     },
                     '机载火控雷达': {
                         'frequency_hz': 10e9,
@@ -65,7 +81,9 @@ def load_yaml_config(file_path="config.yaml"):
                         'noise_figure_db': 3.0,
                         'system_loss_db': 5.0,
                         'target_rcs_m2': 5.0,
-                        'target_range_m': 20000
+                        'target_range_m': 20000,
+                        'baseband_gain_db': 30.0,  # 新增
+                        'load_resistance_ohm': 50.0,  # 新增
                     },
                     '舰载搜索雷达': {
                         'frequency_hz': 3e9,
@@ -80,7 +98,9 @@ def load_yaml_config(file_path="config.yaml"):
                         'noise_figure_db': 2.5,
                         'system_loss_db': 6.0,
                         'target_rcs_m2': 100.0,
-                        'target_range_m': 100000
+                        'target_range_m': 100000,
+                        'baseband_gain_db': 25.0,  # 新增
+                        'load_resistance_ohm': 50.0,  # 新增
                     },
                     '汽车毫米波雷达': {
                         'frequency_hz': 77e9,
@@ -95,7 +115,9 @@ def load_yaml_config(file_path="config.yaml"):
                         'noise_figure_db': 6.0,
                         'system_loss_db': 8.0,
                         'target_rcs_m2': 1.0,
-                        'target_range_m': 200
+                        'target_range_m': 200,
+                        'baseband_gain_db': 40.0,  # 新增
+                        'load_resistance_ohm': 50.0,  # 新增
                     }
                 }
             }
@@ -107,7 +129,7 @@ def load_yaml_config(file_path="config.yaml"):
         st.error(f"加载配置文件失败: {str(e)}")
         return None
 
-# CSS样式 - 根据图片中的深色主题设计
+# CSS样式 - 完全保持原始样式不变
 st.markdown("""
 <style>
     /* 主背景和字体 */
@@ -365,6 +387,8 @@ class RadarParameters:
     system_loss_db: float = 5.0
     sampling_rate_hz: float = 150e6
     adc_bits: int = 12
+    baseband_gain_db: float = 20.0      # 新增：基带增益
+    load_resistance_ohm: float = 50.0   # 新增：负载电阻
     
     # 目标参数
     target_rcs_m2: float = 1.0
@@ -392,7 +416,9 @@ class RadarParameters:
                     '噪声系数_dB': self.noise_figure_db,
                     '系统损耗_dB': self.system_loss_db,
                     '采样率_Hz': self.sampling_rate_hz,
-                    'ADC位数': self.adc_bits
+                    'ADC位数': self.adc_bits,
+                    '基带增益_dB': self.baseband_gain_db,      # 新增
+                    '负载电阻_Ω': self.load_resistance_ohm,    # 新增
                 },
                 '目标': {
                     '雷达截面积_m2': self.target_rcs_m2,
@@ -402,10 +428,40 @@ class RadarParameters:
         }
         return yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
     
+    def to_radarsimpy_dict(self) -> Dict:
+        """转换为RadarSimPy字典格式"""
+        return {
+            'transmitter': {
+                'freq_hz': self.frequency_hz,
+                'bandwidth_hz': self.bandwidth_hz,
+                'prf_hz': self.prf_hz,
+                'pulse_width_s': self.pulse_width_s,
+                'pulses': self.pulses,
+                'power_w': self.peak_power_w
+            },
+            'antenna': {
+                'gain_db': self.antenna_gain_db,
+                'loss_db': self.antenna_loss_db,
+                'beamwidth_deg': self.beamwidth_deg,
+                'aperture_m2': self.aperture_m2
+            },
+            'receiver': {
+                'noise_figure_db': self.noise_figure_db,
+                'system_loss_db': self.system_loss_db,
+                'sampling_rate_hz': self.sampling_rate_hz,
+                'adc_bits': self.adc_bits,
+                'baseband_gain_db': self.baseband_gain_db,      # 新增
+                'load_resistance_ohm': self.load_resistance_ohm, # 新增
+            },
+            'target': {
+                'rcs_m2': self.target_rcs_m2,
+                'range_m': self.target_range_m
+            }
+        }
+    
     @classmethod
     def from_dict(cls, data: Dict):
         """从字典创建RadarParameters对象"""
-        # 处理可能的嵌套结构
         if '雷达参数' in data:
             radar_data = data['雷达参数']
             return cls(
@@ -423,11 +479,13 @@ class RadarParameters:
                 system_loss_db=radar_data.get('接收机', {}).get('系统损耗_dB', 5.0),
                 sampling_rate_hz=radar_data.get('接收机', {}).get('采样率_Hz', 150e6),
                 adc_bits=radar_data.get('接收机', {}).get('ADC位数', 12),
+                baseband_gain_db=radar_data.get('接收机', {}).get('基带增益_dB', 20.0),  # 新增
+                load_resistance_ohm=radar_data.get('接收机', {}).get('负载电阻_Ω', 50.0),  # 新增
                 target_rcs_m2=radar_data.get('目标', {}).get('雷达截面积_m2', 1.0),
                 target_range_m=radar_data.get('目标', {}).get('距离_m', 10000)
             )
         else:
-            # 如果是扁平结构
+            # 扁平结构
             return cls(**data)
     
     def calculate_performance(self) -> Dict:
@@ -538,6 +596,8 @@ def format_units(value: float, unit: str) -> str:
             return f"{value:.1f} m/s"
     elif unit == 'dB':
         return f"{value:.1f} dB"
+    elif unit == 'Ω':
+        return f"{value:.0f} Ω"
     else:
         return f"{value:.2f} {unit}"
 
@@ -558,6 +618,8 @@ def create_radar_preset(name: str, config: Optional[Dict] = None) -> RadarParame
             sampling_rate_hz=preset_data.get('sampling_rate_hz', 150e6),
             noise_figure_db=preset_data.get('noise_figure_db', 3.0),
             system_loss_db=preset_data.get('system_loss_db', 5.0),
+            baseband_gain_db=preset_data.get('baseband_gain_db', 20.0),  # 新增
+            load_resistance_ohm=preset_data.get('load_resistance_ohm', 50.0),  # 新增
             target_rcs_m2=preset_data.get('target_rcs_m2', 1.0),
             target_range_m=preset_data.get('target_range_m', 10000)
         )
@@ -581,8 +643,8 @@ def create_radar_preset(name: str, config: Optional[Dict] = None) -> RadarParame
                 pulse_width_s=1e-6,
                 pulses=256,
                 peak_power_w=10e3,
-                beamwidth_deg=3.0,
-                antenna_gain_db=35.0
+                antenna_gain_db=35.0,
+                beamwidth_deg=3.0
             ),
             "舰载搜索雷达": RadarParameters(
                 frequency_hz=3e9,
@@ -776,14 +838,14 @@ def main():
     # 标题 - 匹配图片中的标题
     st.markdown('<h1 class="main-header">长城数字雷达参数设计器</h1>', 
                 unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">交互式设计雷达参数，优化性能指标，导出为RadarSimPy仿真配置</p>', 
+    st.markdown('<p class="sub-header">11111交互式设计雷达参数，优化性能指标，导出为仿真配置</p>', 
                 unsafe_allow_html=True)
     
     # 加载配置文件
-    config = load_yaml_config("config.yaml")
+    config = load_yaml_config("./config.yaml")
     if config is None:
         st.warning("⚠️ 无法加载配置文件，使用默认预设")
-    
+    # print(config)
     # 初始化会话状态
     if 'current_preset' not in st.session_state:
         st.session_state.current_preset = "自定义"
@@ -900,8 +962,9 @@ def main():
                     format="%.1f"
                 )
         
-        # 接收机参数
+        # 接收机参数 - 只添加缺失的4个参数
         with st.expander("📡 接收机参数"):
+            # 采样率
             sampling_rate_mhz = st.slider(
                 "采样率 (MHz)",
                 10.0, 1000.0,
@@ -909,6 +972,35 @@ def main():
                 step=10.0,
                 format="%.0f"
             )
+            
+            # 噪声系数
+            noise_figure_db = st.slider(
+                "噪声系数 (dB)",
+                1.0, 10.0,
+                value=default_params.noise_figure_db,
+                step=0.1,
+                format="%.1f"
+            )
+            
+            # 新增的两个参数
+            col_bb, col_rl = st.columns(2)
+            with col_bb:
+                baseband_gain_db = st.slider(
+                    "基带增益 (dB)",
+                    0.0, 60.0,
+                    value=default_params.baseband_gain_db,
+                    step=1.0,
+                    format="%.0f"
+                )
+            
+            with col_rl:
+                load_resistance_ohm = st.slider(
+                    "负载电阻 (Ω)",
+                    1.0, 1000.0,
+                    value=default_params.load_resistance_ohm,
+                    step=1.0,
+                    format="%.0f"
+                )
         
         # 目标参数
         with st.expander("🎯 目标参数"):
@@ -942,8 +1034,11 @@ def main():
         antenna_gain_db=antenna_gain_db,
         beamwidth_deg=beamwidth_deg,
         sampling_rate_hz=sampling_rate_mhz * 1e6,
-        noise_figure_db=default_params.noise_figure_db,
+        noise_figure_db=noise_figure_db,
         system_loss_db=default_params.system_loss_db,
+        adc_bits=default_params.adc_bits,
+        baseband_gain_db=baseband_gain_db,      # 新增
+        load_resistance_ohm=load_resistance_ohm,  # 新增
         target_range_m=target_range_km * 1000,
         target_rcs_m2=target_rcs_m2
     )
@@ -1095,6 +1190,9 @@ def main():
             ("天线增益", f"{antenna_gain_db:.1f} dB"),
             ("波束宽度", f"{beamwidth_deg:.1f}°"),
             ("采样率", f"{sampling_rate_mhz:.0f} MHz"),
+            ("噪声系数", f"{noise_figure_db:.1f} dB"),
+            ("基带增益", f"{baseband_gain_db:.0f} dB"),
+            ("负载电阻", f"{load_resistance_ohm:.0f} Ω"),
             ("目标距离", f"{target_range_km:.0f} km"),
             ("目标RCS", f"{target_rcs_m2:.2f} m²")
         ]
@@ -1160,7 +1258,9 @@ radar = rs.Radar(
         'noise_figure_db': {params.noise_figure_db},
         'system_loss_db': {params.system_loss_db},
         'sampling_rate_hz': {params.sampling_rate_hz},
-        'adc_bits': {params.adc_bits}
+        'adc_bits': {params.adc_bits},
+        'baseband_gain_db': {params.baseband_gain_db},
+        'load_resistance_ohm': {params.load_resistance_ohm}
     }}
 )
 
