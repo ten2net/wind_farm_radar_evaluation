@@ -1,13 +1,14 @@
-# radar_designer.py
+# radar_designer_yaml.py
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import json
-from dataclasses import dataclass
-from typing import Dict
+import yaml
+from dataclasses import dataclass, asdict
+from typing import Dict, Optional
 import logging
 from datetime import datetime
+import os
 
 # 设置日志级别
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
@@ -16,7 +17,7 @@ logging.getLogger('plotly').setLevel(logging.WARNING)
 # 现在导入Streamlit
 import streamlit as st
 
-# 页面配置必须在任何Streamlit命令之前
+# 页面配置
 st.set_page_config(
     page_title="长城数字雷达参数设计器",
     page_icon="📡",
@@ -24,111 +25,320 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS样式
+# 导入配置函数
+def load_yaml_config(file_path="config.yaml"):
+    """从YAML文件加载配置"""
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            return config
+        else:
+            # 创建默认的YAML配置文件
+            default_config = {
+                '预设雷达': {
+                    '气象雷达': {
+                        'frequency_hz': 3e9,
+                        'bandwidth_hz': 1e6,
+                        'prf_hz': 1000,
+                        'pulse_width_s': 1e-6,
+                        'pulses': 128,
+                        'peak_power_w': 250e3,
+                        'antenna_gain_db': 40.0,
+                        'beamwidth_deg': 1.0,
+                        'sampling_rate_hz': 5e6,
+                        'noise_figure_db': 2.0,
+                        'system_loss_db': 4.0,
+                        'target_rcs_m2': 10.0,
+                        'target_range_m': 50000
+                    },
+                    '机载火控雷达': {
+                        'frequency_hz': 10e9,
+                        'bandwidth_hz': 100e6,
+                        'prf_hz': 10000,
+                        'pulse_width_s': 1e-6,
+                        'pulses': 256,
+                        'peak_power_w': 10e3,
+                        'antenna_gain_db': 35.0,
+                        'beamwidth_deg': 3.0,
+                        'sampling_rate_hz': 250e6,
+                        'noise_figure_db': 3.0,
+                        'system_loss_db': 5.0,
+                        'target_rcs_m2': 5.0,
+                        'target_range_m': 20000
+                    },
+                    '舰载搜索雷达': {
+                        'frequency_hz': 3e9,
+                        'bandwidth_hz': 10e6,
+                        'prf_hz': 500,
+                        'pulse_width_s': 100e-6,
+                        'pulses': 32,
+                        'peak_power_w': 1e6,
+                        'antenna_gain_db': 45.0,
+                        'beamwidth_deg': 1.5,
+                        'sampling_rate_hz': 30e6,
+                        'noise_figure_db': 2.5,
+                        'system_loss_db': 6.0,
+                        'target_rcs_m2': 100.0,
+                        'target_range_m': 100000
+                    },
+                    '汽车毫米波雷达': {
+                        'frequency_hz': 77e9,
+                        'bandwidth_hz': 500e6,
+                        'prf_hz': 2000,
+                        'pulse_width_s': 50e-9,
+                        'pulses': 256,
+                        'peak_power_w': 10,
+                        'antenna_gain_db': 25.0,
+                        'beamwidth_deg': 20.0,
+                        'sampling_rate_hz': 1e9,
+                        'noise_figure_db': 6.0,
+                        'system_loss_db': 8.0,
+                        'target_rcs_m2': 1.0,
+                        'target_range_m': 200
+                    }
+                }
+            }
+            # 保存默认配置
+            with open(file_path, 'w', encoding='utf-8') as f:
+                yaml.dump(default_config, f, default_flow_style=False, allow_unicode=True)
+            return default_config
+    except Exception as e:
+        st.error(f"加载配置文件失败: {str(e)}")
+        return None
+
+# CSS样式 - 根据图片中的深色主题设计
 st.markdown("""
 <style>
+    /* 主背景和字体 */
+    .stApp {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #e2e8f0;
+    }
+    
+    /* 标题样式 - 匹配图片中的渐变 */
     .main-header {
-        font-size: 2.5rem;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        font-size: 2.8rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-weight: 700;
+        background-clip: text;
         margin-bottom: 0.5rem;
-    }
-    .sub-header {
-        color: #6c757d;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
- 
-    .stButton > button {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 600;
-        width: 100%;
-        transition: all 0.3s ease;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1.2rem;
-        border-radius: 10px;
         text-align: center;
-        margin: 0.5rem 0;
+        font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
     }
+    
+    .sub-header {
+        color: #94a3b8;
+        font-size: 1.1rem;
+        margin-bottom: 2.5rem;
+        text-align: center;
+        font-weight: 300;
+        letter-spacing: 1px;
+    }
+    
+    /* 侧边栏样式 */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    }
+    
+    /* 参数卡片 - 匹配图片中的参数表样式 */
+    .param-container {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .param-table {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        width: 100%;
+    }
+    
+    .param-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .param-label {
+        color: #60a5fa;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    
+    .param-value-box {
+        background: rgba(30, 41, 59, 0.8);
+        border: 2px solid #475569;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        color: #e2e8f0;
+        font-size: 1.2rem;
+        font-weight: 700;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+        min-width: 150px;
+        transition: all 0.2s ease;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .param-value-box:hover {
+        border-color: #60a5fa;
+        box-shadow: 0 0 15px rgba(96, 165, 250, 0.3);
+    }
+    
+    /* 性能指标卡片 - 匹配图片中的渐变卡片 */
+    .metric-card {
+        background: linear-gradient(135deg, rgba(96, 165, 250, 0.15) 0%, rgba(167, 139, 250, 0.15) 50%, rgba(244, 114, 182, 0.15) 100%);
+        border: 1px solid rgba(96, 165, 250, 0.3);
+        border-radius: 12px;
+        padding: 0.02rem;
+        margin: 0.5rem;
+        text-align: center;
+        backdrop-filter: blur(5px);
+        transition: transform 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(96, 165, 250, 0.2);
+    }
+    
+    .metric-label {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
     .metric-value {
+        color: #ffffff;
         font-size: 1.8rem;
         font-weight: 700;
-        margin: 0.5rem 0;
+        font-family: 'Courier New', monospace;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
-    .metric-label {
-        font-size: 0.9rem;
-        opacity: 0.9;
+    
+    .metric-unit {
+        color: #60a5fa;
+        font-size: 1rem;
+        font-weight: 500;
+        margin-left: 0.3rem;
     }
-    .warning-box {
-        background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
-        color: #333;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 4px solid #ff4757;
-    }
-    .success-box {
-        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
-        color: #333;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 4px solid #2ecc71;
-    }
-    .section-divider {
+    
+    /* 按钮样式 */
+    .stButton > button {
+        background: linear-gradient(90deg, #2563eb 0%, #7c3aed 100%);
+        color: white;
         border: none;
-        height: 3px;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        margin: 2rem 0;
-        opacity: 0.3;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        width: 100%;
     }
-    .preset-card {
-        background: linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%);
-        border: 2px solid #667eea;
-        padding: 1rem;
+    
+    .stButton > button:hover {
+        background: linear-gradient(90deg, #1d4ed8 0%, #6d28d9 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    
+    /* 滑块样式 */
+    .stSlider > div > div > div {
+        background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 100%);
+    }
+    
+    /* 扩展器样式 */
+    .stExpander {
+        border: 1px solid #334155;
         border-radius: 10px;
         margin: 0.5rem 0;
-        cursor: pointer;
-        transition: all 0.3s ease;
     }
-    .preset-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    
+    .stExpander summary {
+        color: #60a5fa !important;
+        font-weight: 600 !important;
+        background: rgba(30, 41, 59, 0.8);
+        border-radius: 10px !important;
     }
-    .preset-title {
-        font-weight: 700;
-        color: #333;
-        font-size: 1.1rem;
+    
+    /* 分割线 */
+    .divider {
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #475569, transparent);
+        margin: 2rem 0;
+        border: none;
     }
-    .preset-desc {
-        color: #666;
-        font-size: 0.85rem;
-        margin-top: 0.3rem;
+    
+    /* 图表容器 */
+    .stPlotlyChart {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     }
-    .param-value {
-        font-weight: 600;
-        color: #667eea;
+    
+    /* 标签样式 */
+    label {
+        color: #cbd5e1 !important;
     }
-    /* 自定义滑块样式 */
-    .stSlider > div > div > div {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    
+    /* 警告和成功框样式 */
+    .stAlert {
+        border-radius: 8px;
+        border-left: 4px solid;
+        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid #334155 !important;
     }
-    /* 图表字体颜色增强 */
-    .plotly-chart {
-        color: #333 !important;
+    
+    /* 代码块样式 */
+    .stCodeBlock {
+        background: #0f172a !important;
+        border: 1px solid #334155 !important;
+        border-radius: 8px;
+    }
+    
+    /* 选择框样式 */
+    .stSelectbox div[data-baseweb="select"] {
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid #475569;
+        border-radius: 6px;
+    }
+    
+    /* 表格样式 */
+    .dataframe {
+        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid #334155 !important;
+    }
+    
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #1e293b;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #475569;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #60a5fa;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -160,34 +370,65 @@ class RadarParameters:
     target_rcs_m2: float = 1.0
     target_range_m: float = 10000
     
-    def to_radarsimpy_format(self) -> Dict:
-        """转换为RadarSimPy格式"""
-        return {
-            'transmitter': {
-                'freq_hz': self.frequency_hz,
-                'bandwidth_hz': self.bandwidth_hz,
-                'prf_hz': self.prf_hz,
-                'pulse_width_s': self.pulse_width_s,
-                'pulses': self.pulses,
-                'power_w': self.peak_power_w
-            },
-            'antenna': {
-                'gain_db': self.antenna_gain_db,
-                'loss_db': self.antenna_loss_db,
-                'beamwidth_deg': self.beamwidth_deg,
-                'aperture_m2': self.aperture_m2
-            },
-            'receiver': {
-                'noise_figure_db': self.noise_figure_db,
-                'system_loss_db': self.system_loss_db,
-                'sampling_rate_hz': self.sampling_rate_hz,
-                'adc_bits': self.adc_bits
-            },
-            'target': {
-                'rcs_m2': self.target_rcs_m2,
-                'range_m': self.target_range_m
+    def to_yaml(self) -> str:
+        """转换为YAML格式字符串"""
+        data = {
+            '雷达参数': {
+                '发射机': {
+                    '载波频率_Hz': self.frequency_hz,
+                    '带宽_Hz': self.bandwidth_hz,
+                    '脉冲重复频率_Hz': self.prf_hz,
+                    '脉冲宽度_s': self.pulse_width_s,
+                    '脉冲数': self.pulses,
+                    '峰值功率_W': self.peak_power_w
+                },
+                '天线': {
+                    '增益_dB': self.antenna_gain_db,
+                    '损耗_dB': self.antenna_loss_db,
+                    '波束宽度_deg': self.beamwidth_deg,
+                    '孔径_m2': self.aperture_m2
+                },
+                '接收机': {
+                    '噪声系数_dB': self.noise_figure_db,
+                    '系统损耗_dB': self.system_loss_db,
+                    '采样率_Hz': self.sampling_rate_hz,
+                    'ADC位数': self.adc_bits
+                },
+                '目标': {
+                    '雷达截面积_m2': self.target_rcs_m2,
+                    '距离_m': self.target_range_m
+                }
             }
         }
+        return yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    
+    @classmethod
+    def from_dict(cls, data: Dict):
+        """从字典创建RadarParameters对象"""
+        # 处理可能的嵌套结构
+        if '雷达参数' in data:
+            radar_data = data['雷达参数']
+            return cls(
+                frequency_hz=radar_data.get('发射机', {}).get('载波频率_Hz', 10e9),
+                bandwidth_hz=radar_data.get('发射机', {}).get('带宽_Hz', 100e6),
+                prf_hz=radar_data.get('发射机', {}).get('脉冲重复频率_Hz', 7000),
+                pulse_width_s=radar_data.get('发射机', {}).get('脉冲宽度_s', 10e-6),
+                pulses=radar_data.get('发射机', {}).get('脉冲数', 64),
+                peak_power_w=radar_data.get('发射机', {}).get('峰值功率_W', 100e3),
+                antenna_gain_db=radar_data.get('天线', {}).get('增益_dB', 35.0),
+                antenna_loss_db=radar_data.get('天线', {}).get('损耗_dB', 2.0),
+                beamwidth_deg=radar_data.get('天线', {}).get('波束宽度_deg', 2.5),
+                aperture_m2=radar_data.get('天线', {}).get('孔径_m2', 0.5),
+                noise_figure_db=radar_data.get('接收机', {}).get('噪声系数_dB', 3.0),
+                system_loss_db=radar_data.get('接收机', {}).get('系统损耗_dB', 5.0),
+                sampling_rate_hz=radar_data.get('接收机', {}).get('采样率_Hz', 150e6),
+                adc_bits=radar_data.get('接收机', {}).get('ADC位数', 12),
+                target_rcs_m2=radar_data.get('目标', {}).get('雷达截面积_m2', 1.0),
+                target_range_m=radar_data.get('目标', {}).get('距离_m', 10000)
+            )
+        else:
+            # 如果是扁平结构
+            return cls(**data)
     
     def calculate_performance(self) -> Dict:
         """计算雷达性能指标"""
@@ -195,17 +436,17 @@ class RadarParameters:
         
         # 基本参数
         wavelength = c / self.frequency_hz
-        pri = 1 / self.prf_hz
+        pri = 1 / self.prf_hz if self.prf_hz > 0 else 0
         duty_cycle = self.pulse_width_s * self.prf_hz
         
         # 距离相关
-        range_resolution = c / (2 * self.bandwidth_hz)
-        max_unambiguous_range = c / (2 * self.prf_hz)
+        range_resolution = c / (2 * self.bandwidth_hz) if self.bandwidth_hz > 0 else 0
+        max_unambiguous_range = c / (2 * self.prf_hz) if self.prf_hz > 0 else 0
         min_range = c * self.pulse_width_s / 2
         
         # 速度相关
-        max_unambiguous_velocity = wavelength * self.prf_hz / 4
-        velocity_resolution = wavelength * self.prf_hz / (2 * self.pulses)
+        max_unambiguous_velocity = wavelength * self.prf_hz / 4 if self.prf_hz > 0 else 0
+        velocity_resolution = wavelength * self.prf_hz / (2 * self.pulses) if self.pulses > 0 else 0
         
         # 功率相关
         avg_power = self.peak_power_w * duty_cycle
@@ -218,17 +459,25 @@ class RadarParameters:
         range_ambiguity_number = self.target_range_m / max_unambiguous_range if max_unambiguous_range > 0 else 0
         
         # SNR计算 (简化雷达方程)
-        k = 1.38e-23
-        T0 = 290
-        antenna_gain_linear = 10**(self.antenna_gain_db/10)
-        system_loss_linear = 10**(self.system_loss_db/10)
-        noise_figure_linear = 10**(self.noise_figure_db/10)
+        try:
+            k = 1.38e-23
+            T0 = 290
+            antenna_gain_linear = 10**(self.antenna_gain_db/10)
+            system_loss_linear = 10**(self.system_loss_db/10)
+            noise_figure_linear = 10**(self.noise_figure_db/10)
+            
+            snr = (self.peak_power_w * antenna_gain_linear**2 * wavelength**2 * 
+                   self.target_rcs_m2 * self.pulses) / (
+                   (4*np.pi)**3 * self.target_range_m**4 * k * T0 * 
+                   self.bandwidth_hz * noise_figure_linear * system_loss_linear)
+            snr_db = 10 * np.log10(snr) if snr > 0 else -np.inf
+        except:
+            snr_db = -np.inf
         
-        snr = (self.peak_power_w * antenna_gain_linear**2 * wavelength**2 * 
-               self.target_rcs_m2 * self.pulses) / (
-               (4*np.pi)**3 * self.target_range_m**4 * k * T0 * 
-               self.bandwidth_hz * noise_figure_linear * system_loss_linear)
-        snr_db = 10 * np.log10(snr) if snr > 0 else -np.inf
+        # 波束驻留时间
+        dwell_time = pri * self.pulses
+        # 多普勒容限
+        doppler_tolerance = velocity_resolution / max_unambiguous_velocity * 100 if max_unambiguous_velocity > 0 else 0
         
         return {
             '波长_m': wavelength,
@@ -243,7 +492,9 @@ class RadarParameters:
             '脉冲能量_J': pulse_energy,
             '脉冲压缩比': compression_ratio,
             '信噪比_dB': snr_db,
-            '模糊数_距离': range_ambiguity_number
+            '模糊数_距离': range_ambiguity_number,
+            '波束驻留时间_s': dwell_time,
+            '多普勒容限_百分比': doppler_tolerance
         }
 
 def format_units(value: float, unit: str) -> str:
@@ -277,9 +528,9 @@ def format_units(value: float, unit: str) -> str:
             return f"{value:.3f} s"
     elif unit == 'm':
         if value >= 1000:
-            return f"{value/1000:.1f} km"
+            return f"{value/1000:.2f} km"
         else:
-            return f"{value:.1f} m"
+            return f"{value:.2f} m"
     elif unit == 'm/s':
         if value >= 1000:
             return f"{value/1000:.1f} km/s"
@@ -290,54 +541,74 @@ def format_units(value: float, unit: str) -> str:
     else:
         return f"{value:.2f} {unit}"
 
-def create_radar_preset(name: str) -> RadarParameters:
-    """创建雷达预设"""
-    presets = {
-        "气象雷达": RadarParameters(
-            frequency_hz=3e9,
-            bandwidth_hz=1e6,
-            prf_hz=1000,
-            pulse_width_s=1e-6,
-            pulses=128,
-            peak_power_w=250e3,
-            beamwidth_deg=1.0,
-            antenna_gain_db=40.0
-        ),
-        "机载火控雷达": RadarParameters(
-            frequency_hz=10e9,
-            bandwidth_hz=100e6,
-            prf_hz=10000,
-            pulse_width_s=1e-6,
-            pulses=256,
-            peak_power_w=10e3,
-            beamwidth_deg=3.0,
-            antenna_gain_db=35.0
-        ),
-        "舰载搜索雷达": RadarParameters(
-            frequency_hz=3e9,
-            bandwidth_hz=10e6,
-            prf_hz=500,
-            pulse_width_s=100e-6,
-            pulses=32,
-            peak_power_w=1e6,
-            beamwidth_deg=1.5,
-            antenna_gain_db=45.0
-        ),
-        "汽车毫米波雷达": RadarParameters(
-            frequency_hz=77e9,
-            bandwidth_hz=500e6,
-            prf_hz=2000,
-            pulse_width_s=50e-9,
-            pulses=256,
-            peak_power_w=10,
-            beamwidth_deg=20.0,
-            antenna_gain_db=25.0
+def create_radar_preset(name: str, config: Optional[Dict] = None) -> RadarParameters:
+    """从YAML配置创建雷达预设"""
+    if config and '预设雷达' in config and name in config['预设雷达']:
+        # 从YAML配置加载
+        preset_data = config['预设雷达'][name]
+        return RadarParameters(
+            frequency_hz=preset_data.get('frequency_hz', 10e9),
+            bandwidth_hz=preset_data.get('bandwidth_hz', 100e6),
+            prf_hz=preset_data.get('prf_hz', 7000),
+            pulse_width_s=preset_data.get('pulse_width_s', 10e-6),
+            pulses=preset_data.get('pulses', 64),
+            peak_power_w=preset_data.get('peak_power_w', 100e3),
+            antenna_gain_db=preset_data.get('antenna_gain_db', 35.0),
+            beamwidth_deg=preset_data.get('beamwidth_deg', 2.5),
+            sampling_rate_hz=preset_data.get('sampling_rate_hz', 150e6),
+            noise_figure_db=preset_data.get('noise_figure_db', 3.0),
+            system_loss_db=preset_data.get('system_loss_db', 5.0),
+            target_rcs_m2=preset_data.get('target_rcs_m2', 1.0),
+            target_range_m=preset_data.get('target_range_m', 10000)
         )
-    }
-    return presets.get(name, RadarParameters())
+    else:
+        # 默认预设（如果没有配置文件）
+        presets = {
+            "气象雷达": RadarParameters(
+                frequency_hz=3e9,
+                bandwidth_hz=1e6,
+                prf_hz=1000,
+                pulse_width_s=1e-6,
+                pulses=128,
+                peak_power_w=250e3,
+                beamwidth_deg=1.0,
+                antenna_gain_db=40.0
+            ),
+            "机载火控雷达": RadarParameters(
+                frequency_hz=10e9,
+                bandwidth_hz=100e6,
+                prf_hz=10000,
+                pulse_width_s=1e-6,
+                pulses=256,
+                peak_power_w=10e3,
+                beamwidth_deg=3.0,
+                antenna_gain_db=35.0
+            ),
+            "舰载搜索雷达": RadarParameters(
+                frequency_hz=3e9,
+                bandwidth_hz=10e6,
+                prf_hz=500,
+                pulse_width_s=100e-6,
+                pulses=32,
+                peak_power_w=1e6,
+                beamwidth_deg=1.5,
+                antenna_gain_db=45.0
+            ),
+            "汽车毫米波雷达": RadarParameters(
+                frequency_hz=77e9,
+                bandwidth_hz=500e6,
+                prf_hz=2000,
+                pulse_width_s=50e-9,
+                pulses=256,
+                peak_power_w=10,
+                beamwidth_deg=20.0,
+                antenna_gain_db=25.0
+            )
+        }
+        return presets.get(name, RadarParameters())
 
 def plot_performance_tradeoffs(params: RadarParameters):
-    """绘制性能权衡图 - 修复字体颜色"""
+    """绘制性能权衡图"""
     c = 3e8
     
     # 计算不同PRF下的性能
@@ -357,20 +628,17 @@ def plot_performance_tradeoffs(params: RadarParameters):
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
-            '<b>最大不模糊距离 vs PRF</b>',
-            '<b>最大不模糊速度 vs PRF</b>',
-            '<b>速度分辨率 vs PRF</b>',
-            '<b>距离-速度模糊区域</b>'
+            '最大不模糊距离 vs PRF',
+            '最大不模糊速度 vs PRF',
+            '速度分辨率 vs PRF',
+            '距离-速度模糊区域'
         ),
         vertical_spacing=0.15,
         horizontal_spacing=0.15
     )
     
-    # 颜色定义
-    color1 = '#667eea'  # 蓝色
-    color2 = '#764ba2'  # 紫色
-    color3 = '#f093fb'  # 粉色
-    color4 = '#4facfe'  # 浅蓝
+    # 使用渐变色
+    colors = ['#60a5fa', '#a78bfa', '#f472b6', '#34d399']
     
     # 图1: 最大不模糊距离 vs PRF
     fig.add_trace(
@@ -378,19 +646,19 @@ def plot_performance_tradeoffs(params: RadarParameters):
             x=prf_range, 
             y=max_range/1000, 
             mode='lines',
-            line=dict(color=color1, width=3),
+            line=dict(color=colors[0], width=3),
             name='最大不模糊距离',
-            hovertemplate='<b>PRF</b>: %{x:.0f} Hz<br><b>最大距离</b>: %{y:.1f} km<br><extra></extra>'
+            hovertemplate='PRF: %{x:.0f} Hz<br>最大距离: %{y:.1f} km<extra></extra>'
         ),
         row=1, col=1
     )
     fig.add_vline(
         x=params.prf_hz, 
         line_dash="dash", 
-        line_color="red",
+        line_color="#fbbf24",
         annotation_text=f"当前: {params.prf_hz/1e3:.1f} kHz",
         annotation_position="top right",
-        annotation_font=dict(color="red", size=10),
+        annotation_font=dict(color="#fbbf24", size=10),
         row=1, col=1
     )
     
@@ -400,16 +668,16 @@ def plot_performance_tradeoffs(params: RadarParameters):
             x=prf_range, 
             y=max_velocity*3.6,
             mode='lines',
-            line=dict(color=color2, width=3),
+            line=dict(color=colors[1], width=3),
             name='最大不模糊速度',
-            hovertemplate='<b>PRF</b>: %{x:.0f} Hz<br><b>最大速度</b>: %{y:.0f} km/h<br><extra></extra>'
+            hovertemplate='PRF: %{x:.0f} Hz<br>最大速度: %{y:.0f} km/h<extra></extra>'
         ),
         row=1, col=2
     )
     fig.add_vline(
         x=params.prf_hz, 
         line_dash="dash", 
-        line_color="red",
+        line_color="#fbbf24",
         row=1, col=2
     )
     
@@ -419,16 +687,16 @@ def plot_performance_tradeoffs(params: RadarParameters):
             x=prf_range, 
             y=velocity_res*3.6,
             mode='lines',
-            line=dict(color=color3, width=3),
+            line=dict(color=colors[2], width=3),
             name='速度分辨率',
-            hovertemplate='<b>PRF</b>: %{x:.0f} Hz<br><b>速度分辨率</b>: %{y:.1f} km/h<br><extra></extra>'
+            hovertemplate='PRF: %{x:.0f} Hz<br>速度分辨率: %{y:.1f} km/h<extra></extra>'
         ),
         row=2, col=1
     )
     fig.add_vline(
         x=params.prf_hz, 
         line_dash="dash", 
-        line_color="red",
+        line_color="#fbbf24",
         row=2, col=1
     )
     
@@ -439,10 +707,10 @@ def plot_performance_tradeoffs(params: RadarParameters):
             y=max_velocity*3.6, 
             mode='lines',
             fill='tozeroy',
-            fillcolor='rgba(79, 172, 254, 0.3)',
-            line=dict(color=color4, width=3),
+            fillcolor='rgba(96, 165, 250, 0.2)',
+            line=dict(color=colors[0], width=3),
             name='模糊区域',
-            hovertemplate='<b>最大距离</b>: %{x:.1f} km<br><b>最大速度</b>: %{y:.0f} km/h<br><extra></extra>'
+            hovertemplate='最大距离: %{x:.1f} km<br>最大速度: %{y:.0f} km/h<extra></extra>'
         ),
         row=2, col=2
     )
@@ -450,42 +718,41 @@ def plot_performance_tradeoffs(params: RadarParameters):
         go.Scatter(
             x=[current_max_range/1000], 
             y=[current_max_velocity*3.6],
-            mode='markers+text',
-            marker=dict(size=15, color='red', symbol='star', line=dict(width=2, color='white')),
-            text=['当前参数'],
-            textposition="top center",
+            mode='markers',
+            marker=dict(size=12, color='#fbbf24', symbol='diamond',
+                       line=dict(width=2, color='white')),
             name='当前参数',
-            hovertemplate='<b>当前位置</b><br>距离: %{x:.1f} km<br>速度: %{y:.0f} km/h<br><extra></extra>'
+            hovertemplate='距离: %{x:.1f} km<br>速度: %{y:.0f} km/h<extra></extra>'
         ),
         row=2, col=2
     )
     
-    # 更新布局 - 增强字体对比度
+    # 更新布局 - 深色主题
     fig.update_layout(
-        height=600,
+        height=550,
         showlegend=True,
-        template="plotly_white",
-        title_text="<b>雷达性能权衡分析</b>",
-        title_font=dict(size=20, color='#333333'),
+        template="plotly_dark",
+        title_text="雷达性能权衡分析",
+        title_font=dict(size=20, color='#ffffff'),
         hovermode='x unified',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(family="Arial, sans-serif", size=12, color='#333333'),
+        plot_bgcolor='rgba(30, 41, 59, 0.5)',
+        paper_bgcolor='rgba(15, 23, 42, 0.8)',
+        font=dict(family="Arial, sans-serif", size=12, color='#e2e8f0'),
         legend=dict(
-            font=dict(color='#333333'),
-            bgcolor='rgba(255, 255, 255, 0.8)',
-            bordercolor='#ddd',
+            font=dict(color='#e2e8f0'),
+            bgcolor='rgba(15, 23, 42, 0.8)',
+            bordercolor='#475569',
             borderwidth=1
         )
     )
     
     # 更新所有坐标轴
     axes_updates = dict(
-        title_font=dict(size=13, color='#333333'),
-        tickfont=dict(size=11, color='#666666'),
-        gridcolor='rgba(0,0,0,0.1)',
-        zerolinecolor='rgba(0,0,0,0.2)',
-        linecolor='#333333'
+        title_font=dict(size=13, color='#94a3b8'),
+        tickfont=dict(size=11, color='#cbd5e1'),
+        gridcolor='rgba(148, 163, 184, 0.3)',
+        zerolinecolor='rgba(148, 163, 184, 0.3)',
+        linecolor='#94a3b8'
     )
     
     fig.update_xaxes(**axes_updates, row=1, col=1, title_text="PRF (Hz)", type="log")
@@ -500,17 +767,22 @@ def plot_performance_tradeoffs(params: RadarParameters):
     
     # 更新子图标题
     for i, annotation in enumerate(fig['layout']['annotations']):
-        annotation['font'] = dict(size=14, color='#333333', family="Arial, sans-serif")
+        annotation['font'] = dict(size=14, color='#ffffff', family="Arial, sans-serif")
     
     return fig
 
 def main():
     """主应用函数"""
-    # 标题
-    st.markdown('<h1 class="main-header">📡 长城数字雷达参数设计器</h1>', 
+    # 标题 - 匹配图片中的标题
+    st.markdown('<h1 class="main-header">长城数字雷达参数设计器</h1>', 
                 unsafe_allow_html=True)
     st.markdown('<p class="sub-header">交互式设计雷达参数，优化性能指标，导出为RadarSimPy仿真配置</p>', 
                 unsafe_allow_html=True)
+    
+    # 加载配置文件
+    config = load_yaml_config("config.yaml")
+    if config is None:
+        st.warning("⚠️ 无法加载配置文件，使用默认预设")
     
     # 初始化会话状态
     if 'current_preset' not in st.session_state:
@@ -520,19 +792,26 @@ def main():
     
     # 侧边栏 - 参数设置
     with st.sidebar:
-        st.markdown('<h3 style="color: #667eea;">⚙️ 参数设置</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="color: #60a5fa;">⚙️ 参数设置</h3>', unsafe_allow_html=True)
         
         # 预设选择
         st.markdown("**🎯 预设配置**")
+        preset_options = ["自定义", "气象雷达", "机载火控雷达", "舰载搜索雷达", "汽车毫米波雷达"]
+        if config and '预设雷达' in config:
+            # 从配置文件加载可用的预设
+            available_presets = list(config['预设雷达'].keys())
+            if available_presets:
+                preset_options = ["自定义"] + available_presets
+        
         preset = st.selectbox(
             "选择雷达类型",
-            ["自定义", "气象雷达", "机载火控雷达", "舰载搜索雷达", "汽车毫米波雷达"],
+            preset_options,
             index=0,
             label_visibility="collapsed"
         )
         
         if preset != "自定义":
-            default_params = create_radar_preset(preset)
+            default_params = create_radar_preset(preset, config)
             st.success(f"已加载预设: **{preset}**")
         else:
             default_params = RadarParameters()
@@ -623,24 +902,13 @@ def main():
         
         # 接收机参数
         with st.expander("📡 接收机参数"):
-            col_sr, col_nf = st.columns(2)
-            with col_sr:
-                sampling_rate_mhz = st.slider(
-                    "采样率 (MHz)",
-                    10.0, 500.0,
-                    value=default_params.sampling_rate_hz/1e6,
-                    step=10.0,
-                    format="%.0f"
-                )
-            
-            with col_nf:
-                noise_figure_db = st.slider(
-                    "噪声系数 (dB)",
-                    1.0, 10.0,
-                    value=default_params.noise_figure_db,
-                    step=0.1,
-                    format="%.1f"
-                )
+            sampling_rate_mhz = st.slider(
+                "采样率 (MHz)",
+                10.0, 1000.0,
+                value=default_params.sampling_rate_hz/1e6,
+                step=10.0,
+                format="%.0f"
+            )
         
         # 目标参数
         with st.expander("🎯 目标参数"):
@@ -663,7 +931,6 @@ def main():
                     format="%.2f"
                 )
     
-    # 主内容区域
     # 创建参数对象
     params = RadarParameters(
         frequency_hz=frequency_ghz * 1e9,
@@ -675,7 +942,8 @@ def main():
         antenna_gain_db=antenna_gain_db,
         beamwidth_deg=beamwidth_deg,
         sampling_rate_hz=sampling_rate_mhz * 1e6,
-        noise_figure_db=noise_figure_db,
+        noise_figure_db=default_params.noise_figure_db,
+        system_loss_db=default_params.system_loss_db,
         target_range_m=target_range_km * 1000,
         target_rcs_m2=target_rcs_m2
     )
@@ -683,53 +951,47 @@ def main():
     # 计算性能指标
     performance = params.calculate_performance()
     
-    # 创建主界面布局
+    # 主界面布局
     col_main_left, col_main_right = st.columns([2, 1])
     
     with col_main_left:
-        # 性能指标卡片
+        # 性能指标卡片 - 匹配图片中的布局
         st.markdown("### 📊 性能指标概览")
         
-        # 第一行指标
-        col_metric1, col_metric2, col_metric3 = st.columns(3)
+        # 使用网格布局创建指标卡片
+        col1, col2, col3 = st.columns(3)
         
-        with col_metric1:
-            # st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        with col1:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.markdown('<div class="metric-label">距离分辨率</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["距离分辨率_m"]:.2f} m</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-value">{performance["距离分辨率_m"]:.2f}<span class="metric-unit">m</span></div>', unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
-        
-        with col_metric2:
-            # st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">速度分辨率</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["速度分辨率_m/s"]*3.6:.1f} km/h</div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        with col_metric3:
-            # st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.markdown('<div class="metric-label">最大不模糊距离</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["最大不模糊距离_m"]/1000:.1f} km</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-value">{performance["最大不模糊距离_m"]/1000:.1f}<span class="metric-unit">km</span></div>', unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
         
-        # 第二行指标
-        col_metric4, col_metric5, col_metric6 = st.columns(3)
-        
-        with col_metric4:
-            # st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        with col2:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-label">速度分辨率</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-value">{performance["速度分辨率_m/s"]*3.6:.1f}<span class="metric-unit">km/h</span></div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.markdown('<div class="metric-label">最大不模糊速度</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["最大不模糊速度_m/s"]*3.6:.0f} km/h</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-value">{performance["最大不模糊速度_m/s"]*3.6:.0f}<span class="metric-unit">km/h</span></div>', unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
         
-        with col_metric5:
-            # st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        with col3:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.markdown('<div class="metric-label">信噪比</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["信噪比_dB"]:.1f} dB</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-value">{performance["信噪比_dB"]:.1f}<span class="metric-unit">dB</span></div>', unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
-        
-        with col_metric6:
-            # st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.markdown('<div class="metric-label">平均功率</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["平均功率_W"]/1000:.1f} kW</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="metric-value">{performance["平均功率_W"]/1000:.1f}<span class="metric-unit">kW</span></div>', unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
         
         # 性能权衡分析图
@@ -737,89 +999,91 @@ def main():
         fig = plot_performance_tradeoffs(params)
         st.plotly_chart(fig, width='stretch', config={'displayModeBar': True})
         
-        # 详细参数
+        # 详细参数表 - 匹配图片中的布局和样式
         st.markdown("### 📋 详细参数表")
-        col_param1, col_param2, col_param3 = st.columns(3)
         
-        param_details = [
-            ("波长", format_units(performance['波长_m'], 'm')),
-            ("PRI", format_units(performance['PRI_s'], 's')),
-            ("占空比", f"{performance['占空比_百分比']:.2f}%"),
-            ("脉冲能量", format_units(performance['脉冲能量_J'], 'J')),
-            ("脉冲压缩比", f"{performance['脉冲压缩比']:.0f}"),
-            ("最小探测距离", format_units(performance['最小探测距离_m'], 'm')),
-            ("模糊数(距离)", f"{performance['模糊数_距离']:.1f}"),
-            ("波束驻留时间", f"{performance['PRI_s'] * params.pulses * 1e3:.1f} ms"),
-            ("多普勒容限", f"{performance['速度分辨率_m/s']/performance['最大不模糊速度_m/s']*100:.1f}%")
-        ]
+        # 使用HTML和CSS创建类似图片中的参数表格
+        st.markdown('<div class="param-container">', unsafe_allow_html=True)
         
-        for i, (name, value) in enumerate(param_details):
-            if i < 3:
-                with col_param1:
-                    # st.markdown(f'<div class="parameter-card" style="padding: 1rem; margin-bottom: 0.5rem;">', unsafe_allow_html=True)
-                    st.markdown(f"**{name}**")
-                    st.markdown(f'<div style="font-size: 1.2rem; font-weight: 600; color: #667eea;">{value}</div>', unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-            elif i < 6:
-                with col_param2:
-                    # st.markdown(f'<div class="parameter-card" style="padding: 1rem; margin-bottom: 0.5rem;">', unsafe_allow_html=True)
-                    st.markdown(f"**{name}**")
-                    st.markdown(f'<div style="font-size: 1.2rem; font-weight: 600; color: #667eea;">{value}</div>', unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                with col_param3:
-                    # st.markdown(f'<div class="parameter-card" style="padding: 1rem; margin-bottom: 0.5rem;">', unsafe_allow_html=True)
-                    st.markdown(f"**{name}**")
-                    st.markdown(f'<div style="font-size: 1.2rem; font-weight: 600; color: #667eea;">{value}</div>', unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+        # 第一行参数
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">波长</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{format_units(performance["波长_m"], "m")}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">脉冲能量</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{format_units(performance["脉冲能量_J"], "J")}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">PRI</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{format_units(performance["PRI_s"], "s")}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">脉冲压缩比</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{performance["脉冲压缩比"]:.0f}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">占空比</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{performance["占空比_百分比"]:.2f}%</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">波束驻留时间</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{performance["波束驻留时间_s"]*1e3:.1f} ms</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">最小探测距离</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{format_units(performance["最小探测距离_m"], "m")}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            st.markdown('<div class="param-label">多普勒容限</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="param-value-box">{performance["多普勒容限_百分比"]:.1f}%</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with col_main_right:
         # 快速评估
         st.markdown("### ⚡ 快速评估")
         
-        # 评估卡片
-        evaluation_text = []
-        evaluation_color = "success"
-        
-        # 检查距离模糊
+        # 评估信息
         if performance['模糊数_距离'] > 1:
-            evaluation_text.append(f"⚠️ **距离模糊风险**\n目标距离({target_range_km:.0f}km)超过最大不模糊距离({performance['最大不模糊距离_m']/1000:.1f}km)")
-            evaluation_color = "warning"
-        
-        # 检查占空比
-        if performance['占空比_百分比'] > 10:
-            evaluation_text.append(f"⚠️ **高占空比**: {performance['占空比_百分比']:.1f}%\n注意系统散热")
-            evaluation_color = "warning"
-        elif performance['占空比_百分比'] < 0.1:
-            evaluation_text.append(f"✅ **低占空比**: {performance['占空比_百分比']:.1f}%\n适合高峰值功率应用")
+            st.error(f"⚠️ **距离模糊风险**\n目标距离({target_range_km:.0f}km)超过最大不模糊距离({performance['最大不模糊距离_m']/1000:.1f}km)")
         else:
-            evaluation_text.append(f"✅ **合理占空比**: {performance['占空比_百分比']:.1f}%")
+            st.success("✅ **距离无模糊**")
         
-        # 检查信噪比
-        if performance['信噪比_dB'] < 10:
-            evaluation_text.append(f"📶 **信噪比低**: {performance['信噪比_dB']:.1f} dB\n考虑增加脉冲数或功率")
-            evaluation_color = "warning"
+        duty_cycle = performance['占空比_百分比']
+        st.progress(min(duty_cycle / 20, 1.0), text=f"占空比: {duty_cycle:.2f}%")
+        
+        if duty_cycle > 10:
+            st.warning("⚠️ 高占空比，注意系统散热")
+        elif duty_cycle < 0.1:
+            st.info("ℹ️ 低占空比，适合高峰值功率应用")
         else:
-            evaluation_text.append(f"📶 **良好信噪比**: {performance['信噪比_dB']:.1f} dB")
+            st.success("✅ 占空比合理")
         
-        # 检查采样率
-        if params.sampling_rate_hz < 2 * params.bandwidth_hz:
-            evaluation_text.append("⚠️ **采样率不足**\n建议提高采样率防止混叠")
-            evaluation_color = "warning"
+        sampling_ratio = params.sampling_rate_hz / params.bandwidth_hz
+        if sampling_ratio < 2:
+            st.error(f"⚠️ **采样率不足** ({sampling_ratio:.1f}倍带宽)")
         else:
-            evaluation_text.append(f"✅ **采样率合理**: {params.sampling_rate_hz/params.bandwidth_hz:.1f}倍带宽")
+            st.success(f"✅ **采样率合理** ({sampling_ratio:.1f}倍带宽)")
         
-        # 显示评估
-        for text in evaluation_text:
-            st.info(text)
-        
-        # 占空比进度条
-        duty_progress = min(performance['占空比_百分比'] / 20, 1.0)
-        st.progress(duty_progress, text=f"占空比: {performance['占空比_百分比']:.2f}%")
+        st.markdown("---")
         
         # 当前参数摘要
         st.markdown("### 🔧 当前参数")
-        # st.markdown('<div class="parameter-card">', unsafe_allow_html=True)
         
         param_summary = [
             ("频率", f"{frequency_ghz:.1f} GHz"),
@@ -829,49 +1093,54 @@ def main():
             ("脉冲数", f"{pulses}"),
             ("峰值功率", f"{peak_power_kw:.1f} kW"),
             ("天线增益", f"{antenna_gain_db:.1f} dB"),
-            ("波束宽度", f"{beamwidth_deg:.1f}°")
+            ("波束宽度", f"{beamwidth_deg:.1f}°"),
+            ("采样率", f"{sampling_rate_mhz:.0f} MHz"),
+            ("目标距离", f"{target_range_km:.0f} km"),
+            ("目标RCS", f"{target_rcs_m2:.2f} m²")
         ]
         
         for name, value in param_summary:
-            st.markdown(f"**{name}**: <span class='param-value'>{value}</span>", unsafe_allow_html=True)
+            col_name, col_value = st.columns([2, 1])
+            with col_name:
+                st.markdown(f"**{name}**")
+            with col_value:
+                st.markdown(f"`{value}`")
         
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("---")
         
-        # 导出配置
+        # 导出配置 - 使用YAML格式
         st.markdown("### 💾 导出配置")
-        # st.markdown('<div class="parameter-card">', unsafe_allow_html=True)
         
-        # 生成配置
-        radarsimpy_config = params.to_radarsimpy_format()
-        config_json = json.dumps(radarsimpy_config, indent=2)
+        # 生成YAML配置
+        yaml_config = params.to_yaml()
         
         # 显示/隐藏配置
-        if st.button("📄 显示JSON配置", width='stretch'):
+        if st.button("📄 显示YAML配置", width='stretch'):
             st.session_state.show_config = not st.session_state.show_config
         
         if st.session_state.show_config:
-            st.code(config_json, language='json')
+            st.code(yaml_config, language='yaml')
         
         # 下载按钮
         col_dl1, col_dl2 = st.columns(2)
         with col_dl1:
             st.download_button(
-                label="📥 JSON",
-                data=config_json,
-                file_name=f"radar_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json",
+                label="📥 YAML",
+                data=yaml_config,
+                file_name=f"radar_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml",
+                mime="text/yaml",
                 width='stretch'
             )
         
         with col_dl2:
             # 生成Python代码
-            python_code = f'''#  仿真代码
+            python_code = f'''# 长城数字雷达仿真代码
 # 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 import radarsimpy as rs
 import numpy as np
 
-# 雷达参数
+# 雷达参数配置
 radar = rs.Radar(
     transmitter={{
         'freq_hz': {params.frequency_hz},
@@ -897,13 +1166,15 @@ radar = rs.Radar(
 
 # 目标设置
 target = {{
-    'range_m': {params.target_range_m},
-    'rcs_m2': {params.target_rcs_m2}
+    'rcs_m2': {params.target_rcs_m2},
+    'range_m': {params.target_range_m}
 }}
 
-print("雷达配置完成!")
+print("长城数字雷达配置完成!")
 print(f"频率: {{params.frequency_hz/1e9:.1f}} GHz")
 print(f"带宽: {{params.bandwidth_hz/1e6:.0f}} MHz")
+print(f"PRF: {{params.prf_hz/1e3:.1f}} kHz")
+print(f"脉冲宽度: {{params.pulse_width_s*1e6:.1f}} μs")
 print(f"距离分辨率: {{3e8/(2*params.bandwidth_hz):.1f}} m")
 print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
 '''
@@ -915,8 +1186,6 @@ print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
                 mime="text/x-python",
                 width='stretch'
             )
-        
-        st.markdown("</div>", unsafe_allow_html=True)
     
     # 系统建议
     st.markdown("---")
@@ -942,7 +1211,10 @@ print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
     if params.bandwidth_hz / params.frequency_hz > 0.1:
         suggestions.append("**宽带信号**: 相对带宽较大，注意系统线性度和相位一致性。")
     
-    # 显示建议
+    # 检查信噪比
+    if performance['信噪比_dB'] < 10:
+        suggestions.append("**信噪比低**: 考虑增加脉冲数、提高发射功率或使用脉冲压缩技术。")
+    
     for i, suggestion in enumerate(suggestions, 1):
         st.markdown(f"{i}. {suggestion}")
     
@@ -977,9 +1249,14 @@ print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
     # 脚注
     st.markdown("---")
     st.caption(f"""
-    **长城数字雷达参数设计器 v1.1** | 生成时间: 2026-01-08 | 
-    基于简化雷达方程计算 | 仅供教育研究使用
+    **长城数字雷达参数设计器** • 基于简化雷达方程计算 • 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     """)
 
 if __name__ == "__main__":
+    # 初始化会话状态
+    if 'current_preset' not in st.session_state:
+        st.session_state.current_preset = "自定义"
+    if 'show_config' not in st.session_state:
+        st.session_state.show_config = False
+    
     main()
