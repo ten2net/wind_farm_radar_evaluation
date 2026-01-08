@@ -18,6 +18,9 @@ logging.getLogger('plotly').setLevel(logging.WARNING)
 import streamlit as st
 import re
 
+# 导入雷达台站管理器
+from radar_station_manager import RadarStationDatabase, RadarStation, BasicInfo, Location, Capability, Connectivity, PerformanceMetrics
+
 class ScientificFloatLoader(yaml.SafeLoader):
     """优化版YAML加载器，优雅处理科学计数法"""
     def __init__(self, stream):
@@ -929,6 +932,380 @@ def calculate_radar_chart_data(performance, params):
         '脉冲压缩': compression_score,
         '采样率': sampling_score
     }
+    
+    
+# 在侧边栏添加保存到数据库的功能
+def add_station_management_sidebar():
+    """在侧边栏添加雷达台站管理功能"""
+    with st.sidebar.expander("🏢 雷达台站管理", expanded=False):
+        
+        # 数据库操作
+        db_manager = RadarStationDatabase("./simulations/radar_station_database.yaml")
+        db_manager.load_database()
+        
+        # 显示现有雷达台站
+        st.markdown("**📡 现有雷达台站**")
+        all_stations = db_manager.get_all_stations()
+
+        if all_stations:
+            station_list = list(all_stations.keys())
+            selected_station = st.selectbox("选择台站查看", ["无"] + station_list)
+            
+            if selected_station != "无":
+                station_info = all_stations[selected_station]
+                st.info(f"**{station_info.get('基本信息', {}).get('名称', '')}**")
+                st.caption(f"位置: {station_info.get('部署位置', {}).get('纬度')}, {station_info.get('部署位置', {}).get('经度')}")
+                st.caption(f"类型: {station_info.get('基本信息', {}).get('类型')}")
+                
+                if st.button("🗑️ 删除此台站", key=f"delete_{selected_station}"):
+                    if db_manager.delete_radar_station(selected_station):
+                        st.success("删除成功!")
+                        st.rerun()
+        else:
+            st.info("暂无雷达台站")
+        
+        st.markdown("---")
+        
+        # 保存当前雷达为台站
+        st.markdown("**💾 保存为雷达台站**")
+        
+        with st.form("save_station_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                station_name = st.text_input("台站名称", value=f"雷达台站_{datetime.now().strftime('%Y%m%d')}")
+                country = st.selectbox("国家", ["中国", "美国", "俄罗斯", "欧洲", "日本", "印度", "其他"])
+                radar_type = st.selectbox("雷达类型", ["预警雷达", "火控雷达", "搜索雷达", "跟踪雷达", "气象雷达", "其他"])
+            
+            with col2:
+                unit = st.text_input("作战单位", "未知部队")
+                status = st.selectbox("状态", ["在线", "离线", "维修"])
+                threat_level = st.selectbox("威胁等级", ["低", "中", "高", "极高"])
+            
+            st.markdown("**📍 部署位置**")
+            col_lat, col_lon, col_alt = st.columns(3)
+            with col_lat:
+                latitude = st.number_input("纬度", value=39.9042, format="%.6f")
+            with col_lon:
+                longitude = st.number_input("经度", value=116.4074, format="%.6f")
+            with col_alt:
+                altitude = st.number_input("高度(m)", value=100.0)
+            
+            mobility = st.selectbox("平台机动性", ["固定", "陆地移动", "空中平台", "海上平台"])
+            
+            st.markdown("**🎯 作战能力**")
+            col_range, col_track = st.columns(2)
+            with col_range:
+                detection_range = st.slider("探测距离(km)", 10, 1000, 200)
+            with col_track:
+                track_targets = st.slider("跟踪目标数", 1, 500, 100)
+            
+            countermeasures = st.multiselect(
+                "抗干扰措施",
+                ["频率捷变", "脉冲压缩", "脉冲多普勒", "频率分集", "波束成形", "副瓣对消", "副瓣匿影"]
+            )
+            
+            submitted = st.form_submit_button("💾 保存到数据库")
+            
+            if submitted:
+                # 计算性能指标
+                performance = params.calculate_performance()
+                
+                # 创建雷达台站
+                station = RadarStation(
+                    station_id=f"RADAR_{int(datetime.now().timestamp())}",
+                    basic_info=BasicInfo(
+                        name=station_name,
+                        radar_type=radar_type,
+                        country=country,
+                        unit=unit,
+                        deployment_time=datetime.now().strftime("%Y-%m-%d"),
+                        status=status,
+                        threat_level=threat_level,
+                        priority=3
+                    ),
+                    location=Location(
+                        latitude=latitude,
+                        longitude=longitude,
+                        altitude=altitude,
+                        mobility=mobility
+                    ),
+                    radar_params=params,
+                    performance=PerformanceMetrics(
+                        range_resolution_m=performance['距离分辨率_m'],
+                        max_unambiguous_range_m=performance['最大不模糊距离_m'],
+                        velocity_resolution_mps=performance['速度分辨率_m/s'],
+                        max_unambiguous_velocity_mps=performance['最大不模糊速度_m/s'],
+                        snr_db=performance['信噪比_dB']
+                    ),
+                    capability=Capability(
+                        detection_range_km=detection_range,
+                        track_targets=track_targets,
+                        update_rate_hz=1.0,
+                        multi_target=True,
+                        countermeasures=countermeasures,
+                        ecm_level="高" if threat_level in ["高", "极高"] else "中"
+                    ),
+                    connectivity=Connectivity(
+                        datalink="数据链",
+                        comm_band="S波段",
+                        network_node="NODE_001"
+                    )
+                )
+                
+                if db_manager.add_radar_station(station):
+                    st.success(f"✅ 雷达台站 '{station_name}' 已保存到数据库!")
+                else:
+                    st.error("保存失败!")
+
+# 在主界面添加电子战仿真功能
+def add_ew_simulation_section():
+    """添加电子战仿真功能"""
+    st.markdown("---")
+    st.markdown("### ⚔️ 电子战仿真")
+    
+    # 加载数据库
+    db_manager = RadarStationDatabase("./simulations/radar_station_database.yaml")
+    db_manager.load_database()
+    
+    # 获取所有雷达台站
+    all_stations = db_manager.get_all_stations()
+    if not all_stations:
+        st.info("请先添加雷达台站到数据库")
+        return
+    
+    # 创建选项卡
+    tab1, tab2, tab3, tab4 = st.tabs(["🔍 态势分析", "🎯 一对一对抗", "👥 多对一对抗", "🌐 多对多对抗"])
+    
+    with tab1:
+        st.markdown("#### 雷达态势分析")
+        
+        # 显示雷达分布
+        col_country, col_type = st.columns(2)
+        with col_country:
+            # 按国家统计
+            countries = {}
+            for station_id, station in all_stations.items():
+                country = station.get('基本信息', {}).get('国家', '未知')
+                countries[country] = countries.get(country, 0) + 1
+            
+            st.markdown("**🌍 按国家分布**")
+            for country, count in countries.items():
+                st.progress(min(count / 10, 1.0), text=f"{country}: {count}个")
+        
+        with col_type:
+            # 按类型统计
+            types = {}
+            for station_id, station in all_stations.items():
+                radar_type = station.get('基本信息', {}).get('类型', '未知')
+                types[radar_type] = types.get(radar_type, 0) + 1
+            
+            st.markdown("**📡 按类型分布**")
+            for radar_type, count in types.items():
+                st.progress(min(count / 10, 1.0), text=f"{radar_type}: {count}个")
+        
+        # 性能对比
+        st.markdown("#### 📊 性能对比")
+        
+        # 选择要对比的雷达
+        selected_radars = st.multiselect(
+            "选择对比的雷达",
+            list(all_stations.keys()),
+            max_selections=5
+        )
+        
+        if len(selected_radars) >= 2:
+            # 创建对比表格
+            comparison_data = []
+            for radar_id in selected_radars:
+                station = all_stations[radar_id]
+                radar_params = station.get('雷达参数', {})
+                transmitter = radar_params.get('发射机', {})
+                antenna = radar_params.get('天线', {})
+                performance = station.get('性能指标', {})
+                
+                comparison_data.append({
+                    '名称': station.get('基本信息', {}).get('名称', ''),
+                    '频率(GHz)': transmitter.get('载波频率_Hz', 0) / 1e9,
+                    '功率(kW)': transmitter.get('峰值功率_W', 0) / 1000,
+                    '距离分辨率(m)': performance.get('距离分辨率_m', 0),
+                    '探测距离(km)': station.get('作战能力', {}).get('探测距离_km', 0)
+                })
+            
+            df_comparison = pd.DataFrame(comparison_data)
+            st.dataframe(df_comparison, width='stretch')
+    
+    with tab2:
+        st.markdown("#### 一对一电子对抗")
+        
+        col_red, col_blue = st.columns(2)
+        with col_red:
+            red_radar = st.selectbox("红方雷达", list(all_stations.keys()), key="one_vs_one_red")
+            if red_radar:
+                station = all_stations[red_radar]
+                st.info(f"**{station.get('基本信息', {}).get('名称')}**")
+                st.caption(f"频率: {station.get('雷达参数', {}).get('发射机', {}).get('载波频率_Hz', 0)/1e9:.1f} GHz")
+                st.caption(f"功率: {station.get('雷达参数', {}).get('发射机', {}).get('峰值功率_W', 0)/1000:.0f} kW")
+        
+        with col_blue:
+            blue_radar = st.selectbox("蓝方雷达", list(all_stations.keys()), key="one_vs_one_blue")
+            if blue_radar:
+                station = all_stations[blue_radar]
+                st.info(f"**{station.get('基本信息', {}).get('名称')}**")
+                st.caption(f"频率: {station.get('雷达参数', {}).get('发射机', {}).get('载波频率_Hz', 0)/1e9:.1f} GHz")
+                st.caption(f"功率: {station.get('雷达参数', {}).get('发射机', {}).get('峰值功率_W', 0)/1000:.0f} kW")
+        
+        if red_radar and blue_radar and red_radar != blue_radar:
+            if st.button("⚡ 开始对抗仿真", width='stretch'):
+                result = db_manager.simulate_engagement([red_radar], [blue_radar])
+                
+                st.markdown("##### 对抗结果")
+                col_result1, col_result2 = st.columns(2)
+                with col_result1:
+                    st.metric("红方总功率", f"{result['engagement_result']['red_total_power']/1000:.1f} kW")
+                with col_result2:
+                    st.metric("蓝方总功率", f"{result['engagement_result']['blue_total_power']/1000:.1f} kW")
+                
+                st.success(f"**胜方: {result['engagement_result']['winner']}**")
+                
+                # 显示详细分析
+                with st.expander("📈 详细分析"):
+                    st.write(result['engagement_result']['analysis'])
+                    
+                    # 添加干扰选项
+                    jammer_power = st.slider("干扰机功率(dBW)", 0, 80, 60)
+                    jammer_type = st.selectbox("干扰类型", ["噪声压制", "距离欺骗", "速度欺骗", "复合干扰"])
+                    
+                    if st.button("施加干扰"):
+                        st.warning(f"施加{jammer_type}干扰，功率{jammer_power}dBW")
+    
+    with tab3:
+        st.markdown("#### 多对一电子对抗")
+        
+        col_target, col_jammers = st.columns(2)
+        with col_target:
+            target_radar = st.selectbox("目标雷达", list(all_stations.keys()), key="many_vs_one_target")
+            if target_radar:
+                station = all_stations[target_radar]
+                st.info(f"**目标: {station.get('基本信息', {}).get('名称')}**")
+                st.caption(f"威胁等级: {station.get('基本信息', {}).get('威胁等级')}")
+                st.caption(f"抗干扰措施: {', '.join(station.get('作战能力', {}).get('抗干扰措施', []))}")
+        
+        with col_jammers:
+            jammer_radars = st.multiselect("干扰方雷达", list(all_stations.keys()), key="many_vs_one_jammers")
+            if jammer_radars:
+                st.info(f"**干扰方: {len(jammer_radars)}个雷达**")
+                for jammer in jammer_radars:
+                    st.caption(f"• {all_stations[jammer].get('基本信息', {}).get('名称')}")
+        
+        if target_radar and jammer_radars:
+            if st.button("⚡ 开始协同干扰仿真", width='stretch'):
+                result = db_manager.simulate_engagement([target_radar], jammer_radars)
+                
+                st.markdown("##### 协同干扰结果")
+                col_power1, col_power2 = st.columns(2)
+                with col_power1:
+                    target_power = all_stations[target_radar].get('雷达参数', {}).get('发射机', {}).get('峰值功率_W', 0)
+                    st.metric("目标雷达功率", f"{target_power/1000:.1f} kW")
+                with col_power2:
+                    jammer_total = sum(all_stations[j].get('雷达参数', {}).get('发射机', {}).get('峰值功率_W', 0) for j in jammer_radars)
+                    st.metric("干扰方总功率", f"{jammer_total/1000:.1f} kW")
+                
+                power_ratio = jammer_total / target_power if target_power > 0 else 0
+                if power_ratio > 3:
+                    st.error("⚠️ 目标雷达被有效压制")
+                elif power_ratio > 1.5:
+                    st.warning("⚠️ 目标雷达受到中度干扰")
+                else:
+                    st.success("✅ 目标雷达仍可工作")
+    
+    with tab4:
+        st.markdown("#### 多对多体系对抗")
+        
+        red_radars = st.multiselect("红方雷达编队", list(all_stations.keys()), key="many_vs_many_red")
+        blue_radars = st.multiselect("蓝方雷达编队", list(all_stations.keys()), key="many_vs_many_blue")
+        
+        if red_radars and blue_radars:
+            # 显示编队信息
+            col_red_info, col_blue_info = st.columns(2)
+            with col_red_info:
+                st.markdown("##### 红方编队")
+                red_power = 0
+                for radar in red_radars:
+                    station = all_stations[radar]
+                    power = station.get('雷达参数', {}).get('发射机', {}).get('峰值功率_W', 0)
+                    red_power += power
+                    st.caption(f"• {station.get('基本信息', {}).get('名称')} ({power/1000:.0f}kW)")
+                st.metric("红方总功率", f"{red_power/1000:.1f} kW")
+            
+            with col_blue_info:
+                st.markdown("##### 蓝方编队")
+                blue_power = 0
+                for radar in blue_radars:
+                    station = all_stations[radar]
+                    power = station.get('雷达参数', {}).get('发射机', {}).get('峰值功率_W', 0)
+                    blue_power += power
+                    st.caption(f"• {station.get('基本信息', {}).get('名称')} ({power/1000:.0f}kW)")
+                st.metric("蓝方总功率", f"{blue_power/1000:.1f} kW")
+            
+            if st.button("⚡ 开始体系对抗仿真", width='stretch'):
+                result = db_manager.simulate_engagement(red_radars, blue_radars)
+                
+                st.markdown("##### 体系对抗结果")
+                
+                # 计算综合战力
+                red_score = red_power
+                blue_score = blue_power
+                
+                # 考虑雷达类型和威胁等级
+                for radar in red_radars:
+                    station = all_stations[radar]
+                    threat = station.get('基本信息', {}).get('威胁等级', '中')
+                    multiplier = {'低': 0.8, '中': 1.0, '高': 1.2, '极高': 1.5}
+                    red_score *= multiplier.get(threat, 1.0)
+                
+                for radar in blue_radars:
+                    station = all_stations[radar]
+                    threat = station.get('基本信息', {}).get('威胁等级', '中')
+                    multiplier = {'低': 0.8, '中': 1.0, '高': 1.2, '极高': 1.5}
+                    blue_score *= multiplier.get(threat, 1.0)
+                
+                col_score1, col_score2 = st.columns(2)
+                with col_score1:
+                    st.metric("红方综合战力", f"{red_score/1000:.0f}")
+                with col_score2:
+                    st.metric("蓝方综合战力", f"{blue_score/1000:.0f}")
+                
+                if red_score > blue_score * 1.2:
+                    st.success("🏆 红方获得体系对抗优势")
+                elif blue_score > red_score * 1.2:
+                    st.error("🏆 蓝方获得体系对抗优势")
+                else:
+                    st.warning("⚖️ 双方势均力敌")
+                
+                # 保存为场景想定
+                with st.expander("💾 保存为场景想定"):
+                    scenario_name = st.text_input("想定名称", "体系对抗演练")
+                    if st.button("保存想定"):
+                        scenario_id = f"SCENARIO_{int(datetime.now().timestamp())}"
+                        scenario = EWScenario(
+                            scenario_id=scenario_id,
+                            name=scenario_name,
+                            time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            duration_min=60,
+                            participants={
+                                '红方': red_radars,
+                                '蓝方': blue_radars
+                            },
+                            description="多对多体系对抗仿真"
+                        )
+                        
+                        if db_manager.add_ew_scenario(scenario):
+                            st.success(f"✅ 想定 '{scenario_name}' 已保存!")
+                            
+                            # 导出为仿真文件
+                            if st.button("导出仿真配置文件"):
+                                if db_manager.export_to_simulation(scenario_id):
+                                    st.success("✅ 仿真配置文件已生成!")    
 
 def main():
     """主应用函数"""
@@ -1193,7 +1570,8 @@ def main():
                     step=0.01,
                     format="%.2f"
                 )
-    
+    # 雷达台站管理侧边栏
+    add_station_management_sidebar()    
     # 创建参数对象
     params = RadarParameters(
         frequency_hz=frequency_ghz * 1e9,
@@ -1218,656 +1596,693 @@ def main():
     performance = params.calculate_performance()
     
     # 主界面布局
-    col_main_left, col_main_right = st.columns([2, 1])
+    # 在页面CSS中添加
+    st.markdown("""
+    <style>
+        /* 优化后的tab样式 */
+        .optimized-tabs button[role="tab"] {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 12px 24px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #334155;
+            color: #94a3b8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .optimized-tabs button[role="tab"][aria-selected="true"] {
+            font-size: 17px;
+            font-weight: 700;
+            background: rgba(96, 165, 250, 0.2);
+            border-color: #60a5fa;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+        }
+        
+        .optimized-tabs button[role="tab"]:hover {
+            transform: translateY(-1px);
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # 在创建tabs时使用
+    st.markdown('<div class="optimized-tabs">', unsafe_allow_html=True)
+    tab_radar_designer, tab_simulator = st.tabs(["📊 雷达参数优化器", "⚔️ 电子战仿真"])
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    with col_main_left:
-        # 性能指标卡片
-        st.markdown("### 📊 性能指标概览")
+    with tab_simulator:     
+        add_ew_simulation_section()
+    with tab_radar_designer:            
+        col_main_left, col_main_right = st.columns([2, 1])
         
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">距离分辨率</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["距离分辨率_m"]:.2f}<span class="metric-unit">m</span></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+        with col_main_left:
+            # 性能指标卡片
+            st.markdown("### 📊 性能指标概览")
             
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">最大不模糊距离</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["最大不模糊距离_m"]/1000:.1f}<span class="metric-unit">km</span></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">速度分辨率</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["速度分辨率_m/s"]*3.6:.1f}<span class="metric-unit">km/h</span></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            col1, col2, col3 = st.columns(3)
             
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">最大不模糊速度</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["最大不模糊速度_m/s"]*3.6:.0f}<span class="metric-unit">km/h</span></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">信噪比</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["信噪比_dB"]:.1f}<span class="metric-unit">dB</span></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            with col1:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown('<div class="metric-label">距离分辨率</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-value">{performance["距离分辨率_m"]:.2f}<span class="metric-unit">m</span></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown('<div class="metric-label">最大不模糊距离</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-value">{performance["最大不模糊距离_m"]/1000:.1f}<span class="metric-unit">km</span></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
             
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown('<div class="metric-label">平均功率</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-value">{performance["平均功率_W"]/1000:.1f}<span class="metric-unit">kW</span></div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-        
-        # 性能权衡分析图
-        st.markdown("### 📈 性能权衡分析")
-        
-        fig_tradeoff = plot_performance_tradeoffs(params, performance)
-        st.plotly_chart(fig_tradeoff, width='stretch', config={'displayModeBar': True})  
-        # 性能权衡分析图看点  
-        with st.expander("⚖️ 指南：如何解读上面的性能权衡分析图"):
-            st.markdown("""                                    
-             1. **左上：** PRF越高，最大不模糊距离越小，存在距离模糊风险;
-             2. **右上：** PRF越高，最大不模糊速度越大，测速能力越强;
-             3. **左下：** PRF越高，速度分辨率越差;
-             4. **右下：** 距离和速度的权衡关系，雷达需要在这两者之间做出选择。
-             """)
-        # 详细参数表
-        st.markdown("### 📋 派生参数表")
-        
-        st.markdown('<div class="param-container">', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">波长</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{format_units(performance["波长_m"], "m")}</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown('<div class="metric-label">速度分辨率</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-value">{performance["速度分辨率_m/s"]*3.6:.1f}<span class="metric-unit">km/h</span></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown('<div class="metric-label">最大不模糊速度</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-value">{performance["最大不模糊速度_m/s"]*3.6:.0f}<span class="metric-unit">km/h</span></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown('<div class="metric-label">信噪比</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-value">{performance["信噪比_dB"]:.1f}<span class="metric-unit">dB</span></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown('<div class="metric-label">平均功率</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-value">{performance["平均功率_W"]/1000:.1f}<span class="metric-unit">kW</span></div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+            
+            # 性能权衡分析图
+            st.markdown("### 📈 性能权衡分析")
+            
+            fig_tradeoff = plot_performance_tradeoffs(params, performance)
+            st.plotly_chart(fig_tradeoff, width='stretch', config={'displayModeBar': True})  
+            # 性能权衡分析图看点  
+            with st.expander("⚖️ 指南：如何解读上面的性能权衡分析图"):
+                st.markdown("""                                    
+                1. **左上：** PRF越高，最大不模糊距离越小，存在距离模糊风险;
+                2. **右上：** PRF越高，最大不模糊速度越大，测速能力越强;
+                3. **左下：** PRF越高，速度分辨率越差;
+                4. **右下：** 距离和速度的权衡关系，雷达需要在这两者之间做出选择。
+                """)
+            # 详细参数表
+            st.markdown("### 📋 派生参数表")
+            
+            st.markdown('<div class="param-container">', unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">波长</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{format_units(performance["波长_m"], "m")}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">脉冲能量</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{format_units(performance["脉冲能量_J"], "J")}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">占空比</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{performance["占空比_百分比"]:.2f}%</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">波束驻留时间</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{performance["波束驻留时间_s"]*1e3:.1f} ms</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)            
+            
+            with col2:
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">PRI</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{format_units(performance["PRI_s"], "s")}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">脉冲压缩比</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{performance["脉冲压缩比"]:.0f}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">最小探测距离</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{format_units(performance["最小探测距离_m"], "m")}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                st.markdown('<div class="param-row">', unsafe_allow_html=True)
+                st.markdown('<div class="param-label">多普勒容限</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="param-value-box">{performance["多普勒容限_百分比"]:.1f}%</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)            
+            
+            # with col3:
+            #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            #     st.markdown('<div class="param-label">占空比</div>', unsafe_allow_html=True)
+            #     st.markdown(f'<div class="param-value-box">{performance["占空比_百分比"]:.2f}%</div>', unsafe_allow_html=True)
+            #     st.markdown('</div>', unsafe_allow_html=True)
+                
+            #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            #     st.markdown('<div class="param-label">波束驻留时间</div>', unsafe_allow_html=True)
+            #     st.markdown(f'<div class="param-value-box">{performance["波束驻留时间_s"]*1e3:.1f} ms</div>', unsafe_allow_html=True)
+            #     st.markdown('</div>', unsafe_allow_html=True)
+            
+            # with col4:
+            #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            #     st.markdown('<div class="param-label">最小探测距离</div>', unsafe_allow_html=True)
+            #     st.markdown(f'<div class="param-value-box">{format_units(performance["最小探测距离_m"], "m")}</div>', unsafe_allow_html=True)
+            #     st.markdown('</div>', unsafe_allow_html=True)
+                
+            #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
+            #     st.markdown('<div class="param-label">多普勒容限</div>', unsafe_allow_html=True)
+            #     st.markdown(f'<div class="param-value-box">{performance["多普勒容限_百分比"]:.1f}%</div>', unsafe_allow_html=True)
+            #     st.markdown('</div>', unsafe_allow_html=True)
+            
             st.markdown('</div>', unsafe_allow_html=True)
+            # 性能指标雷达图
+            st.markdown("### 📈 性能指标雷达图")
             
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">脉冲能量</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{format_units(performance["脉冲能量_J"], "J")}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">占空比</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{performance["占空比_百分比"]:.2f}%</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">波束驻留时间</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{performance["波束驻留时间_s"]*1e3:.1f} ms</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)            
-        
-        with col2:
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">PRI</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{format_units(performance["PRI_s"], "s")}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">脉冲压缩比</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{performance["脉冲压缩比"]:.0f}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">最小探测距离</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{format_units(performance["最小探测距离_m"], "m")}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="param-row">', unsafe_allow_html=True)
-            st.markdown('<div class="param-label">多普勒容限</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="param-value-box">{performance["多普勒容限_百分比"]:.1f}%</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)            
-        
-        # with col3:
-        #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
-        #     st.markdown('<div class="param-label">占空比</div>', unsafe_allow_html=True)
-        #     st.markdown(f'<div class="param-value-box">{performance["占空比_百分比"]:.2f}%</div>', unsafe_allow_html=True)
-        #     st.markdown('</div>', unsafe_allow_html=True)
-            
-        #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
-        #     st.markdown('<div class="param-label">波束驻留时间</div>', unsafe_allow_html=True)
-        #     st.markdown(f'<div class="param-value-box">{performance["波束驻留时间_s"]*1e3:.1f} ms</div>', unsafe_allow_html=True)
-        #     st.markdown('</div>', unsafe_allow_html=True)
-        
-        # with col4:
-        #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
-        #     st.markdown('<div class="param-label">最小探测距离</div>', unsafe_allow_html=True)
-        #     st.markdown(f'<div class="param-value-box">{format_units(performance["最小探测距离_m"], "m")}</div>', unsafe_allow_html=True)
-        #     st.markdown('</div>', unsafe_allow_html=True)
-            
-        #     st.markdown('<div class="param-row">', unsafe_allow_html=True)
-        #     st.markdown('<div class="param-label">多普勒容限</div>', unsafe_allow_html=True)
-        #     st.markdown(f'<div class="param-value-box">{performance["多普勒容限_百分比"]:.1f}%</div>', unsafe_allow_html=True)
-        #     st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        # 性能指标雷达图
-        st.markdown("### 📈 性能指标雷达图")
-        
-        # 获取雷达图数据
-        radar_data = calculate_radar_chart_data(performance, params)
+            # 获取雷达图数据
+            radar_data = calculate_radar_chart_data(performance, params)
 
-        # 创建雷达图
-        fig_radar = go.Figure()
+            # 创建雷达图
+            fig_radar = go.Figure()
 
-        # 添加雷达图数据
-        categories = list(radar_data.keys())
-        values = list(radar_data.values())
+            # 添加雷达图数据
+            categories = list(radar_data.keys())
+            values = list(radar_data.values())
 
-        # 确保图形闭合
-        categories_with_closure = categories + [categories[0]]
-        values_with_closure = values + [values[0]]
+            # 确保图形闭合
+            categories_with_closure = categories + [categories[0]]
+            values_with_closure = values + [values[0]]
 
-        fig_radar.add_trace(go.Scatterpolar(
-            r=values_with_closure,
-            theta=categories_with_closure,
-            fill='toself',
-            fillcolor='rgba(96, 165, 250, 0.3)',
-            line_color='#60a5fa',
-            line_width=3,
-            name='当前性能',
-            hovertemplate='%{theta}: %{r:.1f}%<extra></extra>'
-        ))
-
-        # 添加基准线（60%为良好，80%为优秀）
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[60] * len(categories_with_closure),
-            theta=categories_with_closure,
-            line_color='#fbbf24',
-            line_width=2,
-            line_dash='dash',
-            name='良好基准',
-            hovertemplate='良好基准: 60%<extra></extra>'
-        ))
-
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[80] * len(categories_with_closure),
-            theta=categories_with_closure,
-            line_color='#34d399',
-            line_width=2,
-            line_dash='dash',
-            name='优秀基准',
-            hovertemplate='优秀基准: 80%<extra></extra>'
-        ))
-
-        # 更新布局
-        fig_radar.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 100],
-                    tickfont=dict(size=10, color='#94a3b8'),
-                    gridcolor='rgba(148, 163, 184, 0.3)',
-                    angle=45
-                ),
-                angularaxis=dict(
-                    tickfont=dict(size=11, color='#cbd5e1'),
-                    rotation=90,
-                    direction='clockwise'
-                ),
-                bgcolor='rgba(15, 23, 42, 0.5)'
-            ),
-            showlegend=True,
-            legend=dict(
-                font=dict(color='#cbd5e1'),
-                bgcolor='rgba(15, 23, 42, 0.8)',
-                bordercolor='#334155',
-                borderwidth=1
-            ),
-            paper_bgcolor='rgba(15, 23, 42, 0)',
-            plot_bgcolor='rgba(15, 23, 42, 0)',
-            height=500,
-            margin=dict(l=50, r=50, t=30, b=30)
-        )
-        # 创建选项卡
-        tab1, tab2, tab3 = st.tabs(["📊 雷达图", "📈 性能分布", "📋 详细评分"])
-
-        with tab1:
-            # 雷达图
-            st.plotly_chart(fig_radar, use_container_width=True)
-            
-            # 图例说明
-            col_legend1, col_legend2, col_legend3 = st.columns(3)
-            with col_legend1:
-                st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
-                        '<div style="width: 20px; height: 4px; background: #60a5fa; border-radius: 2px;"></div>'
-                        '<span style="color: #94a3b8; font-size: 0.9rem;">当前性能</span>'
-                        '</div>', unsafe_allow_html=True)
-            
-            with col_legend2:
-                st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
-                        '<div style="width: 20px; height: 2px; background: #fbbf24; border-radius: 2px; border: 1px dashed #fbbf24;"></div>'
-                        '<span style="color: #94a3b8; font-size: 0.9rem;">良好基准</span>'
-                        '</div>', unsafe_allow_html=True)
-            
-            with col_legend3:
-                st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
-                        '<div style="width: 20px; height: 2px; background: #34d399; border-radius: 2px; border: 1px dashed #34d399;"></div>'
-                        '<span style="color: #94a3b8; font-size: 0.9rem;">优秀基准</span>'
-                        '</div>', unsafe_allow_html=True)
-
-        with tab2:
-            # 性能分布柱状图
-            fig_bar = go.Figure()
-            
-            # 颜色映射
-            colors = []
-            for score in values:
-                if score >= 80:
-                    colors.append('#34d399')  # 优秀 - 绿色
-                elif score >= 60:
-                    colors.append('#fbbf24')  # 良好 - 黄色
-                elif score >= 40:
-                    colors.append('#fb923c')  # 一般 - 橙色
-                else:
-                    colors.append('#ef4444')  # 需改进 - 红色
-            
-            fig_bar.add_trace(go.Bar(
-                x=categories,
-                y=values,
-                marker_color=colors,
-                text=[f"{v:.1f}%" for v in values],
-                textposition='outside',
-                hovertemplate='%{x}: %{y:.1f}%<extra></extra>',
-                name='性能分数'
+            fig_radar.add_trace(go.Scatterpolar(
+                r=values_with_closure,
+                theta=categories_with_closure,
+                fill='toself',
+                fillcolor='rgba(96, 165, 250, 0.3)',
+                line_color='#60a5fa',
+                line_width=3,
+                name='当前性能',
+                hovertemplate='%{theta}: %{r:.1f}%<extra></extra>'
             ))
-            
-            # 添加基准线
-            fig_bar.add_hline(y=60, line_dash="dash", line_color="#fbbf24", 
-                            annotation_text="良好基准", 
-                            annotation_position="top right",
-                            annotation_font=dict(color="#fbbf24", size=10))
-            fig_bar.add_hline(y=80, line_dash="dash", line_color="#34d399", 
-                            annotation_text="优秀基准", 
-                            annotation_position="top right",
-                            annotation_font=dict(color="#34d399", size=10))
-            
-            fig_bar.update_layout(
-                title=dict(text="性能指标分布", font=dict(color='#ffffff', size=16)),
-                xaxis=dict(
-                    title="性能指标",
-                    title_font=dict(color='#94a3b8'),
-                    tickfont=dict(color='#cbd5e1'),
-                    gridcolor='rgba(148, 163, 184, 0.2)'
+
+            # 添加基准线（60%为良好，80%为优秀）
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[60] * len(categories_with_closure),
+                theta=categories_with_closure,
+                line_color='#fbbf24',
+                line_width=2,
+                line_dash='dash',
+                name='良好基准',
+                hovertemplate='良好基准: 60%<extra></extra>'
+            ))
+
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[80] * len(categories_with_closure),
+                theta=categories_with_closure,
+                line_color='#34d399',
+                line_width=2,
+                line_dash='dash',
+                name='优秀基准',
+                hovertemplate='优秀基准: 80%<extra></extra>'
+            ))
+
+            # 更新布局
+            fig_radar.update_layout(
+                polar=dict(
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, 100],
+                        tickfont=dict(size=10, color='#94a3b8'),
+                        gridcolor='rgba(148, 163, 184, 0.3)',
+                        angle=45
+                    ),
+                    angularaxis=dict(
+                        tickfont=dict(size=11, color='#cbd5e1'),
+                        rotation=90,
+                        direction='clockwise'
+                    ),
+                    bgcolor='rgba(15, 23, 42, 0.5)'
                 ),
-                yaxis=dict(
-                    title="分数 (%)",
-                    title_font=dict(color='#94a3b8'),
-                    tickfont=dict(color='#cbd5e1'),
-                    gridcolor='rgba(148, 163, 184, 0.2)',
-                    range=[0, 100]
+                showlegend=True,
+                legend=dict(
+                    font=dict(color='#cbd5e1'),
+                    bgcolor='rgba(15, 23, 42, 0.8)',
+                    bordercolor='#334155',
+                    borderwidth=1
                 ),
                 paper_bgcolor='rgba(15, 23, 42, 0)',
-                plot_bgcolor='rgba(15, 23, 42, 0.3)',
-                height=400,
-                showlegend=False
+                plot_bgcolor='rgba(15, 23, 42, 0)',
+                height=500,
+                margin=dict(l=50, r=50, t=30, b=30)
             )
-            
-            st.plotly_chart(fig_bar, use_container_width=True)
-            
-            # 性能统计
-            avg_score = np.mean(values)
-            max_score = np.max(values)
-            min_score = np.min(values)
-            
-            col_stat1, col_stat2, col_stat3 = st.columns(3)
-            with col_stat1:
-                st.metric("平均分", f"{avg_score:.1f}%", 
-                        delta="优秀" if avg_score >= 80 else "良好" if avg_score >= 60 else "一般")
-            with col_stat2:
-                st.metric("最高分", f"{max_score:.1f}%")
-            with col_stat3:
-                st.metric("最低分", f"{min_score:.1f}%")
-            
-            # 添加雷达性能指标说明
-            with st.expander("📋 指南：如何解读上面的性能指标"):
-                st.markdown("""                
-                1. **距离分辨率**: 雷达能够分辨的两个目标之间的最小距离差
-                2. **速度分辨率**: 雷达能够分辨的两个目标之间的最小速度差
-                3. **最大距离**: 雷达理论上能够探测到目标的最大距离
-                4. **最大速度**: 雷达理论上能够测量的最大目标速度
-                5. **信噪比**: 信号与噪声的功率比值，影响探测概率
-                6. **占空比**: 发射脉冲时间占脉冲重复周期的时间比例
-                7. **脉冲压缩**: 通过脉冲压缩技术获得的时间带宽积
-                8. **采样率**: ADC采样率与信号带宽的比值
-                """)
-        with tab3:
-            # 准备数据
-            table_data = []
-            for metric, score in radar_data.items():
-                # 获取当前值
-                if metric == '距离分辨率':
-                    current_value = f"{performance['距离分辨率_m']:.2f} m"
-                elif metric == '速度分辨率':
-                    current_value = f"{performance['速度分辨率_m/s']:.2f} m/s"
-                elif metric == '最大距离':
-                    current_value = f"{performance['最大不模糊距离_m']/1000:.1f} km"
-                elif metric == '最大速度':
-                    current_value = f"{performance['最大不模糊速度_m/s']:.2f} m/s"
-                elif metric == '信噪比':
-                    current_value = f"{performance['信噪比_dB']:.1f} dB"
-                elif metric == '占空比':
-                    current_value = f"{performance['占空比_百分比']:.2f}%"
-                elif metric == '脉冲压缩':
-                    current_value = f"{performance['脉冲压缩比']:.0f}"
-                elif metric == '采样率':
-                    current_value = f"{(params.sampling_rate_hz / params.bandwidth_hz):.1f}x"
-                else:
-                    current_value = "-"
+            # 创建选项卡
+            tab1, tab2, tab3 = st.tabs(["📊 雷达图", "📈 性能分布", "📋 详细评分"])
+
+            with tab1:
+                # 雷达图
+                st.plotly_chart(fig_radar, width='stretch')
                 
-                # 评分等级
-                if score >= 80:
-                    rating = "优秀"
-                    advice = "保持当前设置"
-                elif score >= 60:
-                    rating = "良好"
-                    advice = "可继续优化"
-                elif score >= 40:
-                    rating = "一般"
-                    advice = "建议调整参数"
-                else:
-                    rating = "需改进"
-                    advice = "重点优化"
+                # 图例说明
+                col_legend1, col_legend2, col_legend3 = st.columns(3)
+                with col_legend1:
+                    st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
+                            '<div style="width: 20px; height: 4px; background: #60a5fa; border-radius: 2px;"></div>'
+                            '<span style="color: #94a3b8; font-size: 0.9rem;">当前性能</span>'
+                            '</div>', unsafe_allow_html=True)
                 
-                table_data.append({
-                    '性能指标': metric,
-                    '当前值': current_value,
-                    '分数': f"{score:.1f}%",
-                    '评价': rating,
-                    '建议': advice
-                })
-            
-            # 创建DataFrame
-            df = pd.DataFrame(table_data)
-            
-            # 定义HTML样式
-            html_table = '''
-            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; backdrop-filter: blur(10px);">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: rgba(96, 165, 250, 0.2);">
-                            <th style="color: #60a5fa; padding: 12px 15px; text-align: left; font-weight: 600;">性能指标</th>
-                            <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">当前值</th>
-                            <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">分数</th>
-                            <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">评价</th>
-                            <th style="color: #60a5fa; padding: 12px 15px; text-align: left; font-weight: 600;">建议</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            '''
-            
-            # 添加行
-            for _, row in df.iterrows():
-                # 确定颜色
-                score_val = float(row['分数'].replace('%', ''))
-                if score_val >= 80:
-                    score_color = "#34d399"
-                    rating_color = "#34d399"
-                elif score_val >= 60:
-                    score_color = "#fbbf24"
-                    rating_color = "#fbbf24"
-                elif score_val >= 40:
-                    score_color = "#fb923c"
-                    rating_color = "#fb923c"
-                else:
-                    score_color = "#ef4444"
-                    rating_color = "#ef4444"
+                with col_legend2:
+                    st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
+                            '<div style="width: 20px; height: 2px; background: #fbbf24; border-radius: 2px; border: 1px dashed #fbbf24;"></div>'
+                            '<span style="color: #94a3b8; font-size: 0.9rem;">良好基准</span>'
+                            '</div>', unsafe_allow_html=True)
                 
-                html_table += f'''
-                <tr style="border-bottom: 1px solid #334155;">
-                    <td style="color: #cbd5e1; padding: 10px 15px;">{row['性能指标']}</td>
-                    <td style="color: #cbd5e1; padding: 10px 15px; text-align: center;">{row['当前值']}</td>
-                    <td style="color: {score_color}; font-weight: 600; padding: 10px 15px; text-align: center; font-family: 'Courier New', monospace;">{row['分数']}</td>
-                    <td style="color: {rating_color}; font-weight: 600; padding: 10px 15px; text-align: center;">{row['评价']}</td>
-                    <td style="color: #cbd5e1; padding: 10px 15px;">{row['建议']}</td>
-                </tr>
+                with col_legend3:
+                    st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
+                            '<div style="width: 20px; height: 2px; background: #34d399; border-radius: 2px; border: 1px dashed #34d399;"></div>'
+                            '<span style="color: #94a3b8; font-size: 0.9rem;">优秀基准</span>'
+                            '</div>', unsafe_allow_html=True)
+
+            with tab2:
+                # 性能分布柱状图
+                fig_bar = go.Figure()
+                
+                # 颜色映射
+                colors = []
+                for score in values:
+                    if score >= 80:
+                        colors.append('#34d399')  # 优秀 - 绿色
+                    elif score >= 60:
+                        colors.append('#fbbf24')  # 良好 - 黄色
+                    elif score >= 40:
+                        colors.append('#fb923c')  # 一般 - 橙色
+                    else:
+                        colors.append('#ef4444')  # 需改进 - 红色
+                
+                fig_bar.add_trace(go.Bar(
+                    x=categories,
+                    y=values,
+                    marker_color=colors,
+                    text=[f"{v:.1f}%" for v in values],
+                    textposition='outside',
+                    hovertemplate='%{x}: %{y:.1f}%<extra></extra>',
+                    name='性能分数'
+                ))
+                
+                # 添加基准线
+                fig_bar.add_hline(y=60, line_dash="dash", line_color="#fbbf24", 
+                                annotation_text="良好基准", 
+                                annotation_position="top right",
+                                annotation_font=dict(color="#fbbf24", size=10))
+                fig_bar.add_hline(y=80, line_dash="dash", line_color="#34d399", 
+                                annotation_text="优秀基准", 
+                                annotation_position="top right",
+                                annotation_font=dict(color="#34d399", size=10))
+                
+                fig_bar.update_layout(
+                    title=dict(text="性能指标分布", font=dict(color='#ffffff', size=16)),
+                    xaxis=dict(
+                        title="性能指标",
+                        title_font=dict(color='#94a3b8'),
+                        tickfont=dict(color='#cbd5e1'),
+                        gridcolor='rgba(148, 163, 184, 0.2)'
+                    ),
+                    yaxis=dict(
+                        title="分数 (%)",
+                        title_font=dict(color='#94a3b8'),
+                        tickfont=dict(color='#cbd5e1'),
+                        gridcolor='rgba(148, 163, 184, 0.2)',
+                        range=[0, 100]
+                    ),
+                    paper_bgcolor='rgba(15, 23, 42, 0)',
+                    plot_bgcolor='rgba(15, 23, 42, 0.3)',
+                    height=400,
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig_bar, width='stretch')
+                
+                # 性能统计
+                avg_score = np.mean(values)
+                max_score = np.max(values)
+                min_score = np.min(values)
+                
+                col_stat1, col_stat2, col_stat3 = st.columns(3)
+                with col_stat1:
+                    st.metric("平均分", f"{avg_score:.1f}%", 
+                            delta="优秀" if avg_score >= 80 else "良好" if avg_score >= 60 else "一般")
+                with col_stat2:
+                    st.metric("最高分", f"{max_score:.1f}%")
+                with col_stat3:
+                    st.metric("最低分", f"{min_score:.1f}%")
+                
+                # 添加雷达性能指标说明
+                with st.expander("📋 指南：如何解读上面的性能指标"):
+                    st.markdown("""                
+                    1. **距离分辨率**: 雷达能够分辨的两个目标之间的最小距离差
+                    2. **速度分辨率**: 雷达能够分辨的两个目标之间的最小速度差
+                    3. **最大距离**: 雷达理论上能够探测到目标的最大距离
+                    4. **最大速度**: 雷达理论上能够测量的最大目标速度
+                    5. **信噪比**: 信号与噪声的功率比值，影响探测概率
+                    6. **占空比**: 发射脉冲时间占脉冲重复周期的时间比例
+                    7. **脉冲压缩**: 通过脉冲压缩技术获得的时间带宽积
+                    8. **采样率**: ADC采样率与信号带宽的比值
+                    """)
+            with tab3:
+                # 准备数据
+                table_data = []
+                for metric, score in radar_data.items():
+                    # 获取当前值
+                    if metric == '距离分辨率':
+                        current_value = f"{performance['距离分辨率_m']:.2f} m"
+                    elif metric == '速度分辨率':
+                        current_value = f"{performance['速度分辨率_m/s']:.2f} m/s"
+                    elif metric == '最大距离':
+                        current_value = f"{performance['最大不模糊距离_m']/1000:.1f} km"
+                    elif metric == '最大速度':
+                        current_value = f"{performance['最大不模糊速度_m/s']:.2f} m/s"
+                    elif metric == '信噪比':
+                        current_value = f"{performance['信噪比_dB']:.1f} dB"
+                    elif metric == '占空比':
+                        current_value = f"{performance['占空比_百分比']:.2f}%"
+                    elif metric == '脉冲压缩':
+                        current_value = f"{performance['脉冲压缩比']:.0f}"
+                    elif metric == '采样率':
+                        current_value = f"{(params.sampling_rate_hz / params.bandwidth_hz):.1f}x"
+                    else:
+                        current_value = "-"
+                    
+                    # 评分等级
+                    if score >= 80:
+                        rating = "优秀"
+                        advice = "保持当前设置"
+                    elif score >= 60:
+                        rating = "良好"
+                        advice = "可继续优化"
+                    elif score >= 40:
+                        rating = "一般"
+                        advice = "建议调整参数"
+                    else:
+                        rating = "需改进"
+                        advice = "重点优化"
+                    
+                    table_data.append({
+                        '性能指标': metric,
+                        '当前值': current_value,
+                        '分数': f"{score:.1f}%",
+                        '评价': rating,
+                        '建议': advice
+                    })
+                
+                # 创建DataFrame
+                df = pd.DataFrame(table_data)
+                
+                # 定义HTML样式
+                html_table = '''
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; backdrop-filter: blur(10px);">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: rgba(96, 165, 250, 0.2);">
+                                <th style="color: #60a5fa; padding: 12px 15px; text-align: left; font-weight: 600;">性能指标</th>
+                                <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">当前值</th>
+                                <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">分数</th>
+                                <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">评价</th>
+                                <th style="color: #60a5fa; padding: 12px 15px; text-align: left; font-weight: 600;">建议</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                 '''
+                
+                # 添加行
+                for _, row in df.iterrows():
+                    # 确定颜色
+                    score_val = float(row['分数'].replace('%', ''))
+                    if score_val >= 80:
+                        score_color = "#34d399"
+                        rating_color = "#34d399"
+                    elif score_val >= 60:
+                        score_color = "#fbbf24"
+                        rating_color = "#fbbf24"
+                    elif score_val >= 40:
+                        score_color = "#fb923c"
+                        rating_color = "#fb923c"
+                    else:
+                        score_color = "#ef4444"
+                        rating_color = "#ef4444"
+                    
+                    html_table += f'''
+                    <tr style="border-bottom: 1px solid #334155;">
+                        <td style="color: #cbd5e1; padding: 10px 15px;">{row['性能指标']}</td>
+                        <td style="color: #cbd5e1; padding: 10px 15px; text-align: center;">{row['当前值']}</td>
+                        <td style="color: {score_color}; font-weight: 600; padding: 10px 15px; text-align: center; font-family: 'Courier New', monospace;">{row['分数']}</td>
+                        <td style="color: {rating_color}; font-weight: 600; padding: 10px 15px; text-align: center;">{row['评价']}</td>
+                        <td style="color: #cbd5e1; padding: 10px 15px;">{row['建议']}</td>
+                    </tr>
+                    '''
+                
+                html_table += '''
+                        </tbody>
+                    </table>
+                </div>
+                '''
+                
+                # 显示HTML表格
+                # st.markdown(html_table, unsafe_allow_html=True)
+                # 使用st.components.v1.html渲染
+                from streamlit import components    
+                components.v1.html(html_table, height=400, scrolling=False) # type: ignore
+                
+                # 总体建议
+                st.markdown("---")
+                st.markdown("### 💡 性能优化建议")
+                
+                suggestions = []
+                avg_score = np.mean(list(radar_data.values()))
+                
+                if avg_score >= 80:
+                    suggestions.append("✅ **整体性能优秀**：当前参数配置非常合理，各项性能指标均衡")
+                elif avg_score >= 60:
+                    suggestions.append("📈 **整体性能良好**：大部分指标表现良好，部分指标有优化空间")
+                else:
+                    suggestions.append("⚠️ **整体性能需提升**：多个关键指标有待优化，建议调整参数配置")
+                
+                # 找出最低分的指标
+                min_metric = min(radar_data.items(), key=lambda x: x[1])
+                if min_metric[1] < 40:
+                    suggestions.append(f"🔧 **重点关注**：{min_metric[0]}得分较低({min_metric[1]:.1f}%)，是主要性能瓶颈")
+                
+                # 检查信噪比
+                if radar_data['信噪比'] < 40:
+                    suggestions.append("📶 **信噪比不足**：考虑增加脉冲数、提高发射功率或使用脉冲压缩")
+                
+                # 检查距离分辨率
+                if radar_data['距离分辨率'] < 40 and performance['距离分辨率_m'] > 10:
+                    suggestions.append("📏 **距离分辨率偏低**：可考虑增加带宽以提高距离分辨率")
+                
+                for i, suggestion in enumerate(suggestions, 1):
+                    st.markdown(f"{i}. {suggestion}")        
+        
+        with col_main_right:
+            # 快速评估
+            st.markdown("### ⚡ 快速评估")
             
-            html_table += '''
-                    </tbody>
-                </table>
-            </div>
-            '''
-            
-            # 显示HTML表格
-            # st.markdown(html_table, unsafe_allow_html=True)
-            # 使用st.components.v1.html渲染
-            from streamlit import components    
-            components.v1.html(html_table, height=400, scrolling=False) # type: ignore
-            
-            # 总体建议
-            st.markdown("---")
-            st.markdown("### 💡 性能优化建议")
-            
-            suggestions = []
-            avg_score = np.mean(list(radar_data.values()))
-            
-            if avg_score >= 80:
-                suggestions.append("✅ **整体性能优秀**：当前参数配置非常合理，各项性能指标均衡")
-            elif avg_score >= 60:
-                suggestions.append("📈 **整体性能良好**：大部分指标表现良好，部分指标有优化空间")
+            if performance['模糊数_距离'] > 1:
+                st.error(f"⚠️ **距离模糊风险**\n目标距离({target_range_km:.0f}km)超过最大不模糊距离({performance['最大不模糊距离_m']/1000:.1f}km)")
             else:
-                suggestions.append("⚠️ **整体性能需提升**：多个关键指标有待优化，建议调整参数配置")
+                st.success("✅ **距离无模糊**")
             
-            # 找出最低分的指标
-            min_metric = min(radar_data.items(), key=lambda x: x[1])
-            if min_metric[1] < 40:
-                suggestions.append(f"🔧 **重点关注**：{min_metric[0]}得分较低({min_metric[1]:.1f}%)，是主要性能瓶颈")
+            duty_cycle = performance['占空比_百分比']
+            st.progress(min(duty_cycle / 20, 1.0), text=f"占空比: {duty_cycle:.2f}%")
             
-            # 检查信噪比
-            if radar_data['信噪比'] < 40:
-                suggestions.append("📶 **信噪比不足**：考虑增加脉冲数、提高发射功率或使用脉冲压缩")
+            if duty_cycle > 10:
+                st.warning("⚠️ 高占空比，注意系统散热")
+            elif duty_cycle < 0.1:
+                st.info("ℹ️ 低占空比，适合高峰值功率应用")
+            else:
+                st.success("✅ 占空比合理")
             
-            # 检查距离分辨率
-            if radar_data['距离分辨率'] < 40 and performance['距离分辨率_m'] > 10:
-                suggestions.append("📏 **距离分辨率偏低**：可考虑增加带宽以提高距离分辨率")
+            sampling_ratio = params.sampling_rate_hz / params.bandwidth_hz
+            if sampling_ratio < 2:
+                st.error(f"⚠️ **采样率不足** ({sampling_ratio:.1f}倍带宽)")
+            else:
+                st.success(f"✅ **采样率合理** ({sampling_ratio:.1f}倍带宽)")
+                
+            with st.expander("📋 指南：出现警告时，调节左侧栏中相关参数"): 
+                st.markdown("""
+                            
+                            1. **距离模糊风险**：目标距离超过最大不模糊距离时，目标可能无法被清晰识别。
+                            2. **占空比**：高占空比可能导致系统过热，低占空比可能不适合峰值功率应用。
+                            3. **采样率不足**：采样率低于2倍带宽时，可能导致信号失真,建议2.5倍。
+                            """)
+            st.markdown("---")
             
-            for i, suggestion in enumerate(suggestions, 1):
-                st.markdown(f"{i}. {suggestion}")        
-    
-    with col_main_right:
-        # 快速评估
-        st.markdown("### ⚡ 快速评估")
-        
-        if performance['模糊数_距离'] > 1:
-            st.error(f"⚠️ **距离模糊风险**\n目标距离({target_range_km:.0f}km)超过最大不模糊距离({performance['最大不模糊距离_m']/1000:.1f}km)")
-        else:
-            st.success("✅ **距离无模糊**")
-        
-        duty_cycle = performance['占空比_百分比']
-        st.progress(min(duty_cycle / 20, 1.0), text=f"占空比: {duty_cycle:.2f}%")
-        
-        if duty_cycle > 10:
-            st.warning("⚠️ 高占空比，注意系统散热")
-        elif duty_cycle < 0.1:
-            st.info("ℹ️ 低占空比，适合高峰值功率应用")
-        else:
-            st.success("✅ 占空比合理")
-        
-        sampling_ratio = params.sampling_rate_hz / params.bandwidth_hz
-        if sampling_ratio < 2:
-            st.error(f"⚠️ **采样率不足** ({sampling_ratio:.1f}倍带宽)")
-        else:
-            st.success(f"✅ **采样率合理** ({sampling_ratio:.1f}倍带宽)")
+            # 当前参数摘要
+            st.markdown("### 🔧 当前参数")
             
-        with st.expander("📋 指南：出现警告时，调节左侧栏中相关参数"): 
-            st.markdown("""
-                        
-                        1. **距离模糊风险**：目标距离超过最大不模糊距离时，目标可能无法被清晰识别。
-                        2. **占空比**：高占空比可能导致系统过热，低占空比可能不适合峰值功率应用。
-                        3. **采样率不足**：采样率低于2倍带宽时，可能导致信号失真,建议2.5倍。
-                        """)
-        st.markdown("---")
-        
-        # 当前参数摘要
-        st.markdown("### 🔧 当前参数")
-        
-        param_summary = [
-            ("频率", f"{frequency_ghz:.1f} GHz"),
-            ("带宽", f"{bandwidth_mhz:.0f} MHz"),
-            ("PRF", f"{prf_khz:.1f} kHz"),
-            ("脉宽", f"{pulse_width_us:.1f} μs"),
-            ("脉冲数", f"{pulses}"),
-            ("峰值功率", f"{peak_power_kw:.1f} kW"),
-            ("天线增益", f"{antenna_gain_db:.1f} dB"),
-            ("波束宽度", f"{beamwidth_deg:.1f}°"),
-            ("采样率", f"{sampling_rate_mhz:.0f} MHz"),
-            ("噪声系数", f"{noise_figure_db:.1f} dB"),
-            ("基带增益", f"{baseband_gain_db:.0f} dB"),
-            ("负载电阻", f"{load_resistance_ohm:.0f} Ω"),
-            ("目标距离", f"{target_range_km:.0f} km"),
-            ("目标RCS", f"{target_rcs_m2:.2f} m²")
-        ]        
+            param_summary = [
+                ("频率", f"{frequency_ghz:.1f} GHz"),
+                ("带宽", f"{bandwidth_mhz:.0f} MHz"),
+                ("PRF", f"{prf_khz:.1f} kHz"),
+                ("脉宽", f"{pulse_width_us:.1f} μs"),
+                ("脉冲数", f"{pulses}"),
+                ("峰值功率", f"{peak_power_kw:.1f} kW"),
+                ("天线增益", f"{antenna_gain_db:.1f} dB"),
+                ("波束宽度", f"{beamwidth_deg:.1f}°"),
+                ("采样率", f"{sampling_rate_mhz:.0f} MHz"),
+                ("噪声系数", f"{noise_figure_db:.1f} dB"),
+                ("基带增益", f"{baseband_gain_db:.0f} dB"),
+                ("负载电阻", f"{load_resistance_ohm:.0f} Ω"),
+                ("目标距离", f"{target_range_km:.0f} km"),
+                ("目标RCS", f"{target_rcs_m2:.2f} m²")
+            ]        
 
-        for name, value in param_summary:
-            col_name, col_value = st.columns([2, 1])
-            with col_name:
-                st.markdown(f"**{name}**")
-            with col_value:
-                st.markdown(f"`{value}`")
-        
-        st.markdown("---")
-        
-        # 导出配置
-        st.markdown("### 💾 导出配置")
-        
-        yaml_config = params.to_yaml()
-        
-        if st.button("📄 显示YAML配置", width='stretch'):
-            st.session_state.show_config = not st.session_state.show_config
-        
-        if st.session_state.show_config:
-            st.code(yaml_config, language='yaml')
-        
-        col_dl1, col_dl2 = st.columns(2)
-        with col_dl1:
-            st.download_button(
-                label="📥 YAML",
-                data=yaml_config,
-                file_name=f"radar_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml",
-                mime="text/yaml",
-                width='stretch'
-            )
-        
-        with col_dl2:
-            python_code = f'''# 长城数字雷达仿真代码
-# 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            for name, value in param_summary:
+                col_name, col_value = st.columns([2, 1])
+                with col_name:
+                    st.markdown(f"**{name}**")
+                with col_value:
+                    st.markdown(f"`{value}`")
+            
+            st.markdown("---")
+            
+            # 导出配置
+            st.markdown("### 💾 导出配置")
+            
+            yaml_config = params.to_yaml()
+            
+            if st.button("📄 显示YAML配置", width='stretch'):
+                st.session_state.show_config = not st.session_state.show_config
+            
+            if st.session_state.show_config:
+                st.code(yaml_config, language='yaml')
+            
+            col_dl1, col_dl2 = st.columns(2)
+            with col_dl1:
+                st.download_button(
+                    label="📥 YAML",
+                    data=yaml_config,
+                    file_name=f"radar_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml",
+                    mime="text/yaml",
+                    width='stretch'
+                )
+            
+            with col_dl2:
+                python_code = f'''# 长城数字雷达仿真代码
+    # 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-import radarsimpy as rs
-import numpy as np
+    import radarsimpy as rs
+    import numpy as np
 
-# 雷达参数配置
-radar = rs.Radar(
-    transmitter={{
-        'freq_hz': {params.frequency_hz},
-        'bandwidth_hz': {params.bandwidth_hz},
-        'prf_hz': {params.prf_hz},
-        'pulse_width_s': {params.pulse_width_s},
-        'pulses': {params.pulses},
-        'power_w': {params.peak_power_w}
-    }},
-    antenna={{
-        'gain_db': {params.antenna_gain_db},
-        'loss_db': {params.antenna_loss_db},
-        'beamwidth_deg': {params.beamwidth_deg},
-        'aperture_m2': {params.aperture_m2}
-    }},
-    receiver={{
-        'noise_figure_db': {params.noise_figure_db},
-        'system_loss_db': {params.system_loss_db},
-        'sampling_rate_hz': {params.sampling_rate_hz},
-        'adc_bits': {params.adc_bits},
-        'baseband_gain_db': {params.baseband_gain_db},
-        'load_resistance_ohm': {params.load_resistance_ohm}
+    # 雷达参数配置
+    radar = rs.Radar(
+        transmitter={{
+            'freq_hz': {params.frequency_hz},
+            'bandwidth_hz': {params.bandwidth_hz},
+            'prf_hz': {params.prf_hz},
+            'pulse_width_s': {params.pulse_width_s},
+            'pulses': {params.pulses},
+            'power_w': {params.peak_power_w}
+        }},
+        antenna={{
+            'gain_db': {params.antenna_gain_db},
+            'loss_db': {params.antenna_loss_db},
+            'beamwidth_deg': {params.beamwidth_deg},
+            'aperture_m2': {params.aperture_m2}
+        }},
+        receiver={{
+            'noise_figure_db': {params.noise_figure_db},
+            'system_loss_db': {params.system_loss_db},
+            'sampling_rate_hz': {params.sampling_rate_hz},
+            'adc_bits': {params.adc_bits},
+            'baseband_gain_db': {params.baseband_gain_db},
+            'load_resistance_ohm': {params.load_resistance_ohm}
+        }}
+    )
+
+    # 目标设置
+    target = {{
+        'rcs_m2': {params.target_rcs_m2},
+        'range_m': {params.target_range_m}
     }}
-)
 
-# 目标设置
-target = {{
-    'rcs_m2': {params.target_rcs_m2},
-    'range_m': {params.target_range_m}
-}}
-
-print("长城数字雷达配置完成!")
-print(f"频率: {{params.frequency_hz/1e9:.1f}} GHz")
-print(f"带宽: {{params.bandwidth_hz/1e6:.0f}} MHz")
-print(f"PRF: {{params.prf_hz/1e3:.1f}} kHz")
-print(f"脉冲宽度: {{params.pulse_width_s*1e6:.1f}} μs")
-print(f"距离分辨率: {{3e8/(2*params.bandwidth_hz):.1f}} m")
-print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
-'''
-            
-            st.download_button(
-                label="🐍 Python",
-                data=python_code,
-                file_name=f"radar_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py",
-                mime="text/x-python",
-                width='stretch'
-            )
-    
-    # 系统建议
-    st.markdown("---")
-    st.markdown("### 💡 系统优化建议")
-    
-    suggestions = []
-    
-    if params.prf_hz < 1000:
-        suggestions.append("**低PRF模式**: 适合远程探测，但测速能力有限。考虑使用脉冲多普勒处理提高测速性能。")
-    elif params.prf_hz > 10000:
-        suggestions.append("**高PRF模式**: 适合测速，但距离模糊严重。建议使用PRF参差或解模糊算法。")
-    else:
-        suggestions.append("**中PRF模式**: 兼顾距离和速度测量，是现代雷达常用模式。")
-    
-    if performance['脉冲压缩比'] < 10:
-        suggestions.append("**脉冲压缩增益较低**: 考虑增加带宽或脉宽以提高处理增益。")
-    elif performance['脉冲压缩比'] > 1000:
-        suggestions.append("**高处理增益**: 需要高性能信号处理器，注意计算复杂度。")
-    
-    if params.bandwidth_hz / params.frequency_hz > 0.1:
-        suggestions.append("**宽带信号**: 相对带宽较大，注意系统线性度和相位一致性。")
-    
-    if performance['信噪比_dB'] < 10:
-        suggestions.append("**信噪比低**: 考虑增加脉冲数、提高发射功率或使用脉冲压缩技术。")
-    
-    for i, suggestion in enumerate(suggestions, 1):
-        st.markdown(f"{i}. {suggestion}")
-    
-    # 性能总结
-    st.markdown("---")
-    col_summary1, col_summary2 = st.columns(2)
-    
-    with col_summary1:
-        st.markdown("#### 📈 性能总结")
-        summary_items = [
-            ("雷达类型", f"{'脉冲压缩' if performance['脉冲压缩比'] > 1 else '简单脉冲'}雷达"),
-            ("工作模式", f"{'低PRF' if params.prf_hz < 1000 else '高PRF' if params.prf_hz > 10000 else '中PRF'}模式"),
-            ("主要应用", f"{'远程监视' if performance['最大不模糊距离_m'] > 50000 else '中程跟踪' if performance['最大不模糊距离_m'] > 20000 else '近程探测'}"),
-            ("设计复杂度", f"{'高' if performance['脉冲压缩比'] > 100 else '中' if performance['脉冲压缩比'] > 10 else '低'}")
-        ]
+    print("长城数字雷达配置完成!")
+    print(f"频率: {{params.frequency_hz/1e9:.1f}} GHz")
+    print(f"带宽: {{params.bandwidth_hz/1e6:.0f}} MHz")
+    print(f"PRF: {{params.prf_hz/1e3:.1f}} kHz")
+    print(f"脉冲宽度: {{params.pulse_width_s*1e6:.1f}} μs")
+    print(f"距离分辨率: {{3e8/(2*params.bandwidth_hz):.1f}} m")
+    print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
+    '''
+                
+                st.download_button(
+                    label="🐍 Python",
+                    data=python_code,
+                    file_name=f"radar_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py",
+                    mime="text/x-python",
+                    width='stretch'
+                )
         
-        for item, value in summary_items:
-            st.markdown(f"**{item}**: {value}")
-    
-    with col_summary2:
-        st.markdown("#### 🎯 适用场景")
+        # 系统建议
+        st.markdown("---")
+        st.markdown("### 💡 系统优化建议")
         
-        if performance['最大不模糊距离_m'] > 50000 and performance['信噪比_dB'] > 15:
-            st.success("✅ 适合远程警戒雷达、对空搜索雷达")
-        elif performance['速度分辨率_m/s'] < 1 and params.prf_hz > 5000:
-            st.success("✅ 适合机载火控雷达、气象雷达")
-        elif params.frequency_hz > 20e9 and performance['距离分辨率_m'] < 1:
-            st.success("✅ 适合合成孔径雷达、精确制导雷达")
+        suggestions = []
+        
+        if params.prf_hz < 1000:
+            suggestions.append("**低PRF模式**: 适合远程探测，但测速能力有限。考虑使用脉冲多普勒处理提高测速性能。")
+        elif params.prf_hz > 10000:
+            suggestions.append("**高PRF模式**: 适合测速，但距离模糊严重。建议使用PRF参差或解模糊算法。")
         else:
-            st.info("ℹ️ 通用雷达配置，可根据具体需求调整")
-    
-    # 脚注
-    st.markdown("---")
-    st.caption(f"""
-    **长城数字雷达参数优化专家系统** • 基于简化雷达方程计算 • 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-    """)
+            suggestions.append("**中PRF模式**: 兼顾距离和速度测量，是现代雷达常用模式。")
+        
+        if performance['脉冲压缩比'] < 10:
+            suggestions.append("**脉冲压缩增益较低**: 考虑增加带宽或脉宽以提高处理增益。")
+        elif performance['脉冲压缩比'] > 1000:
+            suggestions.append("**高处理增益**: 需要高性能信号处理器，注意计算复杂度。")
+        
+        if params.bandwidth_hz / params.frequency_hz > 0.1:
+            suggestions.append("**宽带信号**: 相对带宽较大，注意系统线性度和相位一致性。")
+        
+        if performance['信噪比_dB'] < 10:
+            suggestions.append("**信噪比低**: 考虑增加脉冲数、提高发射功率或使用脉冲压缩技术。")
+        
+        for i, suggestion in enumerate(suggestions, 1):
+            st.markdown(f"{i}. {suggestion}")
+        
+        # 性能总结
+        st.markdown("---")
+        col_summary1, col_summary2 = st.columns(2)
+        
+        with col_summary1:
+            st.markdown("#### 📈 性能总结")
+            summary_items = [
+                ("雷达类型", f"{'脉冲压缩' if performance['脉冲压缩比'] > 1 else '简单脉冲'}雷达"),
+                ("工作模式", f"{'低PRF' if params.prf_hz < 1000 else '高PRF' if params.prf_hz > 10000 else '中PRF'}模式"),
+                ("主要应用", f"{'远程监视' if performance['最大不模糊距离_m'] > 50000 else '中程跟踪' if performance['最大不模糊距离_m'] > 20000 else '近程探测'}"),
+                ("设计复杂度", f"{'高' if performance['脉冲压缩比'] > 100 else '中' if performance['脉冲压缩比'] > 10 else '低'}")
+            ]
+            
+            for item, value in summary_items:
+                st.markdown(f"**{item}**: {value}")
+        
+        with col_summary2:
+            st.markdown("#### 🎯 适用场景")
+            
+            if performance['最大不模糊距离_m'] > 50000 and performance['信噪比_dB'] > 15:
+                st.success("✅ 适合远程警戒雷达、对空搜索雷达")
+            elif performance['速度分辨率_m/s'] < 1 and params.prf_hz > 5000:
+                st.success("✅ 适合机载火控雷达、气象雷达")
+            elif params.frequency_hz > 20e9 and performance['距离分辨率_m'] < 1:
+                st.success("✅ 适合合成孔径雷达、精确制导雷达")
+            else:
+                st.info("ℹ️ 通用雷达配置，可根据具体需求调整")
+        
+        # 脚注
+        st.markdown("---")
+        st.caption(f"""
+        **长城数字雷达参数优化专家系统** • 基于简化雷达方程计算 • 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """)
 
 if __name__ == "__main__":
     if 'current_preset' not in st.session_state:
