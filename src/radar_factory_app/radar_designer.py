@@ -222,7 +222,7 @@ st.markdown("""
         border: 1px solid #334155;
         border-radius: 12px;
         padding: 0.02rem;
-        margin: 1rem 0;
+        margin: 0.01rem 0;
         backdrop-filter: blur(10px);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
@@ -858,6 +858,78 @@ def plot_performance_tradeoffs(params: RadarParameters, performance: Dict):
     
     return fig  
 
+# 计算雷达图数据
+def calculate_radar_chart_data(performance, params):
+    """计算雷达图数据"""
+    
+    # 距离性能 (0-100)
+    # 距离分辨率越小越好，我们转换为越大越好
+    range_res_optimal = 0.1  # 最佳距离分辨率
+    range_res_max = 100.0    # 最大距离分辨率
+    range_score = max(0, 100 - ((performance['距离分辨率_m'] - range_res_optimal) / 
+                               (range_res_max - range_res_optimal)) * 100)
+    range_score = min(100, max(0, range_score))
+    
+    # 速度性能
+    # 速度分辨率越小越好
+    vel_res_optimal = 0.1    # 最佳速度分辨率
+    vel_res_max = 100.0      # 最大速度分辨率
+    velocity_score = max(0, 100 - ((performance['速度分辨率_m/s'] - vel_res_optimal) / 
+                                  (vel_res_max - vel_res_optimal)) * 100)
+    velocity_score = min(100, max(0, velocity_score))
+    
+    # 探测范围性能
+    # 最大不模糊距离越大越好
+    max_range_optimal = 500000  # 最佳最大距离
+    max_range_score = min(100, (performance['最大不模糊距离_m'] / max_range_optimal) * 100)
+    
+    # 速度范围性能
+    # 最大不模糊速度越大越好
+    max_vel_optimal = 1000  # 最佳最大速度 m/s
+    max_velocity_score = min(100, (performance['最大不模糊速度_m/s'] / max_vel_optimal) * 100)
+    
+    # 信噪比性能
+    # 信噪比越大越好
+    snr_optimal = 30  # 最佳信噪比 dB
+    snr_current = max(performance['信噪比_dB'], 0)  # 避免负值
+    snr_score = min(100, (snr_current / snr_optimal) * 100)
+    
+    # 占空比性能
+    # 理想占空比在1-10%之间
+    duty_cycle = performance['占空比_百分比']
+    if duty_cycle < 1:
+        duty_score = (duty_cycle / 1) * 50  # 太低占空比
+    elif duty_cycle <= 10:
+        duty_score = 50 + ((duty_cycle - 1) / 9) * 50  # 理想范围
+    else:
+        duty_score = max(0, 100 - (duty_cycle - 10) * 2)  # 太高占空比
+    
+    # 脉冲压缩性能
+    # 脉冲压缩比适中最好
+    compression_ratio = performance['脉冲压缩比']
+    if compression_ratio < 10:
+        compression_score = (compression_ratio / 10) * 50
+    elif compression_ratio <= 1000:
+        compression_score = 50 + ((min(compression_ratio, 1000) - 10) / 990) * 50
+    else:
+        compression_score = 100  # 很高
+    
+    # 采样率性能
+    # 采样率越高越好，但也要合理
+    sampling_ratio = params.sampling_rate_hz / params.bandwidth_hz
+    sampling_score = min(100, (sampling_ratio / 2.5) * 50)  # 2.5倍为理想
+    
+    return {
+        '距离分辨率': range_score,
+        '速度分辨率': velocity_score,
+        '最大距离': max_range_score,
+        '最大速度': max_velocity_score,
+        '信噪比': snr_score,
+        '占空比': duty_score,
+        '脉冲压缩': compression_score,
+        '采样率': sampling_score
+    }
+
 def main():
     """主应用函数"""
     # 标题
@@ -1193,11 +1265,13 @@ def main():
         fig_tradeoff = plot_performance_tradeoffs(params, performance)
         st.plotly_chart(fig_tradeoff, width='stretch', config={'displayModeBar': True})  
         # 性能权衡分析图看点  
-        st.markdown("#### ⚖️ 指南：如何解读上面的性能权衡分析图")  
-        st.markdown("> 左上：PRF越高，最大不模糊距离越小，存在距离模糊风险。")
-        st.markdown("> 右上：PRF越高，最大不模糊速度越大，测速能力越强。")
-        st.markdown("> 左下：PRF越高，速度分辨率越差。")
-        st.markdown("> 右下：距离和速度的权衡关系，雷达需要在这两者之间做出选择。")
+        with st.expander("⚖️ 指南：如何解读上面的性能权衡分析图"):
+            st.markdown("""                                    
+             1. **左上：** PRF越高，最大不模糊距离越小，存在距离模糊风险;
+             2. **右上：** PRF越高，最大不模糊速度越大，测速能力越强;
+             3. **左下：** PRF越高，速度分辨率越差;
+             4. **右下：** 距离和速度的权衡关系，雷达需要在这两者之间做出选择。
+             """)
         # 详细参数表
         st.markdown("### 📋 派生参数表")
         
@@ -1270,6 +1344,329 @@ def main():
         #     st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
+        # 性能指标雷达图
+        st.markdown("### 📈 性能指标雷达图")
+        
+        # 获取雷达图数据
+        radar_data = calculate_radar_chart_data(performance, params)
+
+        # 创建雷达图
+        fig_radar = go.Figure()
+
+        # 添加雷达图数据
+        categories = list(radar_data.keys())
+        values = list(radar_data.values())
+
+        # 确保图形闭合
+        categories_with_closure = categories + [categories[0]]
+        values_with_closure = values + [values[0]]
+
+        fig_radar.add_trace(go.Scatterpolar(
+            r=values_with_closure,
+            theta=categories_with_closure,
+            fill='toself',
+            fillcolor='rgba(96, 165, 250, 0.3)',
+            line_color='#60a5fa',
+            line_width=3,
+            name='当前性能',
+            hovertemplate='%{theta}: %{r:.1f}%<extra></extra>'
+        ))
+
+        # 添加基准线（60%为良好，80%为优秀）
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[60] * len(categories_with_closure),
+            theta=categories_with_closure,
+            line_color='#fbbf24',
+            line_width=2,
+            line_dash='dash',
+            name='良好基准',
+            hovertemplate='良好基准: 60%<extra></extra>'
+        ))
+
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[80] * len(categories_with_closure),
+            theta=categories_with_closure,
+            line_color='#34d399',
+            line_width=2,
+            line_dash='dash',
+            name='优秀基准',
+            hovertemplate='优秀基准: 80%<extra></extra>'
+        ))
+
+        # 更新布局
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 100],
+                    tickfont=dict(size=10, color='#94a3b8'),
+                    gridcolor='rgba(148, 163, 184, 0.3)',
+                    angle=45
+                ),
+                angularaxis=dict(
+                    tickfont=dict(size=11, color='#cbd5e1'),
+                    rotation=90,
+                    direction='clockwise'
+                ),
+                bgcolor='rgba(15, 23, 42, 0.5)'
+            ),
+            showlegend=True,
+            legend=dict(
+                font=dict(color='#cbd5e1'),
+                bgcolor='rgba(15, 23, 42, 0.8)',
+                bordercolor='#334155',
+                borderwidth=1
+            ),
+            paper_bgcolor='rgba(15, 23, 42, 0)',
+            plot_bgcolor='rgba(15, 23, 42, 0)',
+            height=500,
+            margin=dict(l=50, r=50, t=30, b=30)
+        )
+        # 创建选项卡
+        tab1, tab2, tab3 = st.tabs(["📊 雷达图", "📈 性能分布", "📋 详细评分"])
+
+        with tab1:
+            # 雷达图
+            st.plotly_chart(fig_radar, use_container_width=True)
+            
+            # 图例说明
+            col_legend1, col_legend2, col_legend3 = st.columns(3)
+            with col_legend1:
+                st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
+                        '<div style="width: 20px; height: 4px; background: #60a5fa; border-radius: 2px;"></div>'
+                        '<span style="color: #94a3b8; font-size: 0.9rem;">当前性能</span>'
+                        '</div>', unsafe_allow_html=True)
+            
+            with col_legend2:
+                st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
+                        '<div style="width: 20px; height: 2px; background: #fbbf24; border-radius: 2px; border: 1px dashed #fbbf24;"></div>'
+                        '<span style="color: #94a3b8; font-size: 0.9rem;">良好基准</span>'
+                        '</div>', unsafe_allow_html=True)
+            
+            with col_legend3:
+                st.markdown('<div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">'
+                        '<div style="width: 20px; height: 2px; background: #34d399; border-radius: 2px; border: 1px dashed #34d399;"></div>'
+                        '<span style="color: #94a3b8; font-size: 0.9rem;">优秀基准</span>'
+                        '</div>', unsafe_allow_html=True)
+
+        with tab2:
+            # 性能分布柱状图
+            fig_bar = go.Figure()
+            
+            # 颜色映射
+            colors = []
+            for score in values:
+                if score >= 80:
+                    colors.append('#34d399')  # 优秀 - 绿色
+                elif score >= 60:
+                    colors.append('#fbbf24')  # 良好 - 黄色
+                elif score >= 40:
+                    colors.append('#fb923c')  # 一般 - 橙色
+                else:
+                    colors.append('#ef4444')  # 需改进 - 红色
+            
+            fig_bar.add_trace(go.Bar(
+                x=categories,
+                y=values,
+                marker_color=colors,
+                text=[f"{v:.1f}%" for v in values],
+                textposition='outside',
+                hovertemplate='%{x}: %{y:.1f}%<extra></extra>',
+                name='性能分数'
+            ))
+            
+            # 添加基准线
+            fig_bar.add_hline(y=60, line_dash="dash", line_color="#fbbf24", 
+                            annotation_text="良好基准", 
+                            annotation_position="top right",
+                            annotation_font=dict(color="#fbbf24", size=10))
+            fig_bar.add_hline(y=80, line_dash="dash", line_color="#34d399", 
+                            annotation_text="优秀基准", 
+                            annotation_position="top right",
+                            annotation_font=dict(color="#34d399", size=10))
+            
+            fig_bar.update_layout(
+                title=dict(text="性能指标分布", font=dict(color='#ffffff', size=16)),
+                xaxis=dict(
+                    title="性能指标",
+                    title_font=dict(color='#94a3b8'),
+                    tickfont=dict(color='#cbd5e1'),
+                    gridcolor='rgba(148, 163, 184, 0.2)'
+                ),
+                yaxis=dict(
+                    title="分数 (%)",
+                    title_font=dict(color='#94a3b8'),
+                    tickfont=dict(color='#cbd5e1'),
+                    gridcolor='rgba(148, 163, 184, 0.2)',
+                    range=[0, 100]
+                ),
+                paper_bgcolor='rgba(15, 23, 42, 0)',
+                plot_bgcolor='rgba(15, 23, 42, 0.3)',
+                height=400,
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig_bar, use_container_width=True)
+            
+            # 性能统计
+            avg_score = np.mean(values)
+            max_score = np.max(values)
+            min_score = np.min(values)
+            
+            col_stat1, col_stat2, col_stat3 = st.columns(3)
+            with col_stat1:
+                st.metric("平均分", f"{avg_score:.1f}%", 
+                        delta="优秀" if avg_score >= 80 else "良好" if avg_score >= 60 else "一般")
+            with col_stat2:
+                st.metric("最高分", f"{max_score:.1f}%")
+            with col_stat3:
+                st.metric("最低分", f"{min_score:.1f}%")
+            
+            # 添加雷达性能指标说明
+            with st.expander("📋 指南：如何解读上面的性能指标"):
+                st.markdown("""                
+                1. **距离分辨率**: 雷达能够分辨的两个目标之间的最小距离差
+                2. **速度分辨率**: 雷达能够分辨的两个目标之间的最小速度差
+                3. **最大距离**: 雷达理论上能够探测到目标的最大距离
+                4. **最大速度**: 雷达理论上能够测量的最大目标速度
+                5. **信噪比**: 信号与噪声的功率比值，影响探测概率
+                6. **占空比**: 发射脉冲时间占脉冲重复周期的时间比例
+                7. **脉冲压缩**: 通过脉冲压缩技术获得的时间带宽积
+                8. **采样率**: ADC采样率与信号带宽的比值
+                """)
+        with tab3:
+            # 准备数据
+            table_data = []
+            for metric, score in radar_data.items():
+                # 获取当前值
+                if metric == '距离分辨率':
+                    current_value = f"{performance['距离分辨率_m']:.2f} m"
+                elif metric == '速度分辨率':
+                    current_value = f"{performance['速度分辨率_m/s']:.2f} m/s"
+                elif metric == '最大距离':
+                    current_value = f"{performance['最大不模糊距离_m']/1000:.1f} km"
+                elif metric == '最大速度':
+                    current_value = f"{performance['最大不模糊速度_m/s']:.2f} m/s"
+                elif metric == '信噪比':
+                    current_value = f"{performance['信噪比_dB']:.1f} dB"
+                elif metric == '占空比':
+                    current_value = f"{performance['占空比_百分比']:.2f}%"
+                elif metric == '脉冲压缩':
+                    current_value = f"{performance['脉冲压缩比']:.0f}"
+                elif metric == '采样率':
+                    current_value = f"{(params.sampling_rate_hz / params.bandwidth_hz):.1f}x"
+                else:
+                    current_value = "-"
+                
+                # 评分等级
+                if score >= 80:
+                    rating = "优秀"
+                    advice = "保持当前设置"
+                elif score >= 60:
+                    rating = "良好"
+                    advice = "可继续优化"
+                elif score >= 40:
+                    rating = "一般"
+                    advice = "建议调整参数"
+                else:
+                    rating = "需改进"
+                    advice = "重点优化"
+                
+                table_data.append({
+                    '性能指标': metric,
+                    '当前值': current_value,
+                    '分数': f"{score:.1f}%",
+                    '评价': rating,
+                    '建议': advice
+                })
+            
+            # 创建DataFrame
+            df = pd.DataFrame(table_data)
+            
+            # 定义HTML样式
+            html_table = '''
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; backdrop-filter: blur(10px);">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: rgba(96, 165, 250, 0.2);">
+                            <th style="color: #60a5fa; padding: 12px 15px; text-align: left; font-weight: 600;">性能指标</th>
+                            <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">当前值</th>
+                            <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">分数</th>
+                            <th style="color: #60a5fa; padding: 12px 15px; text-align: center; font-weight: 600;">评价</th>
+                            <th style="color: #60a5fa; padding: 12px 15px; text-align: left; font-weight: 600;">建议</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            '''
+            
+            # 添加行
+            for _, row in df.iterrows():
+                # 确定颜色
+                score_val = float(row['分数'].replace('%', ''))
+                if score_val >= 80:
+                    score_color = "#34d399"
+                    rating_color = "#34d399"
+                elif score_val >= 60:
+                    score_color = "#fbbf24"
+                    rating_color = "#fbbf24"
+                elif score_val >= 40:
+                    score_color = "#fb923c"
+                    rating_color = "#fb923c"
+                else:
+                    score_color = "#ef4444"
+                    rating_color = "#ef4444"
+                
+                html_table += f'''
+                <tr style="border-bottom: 1px solid #334155;">
+                    <td style="color: #cbd5e1; padding: 10px 15px;">{row['性能指标']}</td>
+                    <td style="color: #cbd5e1; padding: 10px 15px; text-align: center;">{row['当前值']}</td>
+                    <td style="color: {score_color}; font-weight: 600; padding: 10px 15px; text-align: center; font-family: 'Courier New', monospace;">{row['分数']}</td>
+                    <td style="color: {rating_color}; font-weight: 600; padding: 10px 15px; text-align: center;">{row['评价']}</td>
+                    <td style="color: #cbd5e1; padding: 10px 15px;">{row['建议']}</td>
+                </tr>
+                '''
+            
+            html_table += '''
+                    </tbody>
+                </table>
+            </div>
+            '''
+            
+            # 显示HTML表格
+            # st.markdown(html_table, unsafe_allow_html=True)
+            # 使用st.components.v1.html渲染
+            from streamlit import components    
+            components.v1.html(html_table, height=400, scrolling=False) # type: ignore
+            
+            # 总体建议
+            st.markdown("---")
+            st.markdown("### 💡 性能优化建议")
+            
+            suggestions = []
+            avg_score = np.mean(list(radar_data.values()))
+            
+            if avg_score >= 80:
+                suggestions.append("✅ **整体性能优秀**：当前参数配置非常合理，各项性能指标均衡")
+            elif avg_score >= 60:
+                suggestions.append("📈 **整体性能良好**：大部分指标表现良好，部分指标有优化空间")
+            else:
+                suggestions.append("⚠️ **整体性能需提升**：多个关键指标有待优化，建议调整参数配置")
+            
+            # 找出最低分的指标
+            min_metric = min(radar_data.items(), key=lambda x: x[1])
+            if min_metric[1] < 40:
+                suggestions.append(f"🔧 **重点关注**：{min_metric[0]}得分较低({min_metric[1]:.1f}%)，是主要性能瓶颈")
+            
+            # 检查信噪比
+            if radar_data['信噪比'] < 40:
+                suggestions.append("📶 **信噪比不足**：考虑增加脉冲数、提高发射功率或使用脉冲压缩")
+            
+            # 检查距离分辨率
+            if radar_data['距离分辨率'] < 40 and performance['距离分辨率_m'] > 10:
+                suggestions.append("📏 **距离分辨率偏低**：可考虑增加带宽以提高距离分辨率")
+            
+            for i, suggestion in enumerate(suggestions, 1):
+                st.markdown(f"{i}. {suggestion}")        
     
     with col_main_right:
         # 快速评估
@@ -1295,7 +1692,14 @@ def main():
             st.error(f"⚠️ **采样率不足** ({sampling_ratio:.1f}倍带宽)")
         else:
             st.success(f"✅ **采样率合理** ({sampling_ratio:.1f}倍带宽)")
-        
+            
+        with st.expander("📋 指南：出现警告时，调节左侧栏中相关参数"): 
+            st.markdown("""
+                        
+                        1. **距离模糊风险**：目标距离超过最大不模糊距离时，目标可能无法被清晰识别。
+                        2. **占空比**：高占空比可能导致系统过热，低占空比可能不适合峰值功率应用。
+                        3. **采样率不足**：采样率低于2倍带宽时，可能导致信号失真,建议2.5倍。
+                        """)
         st.markdown("---")
         
         # 当前参数摘要
