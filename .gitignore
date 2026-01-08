@@ -83,3 +83,4 @@ data/processed/*
 .DS_Store
 Thumbs.db
 outputs/
+Ubuntu22_x86_64_GPU.zip
