@@ -32,7 +32,7 @@ class ScientificFloatLoader(yaml.SafeLoader):
 
 # 页面配置
 st.set_page_config(
-    page_title="长城数字雷达参数设计器",
+    page_title="长城数字雷达参数优化专家系统",
     page_icon="📡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -861,7 +861,7 @@ def plot_performance_tradeoffs(params: RadarParameters, performance: Dict):
 def main():
     """主应用函数"""
     # 标题
-    st.markdown('<h1 class="main-header">长城数字雷达参数设计器</h1>', 
+    st.markdown('<h1 class="main-header">长城数字雷达参数优化专家系统</h1>', 
                 unsafe_allow_html=True)
     st.markdown('<p class="sub-header">交互式设计雷达参数，优化性能指标，导出为仿真配置文件</p>', 
                 unsafe_allow_html=True)
@@ -1189,9 +1189,15 @@ def main():
         
         # 性能权衡分析图
         st.markdown("### 📈 性能权衡分析")
+        
         fig_tradeoff = plot_performance_tradeoffs(params, performance)
         st.plotly_chart(fig_tradeoff, width='stretch', config={'displayModeBar': True})  
-            
+        # 性能权衡分析图看点  
+        st.markdown("#### ⚖️ 指南：如何解读上面的性能权衡分析图")  
+        st.markdown("> 左上：PRF越高，最大不模糊距离越小，存在距离模糊风险。")
+        st.markdown("> 右上：PRF越高，最大不模糊速度越大，测速能力越强。")
+        st.markdown("> 左下：PRF越高，速度分辨率越差。")
+        st.markdown("> 右下：距离和速度的权衡关系，雷达需要在这两者之间做出选择。")
         # 详细参数表
         st.markdown("### 📋 派生参数表")
         
@@ -1456,7 +1462,7 @@ print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
     # 脚注
     st.markdown("---")
     st.caption(f"""
-    **长城数字雷达参数设计器** • 基于简化雷达方程计算 • 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    **长城数字雷达参数优化专家系统** • 基于简化雷达方程计算 • 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     """)
 
 if __name__ == "__main__":
