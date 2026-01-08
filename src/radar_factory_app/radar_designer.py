@@ -720,7 +720,7 @@ def plot_performance_tradeoffs(params: RadarParameters, performance: Dict):
             '速度分辨率 vs PRF',
             '距离-速度模糊区域'
         ),
-        vertical_spacing=0.15,
+        vertical_spacing=0.25,
         horizontal_spacing=0.15
     )
     
