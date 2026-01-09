@@ -3,6 +3,7 @@
 """
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
+import numpy as np
 from ..entities import Radar, Jammer, Target
 
 class CombatScenario(ABC):

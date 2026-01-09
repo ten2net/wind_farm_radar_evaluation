@@ -21,8 +21,8 @@ one_vs_one:
     type: "standoff_jammer"
     variant: "EA-18G咆哮者"
     position:
-      lat: 40.2
-      lon: 116.8
+      lat: 39.5
+      lon: 116.1
       alt: 10000
     params_override:
       power: 1200
@@ -63,8 +63,8 @@ many_vs_one:
     type: "standoff_jammer"
     variant: "EA-18G咆哮者"
     position:
-      lat: 40.5
-      lon: 117.0
+      lat: 39.5
+      lon: 115.8
       alt: 12000
   
   targets:
