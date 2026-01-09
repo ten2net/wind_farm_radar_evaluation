@@ -47,6 +47,14 @@ class EntityFactory:
         return Radar(
             id=config.get("id", "radar_001"),
             name=config.get("name", "未知雷达"),
+            entity_type=config.get("entity_type", "radar"),
+            position=position,
+            radar_params=radar_params
+        )
+    
+    @staticmethod
+    def create_radar_from_yaml(file_path: str) -> Radar:
+        """从yaml文件中创建雷达"""
             position=position,
             radar_params=radar_params
         )

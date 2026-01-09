@@ -129,7 +129,7 @@ class Entity(ABC):
 @dataclass
 class Radar(Entity):
     """雷达实体"""
-    radar_params: RadarParameters
+    radar_params: RadarParameters= field(default_factory=RadarParameters) # type: ignore
     detection_history: List[Dict] = field(default_factory=list)
     coverage_polygon: Optional[Any] = None
     
@@ -174,7 +174,7 @@ class Radar(Entity):
 @dataclass
 class Jammer(Entity):
     """干扰机实体"""
-    jammer_params: JammerParameters
+    jammer_params: JammerParameters = field(default_factory=JammerParameters) # type: ignore
     jamming_targets: List[str] = field(default_factory=list)
     effective_sector: Optional[Any] = None
     

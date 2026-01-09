@@ -964,7 +964,7 @@ class SimulationView:
             )
         
         # 开始仿真按钮
-        if st.button("🚀 开始仿真", type="primary", use_container_width=True):
+        if st.button("🚀 开始仿真", type="primary", width='stretch'):
             if not selected_radars:
                 st.error("请选择至少一个雷达")
             else:

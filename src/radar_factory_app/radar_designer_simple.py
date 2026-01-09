@@ -828,7 +828,7 @@ def main():
         # 性能权衡分析图
         st.markdown("### 📈 性能权衡分析")
         fig = plot_performance_tradeoffs(params)
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+        st.plotly_chart(fig, width='stretch', config={'displayModeBar': True})
         
         # 详细参数表 - 优化版（模仿图片但改进配色）
         st.markdown("### 📋 详细参数表")
@@ -996,7 +996,7 @@ def main():
                 data=config_json,
                 file_name=f"radar_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                 mime="application/json",
-                use_container_width=True
+                width='stretch'
             )
         
         with col_dl2:
@@ -1049,7 +1049,7 @@ print(f"最大不模糊距离: {{3e8/(2*params.prf_hz)/1000:.1f}} km")
                 data=python_code,
                 file_name=f"radar_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py",
                 mime="text/x-python",
-                use_container_width=True
+                width='stretch'
             )
     
     # 系统建议

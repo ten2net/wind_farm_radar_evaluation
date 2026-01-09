@@ -29,7 +29,7 @@ def create_header():
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h1 class="main-title">🛡️ 电子战对抗仿真系统</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">🛡️ 长城数字电子战对抗仿真系统</h1>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">高级电子战体系对抗仿真与评估平台</p>', unsafe_allow_html=True)
 
 def create_status_bar(radar_count, jammer_count, target_count, scenario_name="未选择"):
@@ -142,15 +142,15 @@ def create_simulation_controls(on_start=None, on_pause=None, on_reset=None):
         start_col, pause_col, reset_col = st.columns(3)
         
         with start_col:
-            if on_start and st.button("▶️ 开始仿真", type="primary", use_container_width=True):
+            if on_start and st.button("▶️ 开始仿真", type="primary", width='stretch'):
                 on_start(simulation_speed, duration)
         
         with pause_col:
-            if on_pause and st.button("⏸️ 暂停仿真", use_container_width=True):
+            if on_pause and st.button("⏸️ 暂停仿真", width='stretch'):
                 on_pause()
         
         with reset_col:
-            if on_reset and st.button("🔄 重置仿真", use_container_width=True):
+            if on_reset and st.button("🔄 重置仿真", width='stretch'):
                 on_reset()
     
     return simulation_speed, duration

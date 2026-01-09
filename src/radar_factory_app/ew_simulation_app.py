@@ -168,7 +168,7 @@ def main():
                     st.metric("检测概率", f"{detection_prob*100:.0f}%")
         
         # 执行仿真按钮
-        if st.button("🚀 开始仿真", use_container_width=True):
+        if st.button("🚀 开始仿真", width='stretch'):
             with st.spinner("执行仿真中..."):
                 results = simulator.simulate_scenario()
                 
@@ -208,7 +208,7 @@ def main():
                         template="plotly_dark"
                     )
                     
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
     
     else:
         st.info("👈 请从侧边栏加载仿真配置文件")

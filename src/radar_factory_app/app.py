@@ -222,23 +222,23 @@ class RadarFactoryApp:
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("📊 仪表板", key="sidebar_btn_dashboard", use_container_width=True):
+                if st.button("📊 仪表板", key="sidebar_btn_dashboard", width='stretch'):
                     st.session_state.current_view = "dashboard"
                     st.rerun()
             
             with col2:
-                if st.button("⚙️ 雷达设计", key="sidebar_btn_editor", use_container_width=True):
+                if st.button("⚙️ 雷达设计", key="sidebar_btn_editor", width='stretch'):
                     st.session_state.current_view = "radar_editor"
                     st.rerun()
             
             col3, col4 = st.columns(2)
             with col3:
-                if st.button("🎯 仿真分析", key="sidebar_btn_simulation", use_container_width=True):
+                if st.button("🎯 仿真分析", key="sidebar_btn_simulation", width='stretch'):
                     st.session_state.current_view = "simulation"
                     st.rerun()
             
             with col4:
-                if st.button("📈 性能对比", key="sidebar_btn_comparison", use_container_width=True):
+                if st.button("📈 性能对比", key="sidebar_btn_comparison", width='stretch'):
                     st.session_state.current_view = "comparison"
                     st.rerun()
             
@@ -258,16 +258,16 @@ class RadarFactoryApp:
             # 快速操作
             st.subheader("🚀 快速操作")
             
-            if st.button("🆕 新建雷达", key="sidebar_btn_new_radar", use_container_width=True):
+            if st.button("🆕 新建雷达", key="sidebar_btn_new_radar", width='stretch'):
                 st.session_state.editing_radar_id = None
                 st.session_state.current_view = "radar_editor"
                 st.rerun()
             
-            if st.button("🔄 运行仿真", key="sidebar_btn_run_sim", use_container_width=True):
+            if st.button("🔄 运行仿真", key="sidebar_btn_run_sim", width='stretch'):
                 st.session_state.current_view = "simulation"
                 st.rerun()
             
-            if st.button("📤 导出数据", key="sidebar_btn_export", use_container_width=True):
+            if st.button("📤 导出数据", key="sidebar_btn_export", width='stretch'):
                 self._export_all_data()
             
             st.markdown("---")
@@ -284,7 +284,7 @@ class RadarFactoryApp:
             )
             
             # 数据管理
-            if st.button("清空缓存", key="sidebar_btn_clear_cache", use_container_width=True):
+            if st.button("清空缓存", key="sidebar_btn_clear_cache", width='stretch'):
                 controller.clear_cache()
                 st.success("缓存已清空")
                 st.rerun()

@@ -34,7 +34,7 @@ import numpy as np
 
 # 页面配置
 st.set_page_config(
-    page_title="电子战对抗仿真系统",
+    page_title="长城数字电子战对抗仿真系统",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -232,7 +232,6 @@ def initialize_app():
     """初始化应用"""
     # 加载CSS
     load_css()
-    
     # 初始化状态
     if 'app_state' not in st.session_state:
         st.session_state.app_state = AppState()
@@ -245,7 +244,7 @@ def initialize_app():
 def handle_scenario_selection(scenario_type):
     """处理想定选择"""
     state = st.session_state.app_state
-    
+
     if scenario_type in state.scenario_db:
         config = state.scenario_db[scenario_type]
         
@@ -395,7 +394,7 @@ def main():
                     viz = EWVisualizer.create_coverage_map(
                         state.radars, state.jammers, state.targets
                     )
-                    st.bokeh_chart(viz, use_container_width=True)
+                    st.bokeh_chart(viz, width='stretch') # type: ignore
                 
                 # 结果显示
                 st.subheader("📊 效能评估")
@@ -427,7 +426,7 @@ def main():
             "类型": ["雷达", "干扰机", "目标"],
             "数量": [len(state.radars), len(state.jammers), len(state.targets)]
         }
-        st.dataframe(pd.DataFrame(stats_data), use_container_width=True)
+        st.dataframe(pd.DataFrame(stats_data), width='stretch')
         
         st.write("**仿真状态:**")
         if state.simulation_results:
@@ -443,13 +442,13 @@ def main():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">⚡ 快捷操作</div>', unsafe_allow_html=True)
         
-        if st.button("📁 保存当前配置", use_container_width=True):
+        if st.button("📁 保存当前配置", width='stretch'):
             st.success("配置已保存")
         
-        if st.button("📤 载入配置", use_container_width=True):
+        if st.button("📤 载入配置", width='stretch'):
             st.info("载入功能开发中...")
         
-        if st.button("🔄 重置系统", use_container_width=True, type="secondary"):
+        if st.button("🔄 重置系统", width='stretch', type="secondary"):
             state.reset()
             st.rerun()
         
@@ -482,7 +481,7 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; font-size: 0.9rem;">
-        <p>电子战对抗仿真系统 v2.0 | © 2024 电子战仿真实验室</p>
+        <p>长城数字电子战对抗仿真系统 v2.0 | © 2024 电子战仿真实验室</p>
         <p>本系统为仿真工具，结果仅供参考，实际作战应用需结合具体战场环境</p>
     </div>
     """, unsafe_allow_html=True)
