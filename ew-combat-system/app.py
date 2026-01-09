@@ -1,7 +1,7 @@
 """
 电子战对抗仿真系统 - Streamlit主应用
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import streamlit as st
 import sys
 import os
@@ -15,37 +15,85 @@ import webbrowser
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import json
+from datetime import datetime
+import hashlib
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
 
 # 导入自定义模块
-from src.core.patterns.strategy import ScenarioFactory
-from src.core.factory import EntityFactory
-from src.visualization.geoviz import EWVisualizer, create_visualization
-from src.ui.components import (
-    create_header, 
-    create_status_bar,
-    create_scenario_selector,
-    create_entity_configurator,
-    create_simulation_controls,
-    create_results_display,
-    create_environment_settings,
-    create_export_panel,
-    create_progress_bar
-)
-from src.utils.config_loader import load_radar_database, load_scenarios
-import yaml
-import json
-from datetime import datetime
+try:
+    from src.core.patterns.strategy import ScenarioFactory
+    from src.core.factory import EntityFactory
+    from src.visualization.geoviz import EWVisualizer, create_visualization
+    from src.ui.components import (
+        create_header, 
+        create_status_bar,
+        create_scenario_selector,
+        create_entity_configurator,
+        create_simulation_controls,
+        create_results_display,
+        create_environment_settings,
+        create_export_panel,
+        create_progress_bar
+    )
+    from src.utils.config_loader import load_radar_database, load_scenarios
+except ImportError as e:
+    st.warning(f"某些模块导入失败: {e}")
+    # 创建虚拟模块
+    class ScenarioFactory:
+        @staticmethod
+        def get_available_scenarios():
+            return ["海岸防御", "海岛进攻", "要地防空", "海上拦截"]
+        @staticmethod
+        def create_scenario(name):
+            class DummyScenario:
+                def __init__(self):
+                    self.name = name
+                    self.radars = []
+                    self.jammers = []
+                    self.targets = []
+                def setup(self, config): pass
+                def execute(self): return {}
+                def assess(self): return {}
+            return DummyScenario()
+    
+    class EntityFactory: pass
+    
+    class EWVisualizer:
+        def __init__(self, projection='PlateCarree'):
+            self.crs = projection
+        def create_ew_situation_map(self, *args, **kwargs):
+            return None
+        def save_to_html(self, *args, **kwargs):
+            return ""
+        def create_signal_strength_heatmap(self, *args, **kwargs):
+            return None
+    
+    def create_visualization(*args, **kwargs):
+        return ""
+    
+    def create_header(): st.title("长城数字电子战对抗仿真系统")
+    def create_status_bar(*args, **kwargs): pass
+    def create_scenario_selector(*args, **kwargs): return None
+    def create_entity_configurator(*args, **kwargs): pass
+    def create_simulation_controls(*args, **kwargs): return 1, 10
+    def create_results_display(*args, **kwargs): pass
+    def create_environment_settings(*args, **kwargs): pass
+    def create_export_panel(*args, **kwargs): pass
+    def create_progress_bar(*args, **kwargs): pass
+    
+    def load_radar_database(): return {}
+    def load_scenarios(): return {}
 
 # 在应用开始时加载Holoviews扩展
 try:
     # 加载Bokeh扩展
     hv.extension('bokeh', logo=False)
     gv.extension('bokeh', logo=False)
-    st.success("✓ 可视化扩展加载成功")
+    # st.success("✓ 可视化扩展加载成功")
 except Exception as e:
     st.warning(f"⚠️ 加载可视化扩展时出错: {e}")
 
@@ -93,7 +141,7 @@ def create_spectrum_analysis_matplotlib(frequencies: np.ndarray,
                                       powers: np.ndarray,
                                       radar_freqs: Optional[List[float]] = None,
                                       jammer_freqs: Optional[List[float]] = None,
-                                      title: str = "频谱分析") -> plt.Figure: # type: ignore
+                                      title: str = "频谱分析") -> plt.Figure:
     """使用Matplotlib创建频谱分析图"""
     fig, ax = plt.subplots(figsize=(10, 6))
     
@@ -121,6 +169,14 @@ def create_spectrum_analysis_matplotlib(frequencies: np.ndarray,
     plt.tight_layout()
     return fig
 
+def generate_unique_key(prefix: str = "key") -> str:
+    """生成唯一的key"""
+    import time
+    import random
+    timestamp = str(time.time()).replace('.', '')
+    random_str = str(random.randint(1000, 9999))
+    return f"{prefix}_{timestamp}_{random_str}"
+
 # 应用状态管理
 class AppState:
     """应用状态管理"""
@@ -145,8 +201,20 @@ class AppState:
         self.radar_db = load_radar_database()
         self.scenario_db = load_scenarios()
         
-        # 可视化器
+        # 可视化器 - 根据图片中的坐标系设置
         self.visualizer = EWVisualizer()
+        
+        # 可视化控制状态
+        self.viz_type = "态势地图"
+        self.map_style = "标准"
+        self.show_coverage = True
+        self.show_sectors = True
+        self.show_labels = True
+        self.projection = "PlateCarree"
+        
+        # 根据图片信息设置默认的显示范围
+        self.default_xlim = (115, 118.5)
+        self.default_ylim = (31, 43)
         
     def reset(self):
         """重置状态"""
@@ -327,6 +395,20 @@ def load_css():
         overflow: hidden;
         margin-bottom: 1rem;
     }
+    
+    /* 修复右侧栏被挤到底部的问题 */
+    .element-container:has(.stDataFrame) {
+        margin-top: 0;
+    }
+    
+    .stDataFrame {
+        width: 100% !important;
+    }
+    
+    /* 修复标签页内布局 */
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 1rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -344,6 +426,16 @@ def initialize_app():
     
     if 'viz_html' not in st.session_state:
         st.session_state.viz_html = None
+        
+    if 'visualization_params' not in st.session_state:
+        st.session_state.visualization_params = {
+            'viz_type': '态势地图',
+            'map_style': '标准',
+            'projection': 'PlateCarree',
+            'show_coverage': True,
+            'show_sectors': True,
+            'show_labels': True
+        }
     
     return st.session_state.app_state
 
@@ -372,7 +464,7 @@ def save_visualization_html(plot, filename=None):
     
     return None, None
 
-def display_geoviews_plot(plot):
+def display_geoviews_plot(plot, height=700, download_key_suffix=""):
     """在Streamlit中显示GeoViews图表"""
     try:
         if plot is None:
@@ -392,14 +484,16 @@ def display_geoviews_plot(plot):
                 html_content = html_file.read()
             
             # 在Streamlit中显示
-            st.components.v1.html(html_content, height=700, scrolling=True) # type: ignore
+            st.components.v1.html(html_content, height=height, scrolling=True)
             
-            # 提供下载链接
+            # 提供下载链接 - 使用唯一的key
+            download_key = generate_unique_key(f"download_viz_{download_key_suffix}")
             st.download_button(
                 label="📥 下载可视化结果",
                 data=html_content,
                 file_name=f"ew_visualization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html",
-                mime="text/html"
+                mime="text/html",
+                key=download_key
             )
             
             # 清理临时文件
@@ -414,36 +508,78 @@ def display_geoviews_plot(plot):
         st.error(f"显示可视化图表失败: {e}")
         st.info("尝试使用备用显示方法...")
         
-        # 备用方法：使用Matplotlib
+        # 备用方法：使用Matplotlib - 根据图片信息设置坐标范围
         try:
             state = st.session_state.app_state
             fig, ax = plt.subplots(figsize=(10, 8))
             
-            # 绘制雷达
+            # 设置图表样式，模仿图片中的浅黄色背景
+            fig.patch.set_facecolor('#F5F5DC')
+            ax.set_facecolor('#F5F5DC')
+            
+            # 绘制雷达 - 根据图片信息，蓝色三角是雷达
             if state.radars:
                 radar_lons = [r.position.lon for r in state.radars]
                 radar_lats = [r.position.lat for r in state.radars]
-                ax.scatter(radar_lons, radar_lats, c='blue', s=100, marker='^', label='雷达')
+                ax.scatter(radar_lons, radar_lats, c='blue', s=100, marker='^', 
+                          label='雷达', edgecolors='black', linewidth=1)
             
-            # 绘制干扰机
+            # 绘制干扰机 - 根据图片信息，红色方块是干扰机
             if state.jammers:
                 jammer_lons = [j.position.lon for j in state.jammers]
                 jammer_lats = [j.position.lat for j in state.jammers]
-                ax.scatter(jammer_lons, jammer_lats, c='red', s=80, marker='s', label='干扰机')
+                ax.scatter(jammer_lons, jammer_lats, c='red', s=80, marker='s', 
+                          label='干扰机', edgecolors='black', linewidth=1)
             
-            # 绘制目标
+            # 绘制目标 - 根据图片信息，可能有深蓝色三角是目标
             if state.targets:
                 target_lons = [t.position.lon for t in state.targets]
                 target_lats = [t.position.lat for t in state.targets]
-                ax.scatter(target_lons, target_lats, c='green', s=60, marker='o', label='目标')
+                ax.scatter(target_lons, target_lats, c='darkblue', s=100, marker='^', 
+                          label='目标', edgecolors='black', linewidth=1)
+            
+            # 根据用户上传图片的坐标范围设置视图
+            ax.set_xlim(state.default_xlim[0], state.default_xlim[1])
+            ax.set_ylim(state.default_ylim[0], state.default_ylim[1])
+            
+            # 设置刻度 - 根据图片信息
+            x_ticks = [115, 115.5, 116, 117, 117.5, 118, 118.5]
+            y_ticks = list(range(31, 44))  # 31到43
+            
+            ax.set_xticks(x_ticks)
+            ax.set_yticks(y_ticks)
             
             ax.set_xlabel('经度')
             ax.set_ylabel('纬度')
-            ax.set_title('电子战对抗态势图 (备用视图)')
-            ax.legend()
-            ax.grid(True, alpha=0.3)
+            ax.set_title('电子战对抗态势图', fontsize=16)
+            ax.legend(loc='upper right')
+            ax.grid(True, alpha=0.3, linestyle='--')
+            
+            # 保存备用图到临时文件以供下载
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+                plt.savefig(tmp_path, dpi=300, bbox_inches='tight')
             
             st.pyplot(fig)
+            
+            # 提供下载备用图的按钮
+            with open(tmp_path, 'rb') as f:
+                img_data = f.read()
+            
+            download_key = generate_unique_key("download_backup_viz")
+            st.download_button(
+                label="📥 下载备用视图",
+                data=img_data,
+                file_name=f"ew_backup_visualization_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                mime="image/png",
+                key=download_key
+            )
+            
+            # 清理临时文件
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
             
         except Exception as e2:
             st.error(f"备用显示方法也失败: {e2}")
@@ -471,6 +607,17 @@ def handle_scenario_selection(scenario_type):
         state.radars = state.scenario.radars
         state.jammers = state.scenario.jammers
         state.targets = state.scenario.targets
+        
+        # 根据图片信息设置实体位置
+        # 假设雷达在(117.5, 41.5)附近 - 根据图片信息
+        # 假设干扰机在(115.5, 41.5)附近 - 根据图片信息
+        if state.radars and len(state.radars) > 0:
+            state.radars[0].position.lon = 117.5
+            state.radars[0].position.lat = 41.5
+        
+        if state.jammers and len(state.jammers) > 0:
+            state.jammers[0].position.lon = 115.5
+            state.jammers[0].position.lat = 41.5
         
         st.success(f"想定 '{state.scenario.name}' 创建成功！")
         st.rerun()
@@ -501,7 +648,8 @@ def handle_simulation_start(speed, duration):
         
         st.success("仿真完成！")
         
-        # 自动更新可视化
+        # 设置当前标签页为结果分析
+        st.session_state.current_tab = "结果分析"
         st.rerun()
 
 def handle_environment_update(new_config):
@@ -510,189 +658,9 @@ def handle_environment_update(new_config):
     state.environment_config = new_config
     st.success("环境设置已更新")
 
-def main():
-    """主函数"""
-    # 初始化应用
-    state = initialize_app()
-    
-    # 创建标题
-    create_header()
-    
-    # 状态栏
-    create_status_bar(
-        radar_count=len(state.radars),
-        jammer_count=len(state.jammers),
-        target_count=len(state.targets),
-        scenario_name=state.scenario.name if state.scenario else "未选择"
-    )
-    
-    # 创建主布局
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        # 主内容区
-        tab1, tab2, tab3 = st.tabs(["🎯 想定配置", "🚀 仿真控制", "📈 结果分析"])
-        
-        with tab1:
-            st.markdown('<div class="card-header">🎯 对抗想定配置</div>', unsafe_allow_html=True)
-            
-            # 获取可用想定
-            available_scenarios = ScenarioFactory.get_available_scenarios()
-            
-            # 想定选择器
-            selected_scenario = create_scenario_selector(
-                available_scenarios,
-                on_change=handle_scenario_selection
-            )
-            
-            if state.scenario:
-                st.markdown("---")
-                st.subheader("📡 当前想定概览")
-                
-                col_a, col_b = st.columns(2)
-                
-                with col_a:
-                    st.write("**雷达系统**")
-                    for radar in state.radars:
-                        st.write(f"• {radar.name}: 位置({radar.position.lat:.4f}, {radar.position.lon:.4f})")
-                        st.write(f"  频率: {radar.radar_params.frequency} GHz, 功率: {radar.radar_params.power} kW")
-                
-                with col_b:
-                    st.write("**干扰系统**")
-                    for jammer in state.jammers:
-                        st.write(f"• {jammer.name}: 位置({jammer.position.lat:.4f}, {jammer.position.lon:.4f})")
-                        st.write(f"  功率: {jammer.jammer_params.power} W, 增益: {jammer.jammer_params.gain} dBi")
-            
-            # 环境设置
-            st.markdown("---")
-            create_environment_settings(
-                state.environment_config,
-                on_update=handle_environment_update
-            )
-        
-        with tab2:
-            st.markdown('<div class="card-header">🚀 仿真控制</div>', unsafe_allow_html=True)
-            
-            # 仿真控制面板
-            speed, duration = create_simulation_controls(
-                on_start=handle_simulation_start,
-                on_pause=lambda: st.info("仿真暂停"),
-                on_reset=lambda: state.reset() or st.rerun()
-            )
-            
-            if state.simulation_results:
-                st.markdown("---")
-                st.subheader("📊 仿真结果概览")
-                
-                cols = st.columns(3)
-                with cols[0]:
-                    effective = state.simulation_results.get("result", {}).get("effective", False)
-                    st.metric("干扰是否有效", "是" if effective else "否")
-                with cols[1]:
-                    j_s_ratio = state.simulation_results.get("result", {}).get("j_s_ratio", 0)
-                    st.metric("干信比", f"{j_s_ratio:.1f} dB")
-                with cols[2]:
-                    det_prob = state.simulation_results.get("result", {}).get("detection_probability", 0) * 100
-                    st.metric("探测概率", f"{det_prob:.1f}%")
-        
-        with tab3:
-            st.markdown('<div class="card-header">📈 结果分析</div>', unsafe_allow_html=True)
-            
-            if state.simulation_results or state.radars or state.jammers:
-                # 创建可视化
-                st.subheader("🗺️ 态势可视化")
-                
-                # 投影选择
-                projection_options = ['PlateCarree', 'Mercator', 'Robinson', 'Orthographic']
-                selected_projection = st.selectbox(
-                    "选择地图投影",
-                    projection_options,
-                    index=0,
-                    help="选择地图投影方式"
-                )
-                
-                # 更新可视化器的投影
-                if selected_projection != state.visualizer.crs:
-                    state.visualizer = EWVisualizer(projection=selected_projection)
-                
-                # 生成可视化
-                viz = state.get_visualization()
-                
-                if viz:
-                    # 显示可视化
-                    display_geoviews_plot(viz)
-                    
-                    # 信号强度热力图
-                    if st.checkbox("显示信号强度热力图", value=False):
-                        heatmap = state.visualizer.create_signal_strength_heatmap(state.radars)
-                        if heatmap:
-                            st.subheader("📶 信号强度热力图")
-                            display_geoviews_plot(heatmap)
-                else:
-                    st.info("暂无可视化数据")
-                
-                # 效能评估
-                if state.simulation_results:
-                    st.subheader("📊 效能评估")
-                    create_results_display(state.assessment_results or {})
-                    
-                    # 信号分析图表
-                    st.subheader("📡 信号分析")
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        # 创建频谱分析图
-                        frequencies = np.linspace(8, 12, 100)
-                        powers = np.random.randn(100) + 50
-                        radar_freqs = [r.radar_params.frequency for r in state.radars]
-                        
-                        spectrum_fig = create_spectrum_analysis_matplotlib(
-                            frequencies, powers, radar_freqs, []
-                        )
-                        st.pyplot(spectrum_fig)
-                    
-                    with col2:
-                        # 创建性能雷达图
-                        metrics = {
-                            '探测概率': state.simulation_results.get("result", {}).get("detection_probability", 0) * 100,
-                            '干信比': min(state.simulation_results.get("result", {}).get("j_s_ratio", 0), 100),
-                            '干扰效果': 80 if state.simulation_results.get("result", {}).get("effective", False) else 20,
-                            '目标发现率': 75,
-                            '系统可用性': 90
-                        }
-                        
-                        radar_fig = create_performance_radar_matplotlib(metrics)
-                        st.pyplot(radar_fig)
-                
-                # 数据导出
-                st.subheader("💾 数据导出")
-                create_export_panel(
-                    state.simulation_results or {},
-                    file_prefix="ew_simulation"
-                )
-                
-                # 导出可视化
-                if viz and st.button("📤 导出完整可视化报告"):
-                    with st.spinner("生成报告中..."):
-                        # 保存HTML报告
-                        filename = f"ew_simulation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
-                        filepath, html_content = save_visualization_html(viz, filename)
-                        
-                        if filepath:
-                            st.success(f"报告已保存到: {filepath}")
-                            
-                            # 提供下载
-                            st.download_button(
-                                label="📥 下载HTML报告",
-                                data=html_content, # type: ignore
-                                file_name=filename,
-                                mime="text/html"
-                            )
-            else:
-                st.info("请先运行仿真以查看结果")
-    
-    with col2:
-        # 侧边栏
+def create_system_status_card(state):
+    """创建系统状态卡片"""
+    with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">📊 系统状态</div>', unsafe_allow_html=True)
         
@@ -718,9 +686,16 @@ def main():
         else:
             st.warning("未配置")
         
-        st.markdown('</div>', unsafe_allow_html=True)
+        # 显示地图范围信息
+        st.write("**地图范围:**")
+        st.write(f"经度: {state.default_xlim[0]} - {state.default_xlim[1]}")
+        st.write(f"纬度: {state.default_ylim[0]} - {state.default_ylim[1]}")
         
-        # 可视化控制
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def create_visualization_control_card(state):
+    """创建可视化控制卡片"""
+    with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">🎨 可视化控制</div>', unsafe_allow_html=True)
         
@@ -728,47 +703,100 @@ def main():
         viz_type = st.radio(
             "选择可视化类型",
             ["态势地图", "信号热图", "3D视图"],
-            index=0
+            index=0,
+            key="viz_type_radio"
         )
         
         # 地图样式
         map_style = st.selectbox(
             "地图样式",
             ["标准", "卫星", "地形", "深色"],
-            index=0
+            index=0,
+            key="map_style_select"
         )
         
         # 显示选项
-        show_coverage = st.checkbox("显示覆盖范围", value=True)
-        show_sectors = st.checkbox("显示干扰扇区", value=True)
-        show_labels = st.checkbox("显示标签", value=True)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            show_coverage = st.checkbox("覆盖范围", value=True, key="show_coverage_check")
+        with col2:
+            show_sectors = st.checkbox("干扰扇区", value=True, key="show_sectors_check")
+        with col3:
+            show_labels = st.checkbox("标签", value=True, key="show_labels_check")
         
-        if st.button("🔄 刷新可视化", width='stretch'):
+        # 投影选择
+        projection = st.selectbox(
+            "地图投影",
+            ["PlateCarree", "Mercator", "Robinson", "Orthographic"],
+            index=0,
+            key="projection_select"
+        )
+        
+        # 地图范围设置
+        st.write("**地图范围设置:**")
+        col_x, col_y = st.columns(2)
+        with col_x:
+            x_min = st.number_input("最小经度", value=float(state.default_xlim[0]), 
+                                   min_value=100.0, max_value=150.0, step=0.5,
+                                   key="x_min_input")
+            x_max = st.number_input("最大经度", value=float(state.default_xlim[1]), 
+                                   min_value=100.0, max_value=150.0, step=0.5,
+                                   key="x_max_input")
+        with col_y:
+            y_min = st.number_input("最小纬度", value=float(state.default_ylim[0]), 
+                                   min_value=20.0, max_value=50.0, step=0.5,
+                                   key="y_min_input")
+            y_max = st.number_input("最大纬度", value=float(state.default_ylim[1]), 
+                                   min_value=20.0, max_value=50.0, step=0.5,
+                                   key="y_max_input")
+        
+        # 更新状态
+        if st.button("🔄 应用可视化设置", width='stretch', type="primary", key="apply_viz_settings"):
+            state.viz_type = viz_type
+            state.map_style = map_style
+            state.show_coverage = show_coverage
+            state.show_sectors = show_sectors
+            state.show_labels = show_labels
+            state.projection = projection
+            state.default_xlim = (x_min, x_max)
+            state.default_ylim = (y_min, y_max)
+            
+            # 更新可视化器
+            if state.projection != state.visualizer.crs:
+                state.visualizer = EWVisualizer(projection=state.projection)
+            
+            st.success("可视化设置已更新！")
             st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 快捷操作
+
+def create_quick_actions_card(state):
+    """创建快捷操作卡片"""
+    with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">⚡ 快捷操作</div>', unsafe_allow_html=True)
         
-        if st.button("📁 保存当前配置", width='stretch'):
-            st.success("配置已保存")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📁 保存配置", width='stretch', key="save_config_btn"):
+                st.success("配置已保存")
+        with col2:
+            if st.button("📤 载入配置", width='stretch', key="load_config_btn"):
+                st.info("载入功能开发中...")
         
-        if st.button("📤 载入配置", width='stretch'):
-            st.info("载入功能开发中...")
-        
-        if st.button("🔄 重置系统", width='stretch', type="secondary"):
+        if st.button("🔄 重置系统", width='stretch', type="secondary", key="reset_system_btn"):
             state.reset()
             st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # 帮助信息
+
+def create_help_card():
+    """创建帮助信息卡片"""
+    with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">❓ 使用帮助</div>', unsafe_allow_html=True)
         
-        with st.expander("基本流程"):
+        with st.expander("基本流程", expanded=False):
             st.write("""
             1. 在想定配置中选择对抗类型
             2. 配置雷达和干扰机参数
@@ -777,7 +805,7 @@ def main():
             5. 在结果分析中查看效果
             """)
         
-        with st.expander("快捷键"):
+        with st.expander("快捷键", expanded=False):
             st.write("""
             • Ctrl+S: 保存配置
             • Ctrl+R: 运行仿真
@@ -786,6 +814,262 @@ def main():
             """)
         
         st.markdown('</div>', unsafe_allow_html=True)
+
+def main():
+    """主函数"""
+    # 初始化应用
+    state = initialize_app()
+    
+    # 创建标题
+    create_header()
+    
+    # 状态栏
+    create_status_bar(
+        radar_count=len(state.radars),
+        jammer_count=len(state.jammers),
+        target_count=len(state.targets),
+        scenario_name=state.scenario.name if state.scenario else "未选择"
+    )
+    
+    # 使用Streamlit的侧边栏布局替代右侧列
+    with st.sidebar:
+        # 系统状态卡片
+        create_system_status_card(state)
+        
+        # 可视化控制卡片
+        create_visualization_control_card(state)
+        
+        # 快捷操作卡片
+        create_quick_actions_card(state)
+        
+        # 帮助信息卡片
+        create_help_card()
+    
+    # 主内容区 - 全宽布局
+    tab1, tab2, tab3 = st.tabs(["🎯 想定配置", "🚀 仿真控制", "📈 结果分析"])
+    
+    with tab1:
+        st.markdown('<div class="card-header">🎯 对抗想定配置</div>', unsafe_allow_html=True)
+        
+        # 获取可用想定
+        available_scenarios = ScenarioFactory.get_available_scenarios()
+        
+        # 想定选择器
+        selected_scenario = create_scenario_selector(
+            available_scenarios,
+            on_change=handle_scenario_selection
+        )
+        
+        if state.scenario:
+            st.markdown("---")
+            st.subheader("📡 当前想定概览")
+            
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                st.write("**雷达系统**")
+                for i, radar in enumerate(state.radars):
+                    st.write(f"• {radar.name}")
+                    st.write(f"  位置: ({radar.position.lat:.4f}, {radar.position.lon:.4f})")
+                    st.write(f"  频率: {radar.radar_params.frequency} GHz")
+                    st.write(f"  功率: {radar.radar_params.power} kW")
+                    if i < len(state.radars) - 1:
+                        st.write("---")
+            
+            with col_b:
+                st.write("**干扰系统**")
+                for i, jammer in enumerate(state.jammers):
+                    st.write(f"• {jammer.name}")
+                    st.write(f"  位置: ({jammer.position.lat:.4f}, {jammer.position.lon:.4f})")
+                    st.write(f"  功率: {jammer.jammer_params.power} W")
+                    st.write(f"  增益: {jammer.jammer_params.gain} dBi")
+                    if i < len(state.jammers) - 1:
+                        st.write("---")
+            
+            with col_c:
+                st.write("**目标**")
+                for i, target in enumerate(state.targets):
+                    st.write(f"• {target.name}")
+                    st.write(f"  位置: ({target.position.lat:.4f}, {target.position.lon:.4f})")
+                    st.write(f"  RCS: {target.rcs} m²")
+                    st.write(f"  速度: {target.speed} m/s")
+                    if i < len(state.targets) - 1:
+                        st.write("---")
+        
+        # 环境设置
+        st.markdown("---")
+        create_environment_settings(
+            state.environment_config,
+            on_update=handle_environment_update
+        )
+    
+    with tab2:
+        st.markdown('<div class="card-header">🚀 仿真控制</div>', unsafe_allow_html=True)
+        
+        # 仿真控制面板
+        speed, duration = create_simulation_controls(
+            on_start=handle_simulation_start,
+            on_pause=lambda: st.info("仿真暂停"),
+            on_reset=lambda: state.reset() or st.rerun()
+        )
+        
+        if state.simulation_results:
+            st.markdown("---")
+            st.subheader("📊 仿真结果概览")
+            
+            cols = st.columns(4)
+            with cols[0]:
+                effective = state.simulation_results.get("result", {}).get("effective", False)
+                st.metric("干扰是否有效", "是" if effective else "否")
+            with cols[1]:
+                j_s_ratio = state.simulation_results.get("result", {}).get("j_s_ratio", 0)
+                st.metric("干信比(J/S)", f"{j_s_ratio:.1f} dB")
+            with cols[2]:
+                det_prob = state.simulation_results.get("result", {}).get("detection_probability", 0) * 100
+                st.metric("探测概率", f"{det_prob:.1f}%")
+            with cols[3]:
+                # 计算信干比(S/I)，通常信干比是信噪比的扩展
+                # 假设我们有一个简单的模型：S/I = SNR - 干扰影响
+                # 这里使用一个简化的计算
+                snr = state.simulation_results.get("result", {}).get("snr", 0)  # 信噪比
+                interference_effect = 10  # 假设干扰影响为10dB
+                sir = snr - interference_effect
+                st.metric("信干比(S/I)", f"{sir:.1f} dB")
+    
+    with tab3:
+        st.markdown('<div class="card-header">📈 结果分析</div>', unsafe_allow_html=True)
+        
+        if state.simulation_results or state.radars or state.jammers:
+            # 创建可视化
+            st.subheader("🗺️ 态势可视化")
+            
+            # 根据可视化控制设置生成可视化
+            viz = state.get_visualization()
+            
+            if viz:
+                # 显示主可视化
+                display_geoviews_plot(viz, height=600, download_key_suffix="main")
+                
+                # 根据可视化控制显示额外图层
+                if state.show_coverage and hasattr(state.visualizer, 'plot_radar_coverage'):
+                    coverage = state.visualizer.plot_radar_coverage(state.radars)
+                    if coverage:
+                        st.subheader("📡 雷达覆盖范围")
+                        display_geoviews_plot(coverage, height=400, download_key_suffix="coverage")
+                
+                if state.show_sectors and hasattr(state.visualizer, 'plot_jamming_sectors'):
+                    sectors = state.visualizer.plot_jamming_sectors(state.jammers)
+                    if sectors:
+                        st.subheader("🎯 干扰扇区")
+                        display_geoviews_plot(sectors, height=400, download_key_suffix="sectors")
+            else:
+                st.info("暂无可视化数据")
+            
+            # 效能评估
+            if state.simulation_results:
+                st.subheader("📊 效能评估")
+                create_results_display(state.assessment_results or {})
+                
+                # 信号分析图表
+                st.subheader("📡 信号分析")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # 创建频谱分析图
+                    frequencies = np.linspace(8, 12, 100)
+                    powers = np.random.randn(100) + 50
+                    radar_freqs = [r.radar_params.frequency for r in state.radars] if state.radars else [9.0]
+                    
+                    spectrum_fig = create_spectrum_analysis_matplotlib(
+                        frequencies, powers, radar_freqs, []
+                    )
+                    st.pyplot(spectrum_fig)
+                    
+                    # 添加频谱图下载按钮
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                        tmp_path = tmp_file.name
+                        spectrum_fig.savefig(tmp_path, dpi=300, bbox_inches='tight')
+                    
+                    with open(tmp_path, 'rb') as f:
+                        spectrum_img = f.read()
+                    
+                    spectrum_key = generate_unique_key("download_spectrum")
+                    st.download_button(
+                        label="📥 下载频谱图",
+                        data=spectrum_img,
+                        file_name=f"spectrum_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png",
+                        key=spectrum_key
+                    )
+                    
+                    try:
+                        os.unlink(tmp_path)
+                    except:
+                        pass
+                
+                with col2:
+                    # 创建性能雷达图
+                    metrics = {
+                        '探测概率': state.simulation_results.get("result", {}).get("detection_probability", 0) * 100,
+                        '干信比(J/S)': min(state.simulation_results.get("result", {}).get("j_s_ratio", 0), 100),
+                        '信干比(S/I)': 60,  # 模拟的信干比值
+                        '干扰效果': 80 if state.simulation_results.get("result", {}).get("effective", False) else 20,
+                        '目标发现率': 75
+                    }
+                    
+                    radar_fig = create_performance_radar_matplotlib(metrics)
+                    st.pyplot(radar_fig)
+                    
+                    # 添加雷达图下载按钮
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                        tmp_path = tmp_file.name
+                        radar_fig.savefig(tmp_path, dpi=300, bbox_inches='tight')
+                    
+                    with open(tmp_path, 'rb') as f:
+                        radar_img = f.read()
+                    
+                    radar_key = generate_unique_key("download_radar")
+                    st.download_button(
+                        label="📥 下载雷达图",
+                        data=radar_img,
+                        file_name=f"radar_chart_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                        mime="image/png",
+                        key=radar_key
+                    )
+                    
+                    try:
+                        os.unlink(tmp_path)
+                    except:
+                        pass
+            
+            # 数据导出
+            st.subheader("💾 数据导出")
+            create_export_panel(
+                state.simulation_results or {},
+                file_prefix="ew_simulation"
+            )
+            
+            # 导出可视化
+            if viz and st.button("📤 导出完整可视化报告", type="primary", key="export_full_report"):
+                with st.spinner("生成报告中..."):
+                    # 保存HTML报告
+                    filename = f"ew_simulation_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                    filepath, html_content = save_visualization_html(viz, filename)
+                    
+                    if filepath:
+                        st.success(f"报告已保存到: {filepath}")
+                        
+                        # 提供下载 - 使用唯一key
+                        report_key = generate_unique_key("download_full_report")
+                        st.download_button(
+                            label="📥 下载HTML报告",
+                            data=html_content,
+                            file_name=filename,
+                            mime="text/html",
+                            key=report_key
+                        )
+        else:
+            st.info("请先运行仿真以查看结果")
     
     # 底部信息
     st.markdown("---")
