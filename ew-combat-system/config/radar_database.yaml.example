@@ -1,0 +1,174 @@
+---
+# 雷达台站数据库
+# 注意：所有坐标均为WGS84坐标系
+
+radar_types:
+  # 预警雷达
+  early_warning:
+    base_params:
+      name: "预警雷达"
+      category: "AEW"
+      frequency_range: [0.3, 3]  # GHz
+      power: 200  # kW
+      gain: 40  # dB
+      beamwidth: 1.5  # 度
+      scan_rate: 6  # rpm
+      sensitivity: -120  # dBm
+      range_max: 450  # km
+      altitude_max: 30000  # m
+      modes: ["预警", "跟踪", "搜索"]
+      platform: ["地面", "机载", "舰载"]
+    
+    variants:
+      - id: "EW-001"
+        name: "空警-2000"
+        params:
+          frequency: 3.0
+          power: 250
+          range_max: 470
+          altitude: 0
+          lat: 39.915
+          lon: 116.387
+          height: 50
+          
+      - id: "EW-002"
+        name: "JY-26远程预警雷达"
+        params:
+          frequency: 0.8
+          power: 300
+          range_max: 500
+          altitude: 0
+          lat: 40.065
+          lon: 116.587
+          height: 100
+
+  # 火控雷达
+  fire_control:
+    base_params:
+      name: "火控雷达"
+      category: "FCR"
+      frequency_range: [8, 12]  # GHz
+      power: 50
+      gain: 35
+      beamwidth: 0.8
+      scan_rate: 40
+      sensitivity: -110
+      range_max: 150
+      altitude_max: 20000
+      modes: ["跟踪", "照射", "制导"]
+      
+    variants:
+      - id: "FC-001"
+        name: "红旗-9制导雷达"
+        params:
+          frequency: 10.0
+          power: 60
+          range_max: 200
+          lat: 39.925
+          lon: 116.397
+          height: 30
+
+# 干扰机数据库
+jammer_types:
+  # 远距离支援干扰
+  standoff_jammer:
+    base_params:
+      name: "远距支援干扰机"
+      category: "SOJ"
+      frequency_range: [0.5, 18]  # GHz
+      power: 1000
+      gain: 15
+      beamwidth: 60
+      eirp: 80  # dBW
+      response_time: 2  # s
+      jam_types: ["阻塞", "扫频", "灵巧"]
+      
+    variants:
+      - id: "SJ-001"
+        name: "EA-18G咆哮者"
+        params:
+          platform: "机载"
+          power: 1200
+          range_effective: 300
+          lat: 40.2
+          lon: 116.8
+          altitude: 10000
+
+  # 自卫干扰
+  self_protection_jammer:
+    base_params:
+      name: "自卫干扰机"
+      category: "SPJ"
+      frequency_range: [2, 18]
+      power: 200
+      gain: 10
+      beamwidth: 120
+      response_time: 0.1
+      
+    variants:
+      - id: "SP-001"
+        name: "AN/ALQ-184"
+        params:
+          platform: "机载"
+          power: 250
+          range_effective: 50
+          lat: 40.1
+          lon: 116.5
+          altitude: 8000
+
+# 目标数据库
+target_types:
+  aircraft:
+    base_params:
+      name: "飞机"
+      rcs_range: [1, 100]  # m²
+      speed_range: [200, 1000]  # m/s
+      altitude_range: [1000, 20000]  # m
+      maneuverability: "高"
+      
+    variants:
+      - id: "AC-001"
+        name: "歼-20"
+        params:
+          rcs: 0.1
+          speed: 600
+          altitude: 15000
+          
+      - id: "AC-002"
+        name: "F-35"
+        params:
+          rcs: 0.05
+          speed: 550
+          altitude: 12000
+  
+  missile:
+    base_params:
+      name: "导弹"
+      rcs_range: [0.01, 1]  # m²
+      speed_range: [500, 3000]  # m/s
+      altitude_range: [0, 30000]  # m
+      maneuverability: "极高"
+      
+    variants:
+      - id: "MS-001"
+        name: "巡航导弹"
+        params:
+          rcs: 0.1
+          speed: 250
+          altitude: 100
+  
+  ship:
+    base_params:
+      name: "舰船"
+      rcs_range: [100, 10000]  # m²
+      speed_range: [5, 30]  # m/s
+      altitude_range: [0, 0]  # m
+      maneuverability: "低"
+      
+    variants:
+      - id: "SH-001"
+        name: "驱逐舰"
+        params:
+          rcs: 5000
+          speed: 15
+          altitude: 0

@@ -1,0 +1,159 @@
+---
+# 预设想定配置
+
+# 一对一对抗
+one_vs_one:
+  name: "标准一对一对抗"
+  description: "典型雷达与干扰机对抗场景"
+  radar:
+    type: "early_warning"
+    variant: "JY-26远程预警雷达"
+    position:
+      lat: 39.915
+      lon: 116.387
+      alt: 50
+    params_override:
+      frequency: 3.0
+      power: 250
+      beamwidth: 2.0
+  
+  jammer:
+    type: "standoff_jammer"
+    variant: "EA-18G咆哮者"
+    position:
+      lat: 40.2
+      lon: 116.8
+      alt: 10000
+    params_override:
+      power: 1200
+      beamwidth: 60
+  
+  environment:
+    terrain: "平原"
+    atmosphere: "标准"
+    time_of_day: "day"
+
+# 多对一对抗
+many_vs_one:
+  name: "区域防空对抗"
+  description: "多部雷达协同对抗单干扰机"
+  radars:
+    - type: "early_warning"
+      variant: "空警-2000"
+      position:
+        lat: 39.9
+        lon: 116.4
+        alt: 50
+    
+    - type: "early_warning"
+      variant: "JY-26远程预警雷达"
+      position:
+        lat: 40.1
+        lon: 116.6
+        alt: 100
+    
+    - type: "fire_control"
+      variant: "红旗-9制导雷达"
+      position:
+        lat: 39.8
+        lon: 116.3
+        alt: 30
+  
+  jammer:
+    type: "standoff_jammer"
+    variant: "EA-18G咆哮者"
+    position:
+      lat: 40.5
+      lon: 117.0
+      alt: 12000
+  
+  targets:
+    - type: "aircraft"
+      name: "攻击编队"
+      trajectory:
+        - [40.0, 116.5, 0]
+        - [39.9, 116.4, 60]
+        - [39.8, 116.3, 120]
+
+# 多对多对抗
+many_vs_many:
+  name: "体系对抗"
+  description: "雷达网 vs 干扰网体系对抗"
+  radar_network:
+    - type: "early_warning"
+      variant: "空警-2000"
+      position:
+        lat: 39.9
+        lon: 116.4
+        alt: 50
+    
+    - type: "early_warning"
+      variant: "JY-26远程预警雷达"
+      position:
+        lat: 40.2
+        lon: 116.7
+        alt: 100
+    
+    - type: "fire_control"
+      variant: "红旗-9制导雷达"
+      position:
+        lat: 39.7
+        lon: 116.5
+        alt: 30
+    
+    - type: "fire_control"
+      variant: "红旗-9制导雷达"
+      position:
+        lat: 40.0
+        lon: 116.2
+        alt: 30
+  
+  jammer_network:
+    - type: "standoff_jammer"
+      variant: "EA-18G咆哮者"
+      position:
+        lat: 40.5
+        lon: 117.0
+        alt: 12000
+    
+    - type: "standoff_jammer"
+      variant: "EA-18G咆哮者"
+      position:
+        lat: 40.3
+        lon: 116.9
+        alt: 10000
+    
+    - type: "self_protection_jammer"
+      variant: "AN/ALQ-184"
+      position:
+        lat: 40.1
+        lon: 116.8
+        alt: 8000
+  
+  target_group:
+    - type: "aircraft"
+      name: "攻击机1"
+      rcs: 5
+      speed: 300
+      trajectory:
+        - [40.2, 116.9, 0]
+        - [40.0, 116.7, 30]
+        - [39.8, 116.5, 60]
+    
+    - type: "aircraft"
+      name: "攻击机2"
+      rcs: 3
+      speed: 350
+      trajectory:
+        - [40.3, 116.8, 0]
+        - [40.1, 116.6, 30]
+        - [39.9, 116.4, 60]
+    
+    - type: "missile"
+      name: "巡航导弹"
+      rcs: 0.1
+      speed: 250
+      trajectory:
+        - [40.1, 116.9, 0]
+        - [39.9, 116.7, 20]
+        - [39.7, 116.5, 40]

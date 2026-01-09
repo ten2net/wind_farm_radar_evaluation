@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ew-simulation
+  namespace: ew-system
+  labels:
+    app: ew-simulation
+    version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ew-simulation
+  template:
+    metadata:
+      labels:
+        app: ew-simulation
+        version: v1.0.0
+    spec:
+      containers:
+      - name: ew-app
+        image: ew-simulation:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8501
+          name: http
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: STREAMLIT_SERVER_PORT
+          value: "8501"
+        - name: STREAMLIT_SERVER_ADDRESS
+          value: "0.0.0.0"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: data-volume
+          mountPath: /app/data
+        - name: logs-volume
+          mountPath: /app/logs
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8501
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ew-config
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: ew-data-pvc
+      - name: logs-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ew-simulation-service
+  namespace: ew-system
+spec:
+  selector:
+    app: ew-simulation
+  ports:
+  - port: 80
+    targetPort: 8501
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ew-config
+  namespace: ew-system
+data:
+  radar_database.yaml: |
+    # 雷达数据库配置
+    # 这里可以从外部挂载
+  scenarios.yaml: |
+    # 想定配置
+  environment.yaml: |
+    # 环境配置
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ew-data-pvc
+  namespace: ew-system
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

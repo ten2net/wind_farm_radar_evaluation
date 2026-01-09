@@ -1,0 +1,49 @@
+/* 电子战仿真系统自定义样式 */
+
+/* 雷达动画 */
+@keyframes radar-sweep {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.radar-sweep {
+    animation: radar-sweep 4s linear infinite;
+    transform-origin: center;
+}
+
+/* 状态指示灯 */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-active {
+    background-color: #00ff00;
+    box-shadow: 0 0 10px #00ff00;
+}
+
+.status-jammed {
+    background-color: #ff9900;
+    box-shadow: 0 0 10px #ff9900;
+}
+
+.status-destroyed {
+    background-color: #ff0000;
+    box-shadow: 0 0 10px #ff0000;
+}
+
+/* 科技感背景 */
+.tech-background {
+    background: linear-gradient(135deg, #0c0c2e 0%, #1a1a3e 100%);
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+}
+
+@keyframes gradient-shift {
+    0% { background-position: 0% 50% }
+    50% { background-position: 100% 50% }
+    100% { background-position: 0% 50% }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "示例一对一对抗",
+  "description": "基本的雷达与干扰机对抗示例",
+  "radar": {
+    "id": "example_radar",
+    "name": "示例雷达",
+    "position": {
+      "lat": 39.915,
+      "lon": 116.387,
+      "alt": 50
+    },
+    "parameters": {
+      "frequency": 3.0,
+      "power": 100,
+      "gain": 40,
+      "beamwidth": 1.5
+    }
+  },
+  "jammer": {
+    "id": "example_jammer",
+    "name": "示例干扰机",
+    "position": {
+      "lat": 40.0,
+      "lon": 116.5,
+      "alt": 10000
+    },
+    "parameters": {
+      "power": 1000,
+      "gain": 15,
+      "beamwidth": 60
+    }
+  }
+}

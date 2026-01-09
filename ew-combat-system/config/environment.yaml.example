@@ -1,0 +1,142 @@
+---
+# 电磁环境配置
+
+terrain_types:
+  flat:
+    name: "平原"
+    roughness: 0.1
+    clutter_loss: 5
+    description: "平坦地形，传播条件良好"
+  
+  urban:
+    name: "城市"
+    roughness: 0.8
+    clutter_loss: 20
+    description: "城市环境，多径效应明显"
+  
+  mountainous:
+    name: "山地"
+    roughness: 0.9
+    clutter_loss: 30
+    description: "山地地形，视线遮挡严重"
+  
+  sea:
+    name: "海洋"
+    roughness: 0.2
+    clutter_loss: 0
+    description: "海面环境，多径传播"
+
+atmosphere_types:
+  standard:
+    name: "标准大气"
+    refractivity: 1.0
+    rain_rate: 0
+    description: "标准大气条件"
+  
+  anomalous:
+    name: "异常传播"
+    refractivity: 1.33
+    rain_rate: 0
+    description: "大气波导，超视距传播"
+  
+  rainy:
+    name: "雨天"
+    refractivity: 1.0
+    rain_rate: 25
+    description: "降雨衰减明显"
+  
+  sandstorm:
+    name: "沙尘"
+    refractivity: 1.1
+    rain_rate: 0
+    description: "沙尘天气，衰减增大"
+
+frequency_bands:
+  HF:
+    range: [3, 30]  # MHz
+    propagation: "skywave"
+    typical_use: "超视距通信"
+  
+  VHF:
+    range: [30, 300]  # MHz
+    propagation: "ground_wave"
+    typical_use: "战术通信"
+  
+  UHF:
+    range: [300, 1000]  # MHz
+    propagation: "line_of_sight"
+    typical_use: "雷达、数据链"
+  
+  L:
+    range: [1, 2]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "远程预警雷达"
+  
+  S:
+    range: [2, 4]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "中程监视雷达"
+  
+  C:
+    range: [4, 8]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "火控雷达"
+  
+  X:
+    range: [8, 12]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "精密跟踪雷达"
+  
+  Ku:
+    range: [12, 18]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "高分辨率雷达"
+  
+  K:
+    range: [18, 27]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "气象雷达"
+  
+  Ka:
+    range: [27, 40]  # GHz
+    propagation: "line_of_sight"
+    typical_use: "高速数据链"
+
+# 传播模型参数
+propagation_models:
+  free_space:
+    name: "自由空间"
+    formula: "L = 20log10(d) + 20log10(f) + 32.44"
+    parameters: ["d: 距离(km)", "f: 频率(MHz)"]
+  
+  two_ray:
+    name: "双径模型"
+    formula: "L = 40log10(d) - 20log10(h_t) - 20log10(h_r)"
+    parameters: ["d: 距离(km)", "h_t: 发射高度(m)", "h_r: 接收高度(m)"]
+  
+  itu_r:
+    name: "ITU-R模型"
+    formula: "L = 20log10(f) + 20log10(d) + 32.4 + 其他修正"
+    parameters: ["d: 距离(km)", "f: 频率(MHz)"]
+
+# 干扰效果评估标准
+jam_effectiveness_standards:
+  excellent:
+    j_s_ratio: "> 20 dB"
+    description: "完全压制，雷达无法工作"
+    color: "#00ff00"
+  
+  good:
+    j_s_ratio: "10-20 dB"
+    description: "有效干扰，雷达性能严重下降"
+    color: "#ffff00"
+  
+  fair:
+    j_s_ratio: "3-10 dB"
+    description: "部分干扰，雷达性能下降"
+    color: "#ff9900"
+  
+  poor:
+    j_s_ratio: "< 3 dB"
+    description: "轻微干扰，雷达基本正常工作"
+    color: "#ff0000"
