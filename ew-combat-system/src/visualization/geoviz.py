@@ -83,7 +83,7 @@ class EWVisualizer:
         plugins.Fullscreen().add_to(m)
         
         # 添加比例尺
-        plugins.ScaleBar(position='bottomleft').add_to(m)
+        plugins.ScaleBar(position='bottomleft').add_to(m) # type: ignore
         
         # 添加绘制工具
         draw = plugins.Draw(
@@ -207,6 +207,13 @@ class EWVisualizer:
         """
         
         # 添加雷达标记
+
+        radar_icon = folium.Icon(
+            color='red',
+            icon='rss',
+            prefix='fa',
+            icon_color='white'
+        )        
         folium.Marker(
             location=[lat, lon],
             popup=folium.Popup(popup_html, max_width=300),
@@ -444,7 +451,7 @@ class EWVisualizer:
             
             # 创建基础地图
             m = folium.Map(
-                location=[center_lat, center_lon],
+                location=[center_lat, center_lon], # type: ignore
                 zoom_start=8,
                 tiles=self.tiles_options.get(tile_style, "OpenStreetMap"),
                 attr='Map data © OpenStreetMap contributors',
@@ -507,7 +514,7 @@ class EWVisualizer:
         </div>
         """
         
-        m.get_root().html.add_child(folium.Element(legend_html))
+        m.get_root().html.add_child(folium.Element(legend_html)) # type: ignore
     
     def save_to_html(self, m: folium.Map, filename: str = "ew_visualization.html") -> str:
         """
