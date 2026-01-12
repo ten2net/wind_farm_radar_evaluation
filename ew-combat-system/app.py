@@ -30,16 +30,15 @@ sys.path.append(str(project_root))
 
 # 导入自定义模块
 try:
-    from src.core.patterns.strategy import ScenarioFactory
-    from src.core.factory import EntityFactory
+    from src.core.patterns.strategy import ScenarioFactory # type: ignore
     # 导入Folium可视化模块
-    from src.visualization.geoviz import EWVisualizer, create_visualization
+    from src.visualization.geoviz import EWVisualizer, create_visualization # type: ignore
     from src.ui.components import (
         create_header, 
         create_status_bar,
         create_scenario_selector,
         create_entity_configurator,
-        create_simulation_controls,
+        create_simulation_controls, # type: ignore
         create_results_display,
         create_environment_settings,
         create_export_panel,
@@ -139,7 +138,7 @@ def create_spectrum_analysis_matplotlib(frequencies: np.ndarray,
                                       powers: np.ndarray,
                                       radar_freqs: Optional[List[float]] = None,
                                       jammer_freqs: Optional[List[float]] = None,
-                                      title: str = "频谱分析") -> plt.Figure:
+                                      title: str = "频谱分析") -> plt.Figure: # type: ignore
     """使用Matplotlib创建频谱分析图"""
     fig, ax = plt.subplots(figsize=(10, 6))
     
@@ -260,7 +259,7 @@ def load_css():
         background: rgba(20, 20, 50, 0.7);
         border: 1px solid rgba(0, 212, 255, 0.2);
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: 0.02rem;
         margin-bottom: 1.5rem;
         backdrop-filter: blur(10px);
         transition: all 0.3s ease;
@@ -468,7 +467,7 @@ def display_folium_map(m, height=700):
         # 使用streamlit-folium显示地图
         if FOLIUM_AVAILABLE:
             # 显示地图
-            folium_map = st_folium(m, width=1200, height=height)
+            folium_map = st_folium(m, width=1200, height=height) # type: ignore
             
             # 获取地图的HTML内容
             html_content = st.session_state.app_state.visualizer.get_map_html(m)
@@ -487,7 +486,7 @@ def display_folium_map(m, height=700):
             # 备用方案：显示HTML
             html_content = st.session_state.app_state.visualizer.get_map_html(m)
             if html_content:
-                st.components.v1.html(html_content, height=height, scrolling=True)
+                st.components.v1.html(html_content, height=height, scrolling=True) # type: ignore
                 
                 # 提供下载链接
                 download_key = generate_unique_key("download_folium_map")
@@ -624,7 +623,7 @@ def handle_environment_update(new_config):
 def create_system_status_card(state):
     """创建系统状态卡片"""
     with st.container():
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+        # st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">📊 系统状态</div>', unsafe_allow_html=True)
         
         # 实时状态显示
@@ -654,7 +653,7 @@ def create_system_status_card(state):
 def create_visualization_control_card(state):
     """创建可视化控制卡片"""
     with st.container():
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+        # st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">🎨 可视化控制</div>', unsafe_allow_html=True)
         
         # 地图样式选择
@@ -708,7 +707,7 @@ def create_visualization_control_card(state):
 def create_quick_actions_card(state):
     """创建快捷操作卡片"""
     with st.container():
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+        # st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">⚡ 快捷操作</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
@@ -728,7 +727,7 @@ def create_quick_actions_card(state):
 def create_help_card():
     """创建帮助信息卡片"""
     with st.container():
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+        # st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="card-header">❓ 使用帮助</div>', unsafe_allow_html=True)
         
         with st.expander("基本流程", expanded=False):
@@ -915,7 +914,7 @@ def main():
                     
                     if radar and jammer:
                         # 创建对准分析地图
-                        alignment_map, analysis_info = state.visualizer.create_alignment_analysis(radar, jammer)
+                        alignment_map, analysis_info = state.visualizer.create_alignment_analysis(radar, jammer) # type: ignore
                         
                         if alignment_map:
                             display_folium_map(alignment_map, height=400)
@@ -1023,7 +1022,7 @@ def main():
                         report_key = generate_unique_key("download_full_report")
                         st.download_button(
                             label="📥 下载HTML报告",
-                            data=html_content,
+                            data=html_content, # type: ignore
                             file_name=filename,
                             mime="text/html",
                             key=report_key
@@ -1043,3 +1042,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+# streamlit run app.py 
+# streamlit run app.py --server.port 8501
