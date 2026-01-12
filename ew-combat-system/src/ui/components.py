@@ -109,15 +109,15 @@ def create_entity_configurator(entity_type, config, on_save=None):
             
             if entity_type == "雷达":
                 new_config.update({
-                    "frequency": freq,
-                    "power": power,
-                    "range_max": range_max
+                    "frequency": freq, # type: ignore
+                    "power": power, # type: ignore
+                    "range_max": range_max # type: ignore
                 })
             elif entity_type == "干扰机":
                 new_config.update({
-                    "power": power,
-                    "beamwidth": beamwidth,
-                    "jam_type": jam_type
+                    "power": power, # type: ignore
+                    "beamwidth": beamwidth, # type: ignore
+                    "jam_type": jam_type # type: ignore
                 })
             
             on_save(new_config)
@@ -125,7 +125,7 @@ def create_entity_configurator(entity_type, config, on_save=None):
 
 def create_simulation_controls(on_start=None, on_pause=None, on_reset=None):
     """创建仿真控制面板"""
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([1, 1, 2])
     
     with col1:
         simulation_speed = st.select_slider(
@@ -138,7 +138,7 @@ def create_simulation_controls(on_start=None, on_pause=None, on_reset=None):
         duration = st.number_input("仿真时长 (秒)", 10, 3600, 300, 10)
     
     with col3:
-        st.markdown("### ")
+        st.markdown("######")
         start_col, pause_col, reset_col = st.columns(3)
         
         with start_col:

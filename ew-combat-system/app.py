@@ -454,7 +454,7 @@ def save_visualization_html(m, filename=None):
     
     return None, None
 
-def display_folium_map(m, height=700):
+def display_folium_map(m, height=700, key="map"):
     """在Streamlit中显示Folium地图"""
     try:
         if m is None:
@@ -467,7 +467,7 @@ def display_folium_map(m, height=700):
         # 使用streamlit-folium显示地图
         if FOLIUM_AVAILABLE:
             # 显示地图
-            folium_map = st_folium(m, width=1200, height=height) # type: ignore
+            folium_map = st_folium(m, width=1200, height=height, key=key) # type: ignore
             
             # 获取地图的HTML内容
             html_content = st.session_state.app_state.visualizer.get_map_html(m)
@@ -810,7 +810,7 @@ def main():
             
             if viz:
                 # 显示地图
-                display_folium_map(viz, height=600)
+                display_folium_map(viz, height=600,key="current_map")
                             
             
             col_a, col_b, col_c = st.columns(3)
@@ -853,7 +853,7 @@ def main():
         )
     
     with tab2:
-        st.markdown('<div class="card-header">🚀 仿真控制</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card-header">🚀 仿真控制面板</div>', unsafe_allow_html=True)
         
         # 仿真控制面板
         speed, duration = create_simulation_controls(
