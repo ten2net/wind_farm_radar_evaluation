@@ -10,27 +10,30 @@ def create_header():
     """创建页面标题"""
     st.markdown("""
     <style>
-    .main-title {
-        font-size: 2.8rem;
-        font-weight: 800;
-        background: linear-gradient(45deg, #00d4ff, #0088ff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        margin-bottom: 1rem;
-        text-shadow: 0 2px 10px rgba(0, 212, 255, 0.3);
-    }
-    .sub-title {
-        font-size: 1.2rem;
-        color: #a0a0ff;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
+        .main-header {
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        }
+        .sub-header {
+            color: #94a3b8;
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h1 class="main-title">🛡️ 长城数字电子战对抗仿真系统</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-title">高级电子战体系对抗仿真与评估平台</p>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">🛡️ 长城数字电子战对抗仿真系统</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">高级电子战体系对抗仿真与评估平台</p>', unsafe_allow_html=True)
 
 def create_status_bar(radar_count, jammer_count, target_count, scenario_name="未选择"):
     """创建状态栏"""
