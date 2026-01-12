@@ -12,7 +12,7 @@ import socket
 import json
 import asyncio
 import aiohttp
-from typing import Dict, List, Optional, Any, Callover
+from typing import Dict, List, Optional, Any
 import warnings
 warnings.filterwarnings('ignore')
 

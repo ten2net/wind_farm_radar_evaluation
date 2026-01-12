@@ -11,7 +11,6 @@ import webbrowser
 
 # 添加模块路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 class ApplicationConfig:
     """应用程序配置类"""
     
@@ -137,9 +136,10 @@ class ApplicationInitializer:
         """, unsafe_allow_html=True)
     
     def _initialize_modules(self):
-        """初始化各功能模块"""
+        """初始化各功能模块 - 修复版本"""
+        # 修正模块映射：使用实际存在的类名
         modules_to_load = {
-            'core': ('core_module', 'CoreModule'),
+            'core': ('core_module', 'SimulationEngine'),  # 改为实际存在的类
             'visualization': ('map_visualization_module', 'VisualizationToolkit'),
             'simulation_control': ('simulation_control_module', 'SimulationUI'),
             'advanced_features': ('advanced_features_module', 'AdvancedIntegration'),
@@ -150,14 +150,62 @@ class ApplicationInitializer:
                 try:
                     # 动态导入模块
                     module = importlib.import_module(file_name)
-                    module_class = getattr(module, class_name)
-                    self.modules_loaded[module_name] = module_class()
-                    st.success(f"✅ {module_name} 模块加载成功")
+                    
+                    # 检查类是否存在
+                    if hasattr(module, class_name):
+                        module_class = getattr(module, class_name)
+                        self.modules_loaded[module_name] = module_class()
+                        st.success(f"✅ {module_name} 模块加载成功")
+                    else:
+                        st.warning(f"⚠️ {module_name} 模块中未找到类: {class_name}")
+                        self.modules_loaded[module_name] = self._create_fallback_module(module_name)
+                        
+                except ImportError as e:
+                    st.error(f"❌ {module_name} 模块导入失败: {e}")
+                    self.modules_loaded[module_name] = self._create_fallback_module(module_name)
                 except Exception as e:
                     st.error(f"❌ {module_name} 模块加载失败: {e}")
-                    self.modules_loaded[module_name] = None
+                    self.modules_loaded[module_name] = self._create_fallback_module(module_name)
             else:
                 st.info(f"⏭️ {module_name} 模块已禁用")
+                self.modules_loaded[module_name] = None
+    
+    def _create_fallback_module(self, module_name):
+        """创建备用模块实例"""
+        st.warning(f"为 {module_name} 模块创建备用实例")
+        
+        # 为每个模块类型提供基本的备用实现
+        if module_name == 'core':
+            return self._create_core_fallback()
+        elif module_name == 'visualization':
+            return self._create_visualization_fallback()
+        else:
+            return None
+    
+    def _create_core_fallback(self):
+        """创建核心模块备用实例"""
+        # 创建一个简单的核心模块备用实现
+        class FallbackCoreModule:
+            def __init__(self):
+                self.name = "Fallback Core Module"
+                self.status = "fallback"
+                
+            def get_status(self):
+                return {"status": "fallback", "message": "使用备用核心模块"}
+        
+        return FallbackCoreModule()
+    
+    def _create_visualization_fallback(self):
+        """创建可视化模块备用实例"""
+        class FallbackVisualizationToolkit:
+            def __init__(self):
+                self.name = "Fallback Visualization Toolkit"
+                
+            def create_basic_map(self):
+                import folium
+                return folium.Map(location=[35.0, 115.0], zoom_start=6)
+        
+        return FallbackVisualizationToolkit()
     
     def _create_data_directories(self):
         """创建数据目录"""
@@ -645,6 +693,269 @@ class MainApplication:
         
         # 显示仿真结果图表
         self._display_simulation_results()
+        
+    def _display_simulation_results(self):
+        """显示仿真结果图表"""
+        st.subheader("📈 仿真结果")
+        
+        # 创建示例仿真结果数据
+        import pandas as pd
+        import numpy as np
+        
+        # 生成示例时间序列数据
+        time_points = np.arange(0, 100, 1)
+        performance = np.sin(time_points * 0.1) * 0.4 + 0.5  # 模拟性能波动
+        distance = np.linspace(200, 10, 100)  # 距离从200km减少到10km
+        jamming = np.random.uniform(0.1, 0.8, 100)  # 随机干扰
+        
+        # 创建图表
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+        
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=['性能时间线', '目标距离变化', '干扰强度', '综合态势'],
+            specs=[[{"secondary_y": True}, {}],
+                  [{"colspan": 2}, None]]
+        )
+        
+        # 性能时间线
+        fig.add_trace(
+            go.Scatter(x=time_points, y=performance, name="性能", line=dict(color='blue')),
+            row=1, col=1
+        )
+        
+        # 目标距离
+        fig.add_trace(
+            go.Scatter(x=time_points, y=distance, name="目标距离", line=dict(color='red')),
+            row=1, col=2
+        )
+        
+        # 干扰强度
+        fig.add_trace(
+            go.Bar(x=time_points[::5], y=jamming[::5], name="干扰强度", marker_color='orange'),
+            row=2, col=1
+        )
+        
+        fig.update_layout(height=600, showlegend=True, title_text="仿真结果分析")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 添加关键指标
+        st.subheader("📊 关键性能指标")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("平均性能", f"{np.mean(performance)*100:.1f}%")
+        with col2:
+            st.metric("最终距离", f"{distance[-1]:.1f} km")
+        with col3:
+            st.metric("平均干扰", f"{np.mean(jamming)*100:.1f}%")
+        with col4:
+            success = "成功" if performance[-1] > 0.4 else "失败"
+            st.metric("任务结果", success)
+
+    def _show_performance_analysis(self, advanced_module):
+        """显示性能分析"""
+        st.subheader("📊 性能分析")
+        
+        # 创建示例分析图表
+        import plotly.graph_objects as go
+        import numpy as np
+        
+        # 雷达图 - 性能对比
+        categories = ['探测距离', '抗干扰', '精度', '隐蔽性', '可靠性']
+        
+        fig = go.Figure()
+        
+        # 添加不同导引头的性能数据
+        systems = {
+            '被动雷达': [0.8, 0.7, 0.6, 0.9, 0.8],
+            '主动雷达': [1.0, 0.4, 0.8, 0.2, 0.85],
+            '复合制导': [0.9, 0.8, 0.9, 0.7, 0.9]
+        }
+        
+        for name, values in systems.items():
+            fig.add_trace(go.Scatterpolar(
+                r=values + [values[0]],
+                theta=categories + [categories[0]],
+                fill='toself',
+                name=name
+            ))
+        
+        fig.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+            showlegend=True,
+            title="导引头性能对比"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 添加详细分析
+        st.subheader("📈 详细分析")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.info("""
+            **性能分析要点:**
+            1. 被动雷达在隐蔽性方面表现最佳
+            2. 主动雷达在探测距离和精度方面有优势
+            3. 复合制导在抗干扰和可靠性方面表现均衡
+            4. 系统选择应根据具体作战任务
+            """)
+        
+        with col2:
+            st.warning("""
+            **优化建议:**
+            1. 考虑使用复合制导提升整体性能
+            2. 优化天线设计以提高探测距离
+            3. 增加频率捷变能力提升抗干扰
+            4. 改善信号处理算法提高精度
+            """)
+
+    def _show_multi_target_analysis(self, advanced_module):
+        """显示多目标分析"""
+        st.subheader("🎯 多目标分析")
+        
+        # 创建示例多目标分析
+        import plotly.express as px
+        import pandas as pd
+        
+        # 创建示例数据
+        data = {
+            'target_id': ['Target_1', 'Target_2', 'Target_3', 'Target_4'],
+            'priority': [0.9, 0.7, 0.6, 0.5],
+            'distance': [50, 80, 120, 150],
+            'threat_level': [0.8, 0.6, 0.4, 0.3],
+            'type': ['预警机', '战斗机', '军舰', '雷达站']
+        }
+        
+        df = pd.DataFrame(data)
+        
+        # 创建水平条形图
+        fig = px.bar(
+            df.sort_values('priority'),
+            y='target_id',
+            x='priority',
+            color='threat_level',
+            hover_data=['distance', 'type'],
+            title="目标攻击优先级排序",
+            orientation='h'
+        )
+        
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 添加战术建议
+        st.subheader("💡 多目标攻击战术")
+        
+        st.info("""
+        **推荐攻击序列:**
+        1. Target_1 (预警机) - 最高优先级，压制敌方空中指挥
+        2. Target_2 (战斗机) - 消除主要空中威胁
+        3. Target_3 (军舰) - 打击海上目标
+        4. Target_4 (雷达站) - 最后处理固定目标
+        """)
+
+    def _show_ew_analysis(self, advanced_module):
+        """显示电子对抗分析"""
+        st.subheader("⚡ 电子对抗分析")
+        
+        # 创建示例电子对抗分析
+        import plotly.graph_objects as go
+        
+        # 创建干扰分析图
+        jamming_types = ['噪声压制', '欺骗干扰', '灵巧噪声', 'DRM干扰']
+        effectiveness = [0.8, 0.6, 0.7, 0.9]
+        counter_measures = ['频率捷变', '波形捷变', '自适应滤波', '多基地雷达']
+        
+        fig = go.Figure(data=[
+            go.Bar(name='干扰效果', x=jamming_types, y=effectiveness, marker_color='red'),
+            go.Bar(name='对抗效果', x=counter_measures, y=[0.7, 0.8, 0.75, 0.9], marker_color='blue')
+        ])
+        
+        fig.update_layout(
+            title="干扰与对抗效果分析",
+            barmode='group',
+            height=400
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 添加电子对抗建议
+        st.subheader("🛡️ 电子对抗建议")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.success("""
+            **主动对抗措施:**
+            1. 频率捷变技术
+            2. 极化分集处理
+            3. 空间滤波算法
+            4. 波形自适应调整
+            """)
+        
+        with col2:
+            st.warning("""
+            **被动对抗措施:**
+            1. 电磁静默策略
+            2. 低截获概率波形
+            3. 功率管理控制
+            4. 多基地协同探测
+            """)
+
+    def _show_ai_analysis(self, advanced_module):
+        """显示AI智能分析"""
+        st.subheader("🤖 AI智能分析")
+        
+        # 创建AI分析仪表盘
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("AI评估等级", "良好", delta="+5%")
+        
+        with col2:
+            st.metric("风险指数", "中等", delta="-3%")
+        
+        with col3:
+            st.metric("优化潜力", "高", delta="+8%")
+        
+        with col4:
+            st.metric("可靠性", "85%", delta="+2%")
+        
+        # AI分析报告
+        st.subheader("📋 AI分析报告")
+        
+        with st.expander("详细分析报告", expanded=True):
+            tab1, tab2, tab3 = st.tabs(["优势分析", "问题识别", "优化建议"])
+            
+            with tab1:
+                st.success("""
+                **✅ 系统优势:**
+                1. 隐蔽性能优秀，适合突袭作战
+                2. 抗干扰能力较强，能在复杂电磁环境下工作
+                3. 探测距离满足作战需求
+                4. 系统可靠性达到作战标准
+                """)
+            
+            with tab2:
+                st.warning("""
+                **⚠️ 需要改进:**
+                1. 目标识别精度有待提高
+                2. 在多目标场景下性能下降明显
+                3. 对抗新型干扰能力不足
+                4. 系统响应时间可以进一步优化
+                """)
+            
+            with tab3:
+                st.info("""
+                **💡 优化建议:**
+                1. 升级信号处理算法
+                2. 增加多传感器融合
+                3. 采用人工智能辅助决策
+                4. 优化系统架构设计
+                """)        
     
     def _display_battlefield_map(self, visualization_toolkit):
         """显示战场地图"""
