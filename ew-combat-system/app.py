@@ -631,7 +631,7 @@ def create_system_status_card(state):
         if state.scenario:
             st.success(state.scenario.name)
         else:
-            st.warning("未选择")
+            st.warning("请先创建想定")
         
         st.write("**实体统计:**")
         stats_data = {
@@ -766,12 +766,13 @@ def main():
     create_header()
     
     # 状态栏
-    create_status_bar(
-        radar_count=len(state.radars),
-        jammer_count=len(state.jammers),
-        target_count=len(state.targets),
-        scenario_name=state.scenario.name if state.scenario else "未选择"
-    )
+    if state.scenario:
+        create_status_bar(
+            radar_count=len(state.radars),
+            jammer_count=len(state.jammers),
+            target_count=len(state.targets),
+            scenario_name=state.scenario.name if state.scenario else "未选择"
+        )
     
     # 使用Streamlit的侧边栏布局
     with st.sidebar:
