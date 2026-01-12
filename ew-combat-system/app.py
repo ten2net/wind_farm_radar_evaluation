@@ -806,6 +806,13 @@ def main():
             st.markdown("---")
             st.subheader("📡 当前想定概览")
             
+            viz = state.get_visualization()
+            
+            if viz:
+                # 显示地图
+                display_folium_map(viz, height=600)
+                            
+            
             col_a, col_b, col_c = st.columns(3)
             
             with col_a:
