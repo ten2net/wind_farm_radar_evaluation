@@ -27,9 +27,10 @@ def load_radar_database(config_path: str = "config/radar_database.yaml") -> Dict
 def load_scenarios(config_path: str = "config/scenarios.yaml") -> Dict[str, Any]:
     """加载想定配置"""
     try:
+        print("加载想定配置",config_path)
         config_file = Path(config_path)
         if not config_file.exists():
-            return {}
+            raise FileNotFoundError(f"想定配置文件不存在: {config_file}")
         
         with open(config_file, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)

@@ -27,6 +27,8 @@ except ImportError:
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
 
+from src.utils.config_loader import load_radar_database, load_scenarios
+
 # 导入自定义模块
 try:
     from src.core.patterns.strategy import ScenarioFactory # type: ignore
@@ -43,7 +45,7 @@ try:
         create_export_panel,
         create_progress_bar
     )
-    from src.utils.config_loader import load_radar_database, load_scenarios
+
 except ImportError as e:
     st.warning(f"某些模块导入失败: {e}")
     # 创建虚拟模块
@@ -89,8 +91,8 @@ except ImportError as e:
     def create_export_panel(*args, **kwargs): pass
     def create_progress_bar(*args, **kwargs): pass
     
-    def load_radar_database(): return {}
-    def load_scenarios(): return {}
+    # def load_radar_database(): return {}
+    # def load_scenarios(): return {}
 
 # 页面配置
 st.set_page_config(
@@ -192,8 +194,11 @@ class AppState:
         }
         
         # 加载数据库
-        self.radar_db = load_radar_database()
-        self.scenario_db = load_scenarios()
+        self.radar_db = load_radar_database(config_path = f"{project_root}/config/radar_database.yaml")
+        self.scenario_db = load_scenarios(config_path =f"{project_root}/config/scenarios.yaml")
+
+        # 初始化可视化器
+        self.visualizer = EWVisualizer()
         
         # 可视化器 - 使用Folium版本
         self.visualizer = EWVisualizer()
