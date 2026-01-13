@@ -67,7 +67,7 @@ def create_scenario_selector(scenarios, on_change=None):
     if selected_scenario:
         st.info(f"**{selected_scenario['name']}**: {selected_scenario['description']}")
     
-    if on_change and st.button("创建想定", type="primary"):
+    if on_change and st.button("加载想定", type="primary"):
         on_change(selected)
     
     return selected

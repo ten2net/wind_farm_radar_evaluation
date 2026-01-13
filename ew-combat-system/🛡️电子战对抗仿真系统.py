@@ -635,7 +635,7 @@ def create_system_status_card(state):
         if state.scenario:
             st.success(state.scenario.name)
         else:
-            st.warning("请先创建想定")
+            st.warning("请先加载想定")
         
         st.write("**实体统计:**")
         stats_data = {
