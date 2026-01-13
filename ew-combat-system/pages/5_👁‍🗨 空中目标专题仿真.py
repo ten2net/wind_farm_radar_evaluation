@@ -3,6 +3,8 @@ import json
 import pandas as pd
 from datetime import datetime
 
+from src.core.optimization.optimization_controller import OptimizationController
+
 # 添加炫酷科技风格CSS
 st.markdown("""
 <style>

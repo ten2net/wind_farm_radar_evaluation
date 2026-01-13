@@ -1,0 +1,33 @@
+# 文件: config/coteja_config.yaml
+# COTEJA系统配置文件
+coteja_system:
+  version: "2.0.0"
+  description: "基于组合优化的威胁评估与干扰分配系统"
+  
+  # 优化算法参数
+  optimization:
+    time_limit: 1.0
+    population_size: 50
+    max_generations: 100
+    crossover_rate: 0.9
+    scaling_factor: 0.5
+    consider_illumination: true
+    
+  # 对抗分析参数
+  combat_analysis:
+    stage_effectiveness_tables: "config/tables/stage_effectiveness.json"
+    tech_interaction_tables: "config/tables/tech_interaction.json" 
+    bw_adjustment_tables: "config/tables/bw_adjustment.json"
+    
+  # 仿真参数
+  simulation:
+    time_intervals: 6
+    time_step: 1.0
+    radar_stages: ["search", "acquisition", "tracking", "guidance"]
+    interruption_threshold: 0.3
+    
+  # 可视化参数
+  visualization:
+    enable_3d: false
+    animation_speed: 1.0
+    color_scheme: "coteja"

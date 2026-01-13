@@ -15,7 +15,6 @@ from datetime import datetime
 import hashlib
 import time
 import random
-
 # 添加streamlit-folium支持
 try:
     from streamlit_folium import st_folium, folium_static
@@ -757,6 +756,21 @@ def create_help_card():
         
         st.markdown('</div>', unsafe_allow_html=True)
 
+def run_coteja_optimization(state):
+
+    from src.core.optimization.optimization_controller import OptimizationController
+    controller = OptimizationController(time_limit=1.0)
+    result = controller.run_optimization(state.scenario)
+    
+    # 显示结果
+    st.success(f"优化完成! 适应度: {result['best_fitness']:.3f}")
+    st.info(f"资源利用率: {result['resource_utilization']:.1%}")
+    
+    # 显示分配矩阵
+    assignment_df = pd.DataFrame.from_dict(result['best_solution'], orient='index')
+    st.dataframe(assignment_df)
+
+
 def main():
     """主函数"""
     # 初始化应用
@@ -787,6 +801,7 @@ def main():
         
         # 帮助信息卡片
         create_help_card()
+
     
     # 主内容区
     tab1, tab2, tab3 = st.tabs(["🎯 想定配置", "🚀 仿真控制", "📈 结果分析"])

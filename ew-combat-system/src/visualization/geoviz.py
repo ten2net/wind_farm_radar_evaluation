@@ -57,7 +57,371 @@ class EWVisualizer:
         
         # 缓存已创建的地图
         self.current_map = None
+        
+    @staticmethod
+    def create_matplotlib_plot(radars: List, jammers: List, targets: Optional[List] = None) -> plt.Figure:
+        """
+        创建Matplotlib可视化图表
+        这是修复后添加的方法
+        
+        参数:
+            radars: 雷达列表
+            jammers: 干扰机列表
+            targets: 目标列表，可选
+            
+        返回:
+            Matplotlib图形对象
+        """
+        try:
+            return EWVisualizer._create_simple_visualization(radars, jammers, targets)
+        except Exception as e:
+            print(f"创建Matplotlib图表失败: {e}")
+            return EWVisualizer._create_basic_matplotlib_plot(radars, jammers, targets)        
     
+    @staticmethod
+    def _create_simple_visualization(radars: List, jammers: List, 
+                                   targets: Optional[List] = None,
+                                   bbox: Optional[Tuple[float, float, float, float]] = None) -> Any:
+        """创建简单的可视化（备用方案）"""
+        try:
+            import cartopy.crs as ccrs
+            import cartopy.feature as cfeature
+            
+            # 获取所有位置计算边界
+            all_positions = []
+            for radar in radars:
+                all_positions.append([radar.position['lon'], radar.position['lat']])
+            for jammer in jammers:
+                all_positions.append([jammer.position['lon'], jammer.position['lat']])
+            if targets:
+                for target in targets:
+                    all_positions.append([target.position['lon'], target.position['lat']])
+            
+            if all_positions:
+                lons = [p[0] for p in all_positions]
+                lats = [p[1] for p in all_positions]
+                
+                if bbox is None:
+                    padding = 0.5
+                    bbox = (
+                        min(lons) - padding,
+                        min(lats) - padding,
+                        max(lons) + padding,
+                        max(lats) + padding
+                    )
+            else:
+                bbox = (115.9, 39.4, 116.9, 40.4)
+            
+            min_lon, min_lat, max_lon, max_lat = bbox
+            
+            # 创建图形和坐标轴
+            fig = plt.figure(figsize=(12, 10))
+            
+            # 使用PlateCarree投影
+            ax = plt.axes(projection=ccrs.PlateCarree())
+            
+            # 设置地图范围
+            ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=ccrs.PlateCarree()) # type: ignore
+            
+            # 添加地理特征
+            ax.add_feature(cfeature.LAND, facecolor='lightgray', alpha=0.3) # type: ignore
+            ax.add_feature(cfeature.OCEAN, facecolor='lightblue', alpha=0.3) # type: ignore
+            ax.add_feature(cfeature.COASTLINE, linewidth=0.5, alpha=0.5) # type: ignore
+            ax.add_feature(cfeature.BORDERS, linewidth=0.5, alpha=0.5, linestyle=':') # type: ignore
+            
+            # 添加经纬度网格
+            gl = ax.gridlines(draw_labels=True, linewidth=0.5, alpha=0.3, linestyle='--') # type: ignore
+            gl.top_labels = False
+            gl.right_labels = False
+            
+            # 绘制雷达
+            radar_scatter = None
+            if radars:
+                radar_lons = [r.position['lon'] for r in radars]
+                radar_lats = [r.position['lat'] for r in radars]
+                radar_names = [r.name for r in radars]
+                
+                radar_scatter = ax.scatter(
+                    radar_lons, radar_lats, 
+                    c='blue', s=150, marker='^', 
+                    edgecolors='black', linewidth=1.5, 
+                    transform=ccrs.PlateCarree(),
+                    label=f'雷达 ({len(radars)}个)',
+                    zorder=5
+                )
+                
+                # 添加雷达标签
+                for i, (lon, lat, name) in enumerate(zip(radar_lons, radar_lats, radar_names)):
+                    ax.text(lon + 0.01, lat + 0.01, name, 
+                           transform=ccrs.PlateCarree(),
+                           fontsize=8, color='blue',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+            
+            # 绘制干扰机
+            jammer_scatter = None
+            if jammers:
+                jammer_lons = [j.position['lon'] for j in jammers]
+                jammer_lats = [j.position['lat'] for j in jammers]
+                jammer_names = [j.name for j in jammers]
+                
+                jammer_scatter = ax.scatter(
+                    jammer_lons, jammer_lats, 
+                    c='red', s=120, marker='s', 
+                    edgecolors='black', linewidth=1.5,
+                    transform=ccrs.PlateCarree(),
+                    label=f'干扰机 ({len(jammers)}个)',
+                    zorder=5
+                )
+                
+                # 添加干扰机标签
+                for i, (lon, lat, name) in enumerate(zip(jammer_lons, jammer_lats, jammer_names)):
+                    ax.text(lon + 0.01, lat + 0.01, name, 
+                           transform=ccrs.PlateCarree(),
+                           fontsize=8, color='red',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+            
+            # 绘制目标
+            target_scatter = None
+            if targets:
+                target_lons = [t.position['lon'] for t in targets]
+                target_lats = [t.position['lat'] for t in targets]
+                target_names = [t.name for t in targets]
+                
+                target_scatter = ax.scatter(
+                    target_lons, target_lats, 
+                    c='green', s=100, marker='o', 
+                    edgecolors='black', linewidth=1.5,
+                    transform=ccrs.PlateCarree(),
+                    label=f'目标 ({len(targets)}个)',
+                    zorder=5
+                )
+                
+                # 添加目标标签
+                for i, (lon, lat, name) in enumerate(zip(target_lons, target_lats, target_names)):
+                    ax.text(lon + 0.01, lat + 0.01, name, 
+                           transform=ccrs.PlateCarree(),
+                           fontsize=8, color='green',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+            
+            # 添加图例
+            handles = []
+            if radar_scatter:
+                handles.append(radar_scatter)
+            if jammer_scatter:
+                handles.append(jammer_scatter)
+            if target_scatter:
+                handles.append(target_scatter)
+            
+            if handles:
+                ax.legend(handles=handles, loc='upper right', fontsize=10)
+            
+            # 设置标题
+            ax.set_title('电子战对抗态势图', fontsize=16, fontweight='bold', pad=20)
+            
+            # 添加比例尺
+            scale_lon = max_lon - 0.3
+            scale_lat = min_lat + 0.1
+            scale_length_deg = 0.9  # 大约100km在纬度40度
+            
+            # 添加比例尺文本
+            ax.text(scale_lon + scale_length_deg/2, scale_lat - 0.02, '~100 km',
+                   transform=ccrs.PlateCarree(),
+                   ha='center', fontsize=9)
+            
+            # 添加比例尺线
+            ax.plot([scale_lon, scale_lon + scale_length_deg], 
+                   [scale_lat, scale_lat], 
+                   'k-', linewidth=3, transform=ccrs.PlateCarree())
+            ax.plot([scale_lon, scale_lon], 
+                   [scale_lat - 0.01, scale_lat + 0.01], 
+                   'k-', linewidth=2, transform=ccrs.PlateCarree())
+            ax.plot([scale_lon + scale_length_deg, scale_lon + scale_length_deg], 
+                   [scale_lat - 0.01, scale_lat + 0.01], 
+                   'k-', linewidth=2, transform=ccrs.PlateCarree())
+            
+            # 调整布局
+            plt.tight_layout()
+            
+            return fig
+            
+        except Exception as e:
+            print(f"创建Cartopy图表失败: {e}")
+            # 使用简单的Matplotlib图表
+            return EWVisualizer._create_basic_matplotlib_plot(radars, jammers, targets, bbox)
+    @staticmethod
+    def _create_basic_matplotlib_plot(radars: List, jammers: List, 
+                                    targets: Optional[List] = None,
+                                    bbox: Optional[Tuple[float, float, float, float]] = None) -> Any:
+        """创建基础的Matplotlib图表"""
+        try:
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # 设置背景
+            ax.set_facecolor('#f0f0f0')
+            
+            # 绘制雷达
+            if radars:
+                radar_lons = [r.position['lon'] for r in radars]
+                radar_lats = [r.position['lat'] for r in radars]
+                radar_names = [r.name for r in radars]
+                
+                radar_scatter = ax.scatter(radar_lons, radar_lats, c='blue', s=150, marker='^', 
+                                         label=f'雷达 ({len(radars)}个)', edgecolors='black', linewidth=1.5)
+                
+                # 添加雷达标签
+                for i, (lon, lat, name) in enumerate(zip(radar_lons, radar_lats, radar_names)):
+                    ax.text(lon + 0.01, lat + 0.01, name, fontsize=9, color='blue',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+            
+            # 绘制干扰机
+            if jammers:
+                jammer_lons = [j.position['lon'] for j in jammers]
+                jammer_lats = [j.position['lat'] for j in jammers]
+                jammer_names = [j.name for j in jammers]
+                
+                jammer_scatter = ax.scatter(jammer_lons, jammer_lats, c='red', s=120, marker='s', 
+                                          label=f'干扰机 ({len(jammers)}个)', edgecolors='black', linewidth=1.5)
+                
+                # 添加干扰机标签
+                for i, (lon, lat, name) in enumerate(zip(jammer_lons, jammer_lats, jammer_names)):
+                    ax.text(lon + 0.01, lat + 0.01, name, fontsize=9, color='red',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+            
+            # 绘制目标
+            if targets:
+                target_lons = [t.position['lon'] for t in targets]
+                target_lats = [t.position['lat'] for t in targets]
+                target_names = [t.name for t in targets]
+                
+                target_scatter = ax.scatter(target_lons, target_lats, c='green', s=100, marker='o', 
+                                          label=f'目标 ({len(targets)}个)', edgecolors='black', linewidth=1.5)
+                
+                # 添加目标标签
+                for i, (lon, lat, name) in enumerate(zip(target_lons, target_lats, target_names)):
+                    ax.text(lon + 0.01, lat + 0.01, name, fontsize=9, color='green',
+                           bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+            
+            # 设置标签和标题
+            ax.set_xlabel('经度')
+            ax.set_ylabel('纬度')
+            ax.set_title('电子战对抗态势图', fontsize=16, fontweight='bold')
+            ax.legend(loc='upper right')
+            ax.grid(True, alpha=0.3, linestyle='--')
+            
+            # 设置坐标轴范围
+            if bbox:
+                min_lon, min_lat, max_lon, max_lat = bbox
+                ax.set_xlim(min_lon, max_lon)
+                ax.set_ylim(min_lat, max_lat)
+            
+            plt.tight_layout()
+            return fig
+            
+        except Exception as e:
+            print(f"创建基础Matplotlib图表失败: {e}")
+            # 返回错误提示图
+            fig, ax = plt.subplots(figsize=(10, 8))
+            ax.text(0.5, 0.5, f'可视化错误: {str(e)}', 
+                   ha='center', va='center', fontsize=12, color='red')
+            return fig            
+    
+    @staticmethod
+    def create_folium_map(radars: List, jammers: List, targets: Optional[List] = None) -> folium.Map:
+        """
+        使用Folium创建交互式地图
+        
+        参数:
+            radars: 雷达列表
+            jammers: 干扰机列表
+            targets: 目标列表，可选
+            
+        返回:
+            Folium地图对象
+        """
+        try:
+            # 计算中心点
+            all_positions = []
+            for radar in radars:
+                if hasattr(radar, 'position'):
+                    if isinstance(radar.position, dict):
+                        lat = radar.position.get('lat', 39.9)
+                        lon = radar.position.get('lon', 116.4)
+                    else:
+                        lat = getattr(radar.position, 'lat', 39.9)
+                        lon = getattr(radar.position, 'lon', 116.4)
+                else:
+                    lat = getattr(radar, 'lat', 39.9)
+                    lon = getattr(radar, 'lon', 116.4)
+                all_positions.append([lat, lon])
+            
+            for jammer in jammers:
+                if hasattr(jammer, 'position'):
+                    if isinstance(jammer.position, dict):
+                        lat = jammer.position.get('lat', 40.0)
+                        lon = jammer.position.get('lon', 116.5)
+                    else:
+                        lat = getattr(jammer.position, 'lat', 40.0)
+                        lon = getattr(jammer.position, 'lon', 116.5)
+                else:
+                    lat = getattr(jammer, 'lat', 40.0)
+                    lon = getattr(jammer, 'lon', 116.5)
+                all_positions.append([lat, lon])
+            
+            if all_positions:
+                center_lat = np.mean([p[0] for p in all_positions])
+                center_lon = np.mean([p[1] for p in all_positions])
+            else:
+                center_lat, center_lon = 39.9, 116.4
+            
+            # 创建地图
+            m = folium.Map(
+                location=[center_lat, center_lon],
+                zoom_start=8
+            )
+            
+            # 添加雷达标记
+            for radar in radars:
+                if hasattr(radar, 'position'):
+                    if isinstance(radar.position, dict):
+                        lat = radar.position.get('lat', 39.9)
+                        lon = radar.position.get('lon', 116.4)
+                    else:
+                        lat = getattr(radar.position, 'lat', 39.9)
+                        lon = getattr(radar.position, 'lon', 116.4)
+                else:
+                    lat = getattr(radar, 'lat', 39.9)
+                    lon = getattr(radar, 'lon', 116.4)
+                
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=f"雷达: {getattr(radar, 'name', '未知')}",
+                    icon=folium.Icon(color='blue', icon='info-sign')
+                ).add_to(m)
+            
+            # 添加干扰机标记
+            for jammer in jammers:
+                if hasattr(jammer, 'position'):
+                    if isinstance(jammer.position, dict):
+                        lat = jammer.position.get('lat', 40.0)
+                        lon = jammer.position.get('lon', 116.5)
+                    else:
+                        lat = getattr(jammer.position, 'lat', 40.0)
+                        lon = getattr(jammer.position, 'lon', 116.5)
+                else:
+                    lat = getattr(jammer, 'lat', 40.0)
+                    lon = getattr(jammer, 'lon', 116.5)
+                
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=f"干扰机: {getattr(jammer, 'name', '未知')}",
+                    icon=folium.Icon(color='red', icon='info-sign')
+                ).add_to(m)
+            
+            return m
+            
+        except Exception as e:
+            print(f"创建Folium地图失败: {e}")
+            return folium.Map(location=[39.9, 116.4], zoom_start=8)    
     def create_base_map(self, tile_style: str = "标准地图") -> folium.Map:
         """
         创建基础地图
