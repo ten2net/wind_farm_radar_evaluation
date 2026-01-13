@@ -324,8 +324,8 @@ except ImportError as e:
     st.stop()
     
 def show_paper_comparison():
-      """显示与论文结果的详细对比分析"""
-      st.header("📊 与论文结果对比分析")
+      """显示与基准结果的详细对比分析"""
+      st.header("📊 与基准结果对比分析")
       
       st.info("""
       **对比基准**: 基于组合优化的威胁评估和干扰分配系统的实现》中的COTEJA系统
@@ -363,7 +363,7 @@ def show_paper_comparison():
               "稳定" if results['optimization_time'] < 2.0 else "一般",
               "4v5场景通过"
           ],
-          '论文结果': [
+          '基准结果': [
               "≤1.0s",
               "≥97.0%", 
               "≥3次",
@@ -421,7 +421,7 @@ def show_paper_comparison():
       width = 0.35
       
       bars1 = ax.bar(x - width/2, our_results, width, label='本文结果', color='#1f77b4', alpha=0.8)
-      bars2 = ax.bar(x + width/2, paper_results, width, label='论文结果', color='#ff7f0e', alpha=0.8)
+      bars2 = ax.bar(x + width/2, paper_results, width, label='基准结果', color='#ff7f0e', alpha=0.8)
       
       ax.set_xlabel('性能指标')
       ax.set_ylabel('数值')
@@ -452,29 +452,29 @@ def show_paper_comparison():
       with analysis_tabs[0]:
           st.write("**优化性能分析**")
           if results['optimization_time'] <= 1.0:
-              st.success("✅ 优化时间达到论文要求（≤1.0秒）")
+              st.success("✅ 优化时间达到基准要求（≤1.0秒）")
               st.write("ePDE算法在实时性方面表现优秀，满足作战决策的时效性要求。")
           else:
-              st.warning("⚠️ 优化时间略超论文要求")
+              st.warning("⚠️ 优化时间略超基准要求")
               st.write("建议调整算法参数或优化代码实现以提高计算效率。")
       
       with analysis_tabs[1]:
           st.write("**资源利用率分析**")
           if results['resource_utilization'] >= 0.97:
-              st.success("✅ 资源利用率达到论文要求（≥97%）")
+              st.success("✅ 资源利用率达到基准要求（≥97%）")
               st.write("系统在干扰资源分配方面表现出色，实现了高效利用。")
           else:
-              st.warning("⚠️ 资源利用率接近论文要求")
+              st.warning("⚠️ 资源利用率接近基准要求")
               st.write("可通过进一步优化分配策略提升资源利用效率。")
       
       with analysis_tabs[2]:
           st.write("**对抗效果分析**")
           interruptions = results['assignment_report']['summary']['interruption_count']
           if interruptions >= 3:
-              st.success("✅ 中断次数达到论文要求（≥3次）")
+              st.success("✅ 中断次数达到基准要求（≥3次）")
               st.write("系统在雷达压制方面效果显著，具备实战价值。")
           else:
-              st.warning("⚠️ 中断次数未达论文要求")
+              st.warning("⚠️ 中断次数未达基准要求")
               st.write("可能需要调整干扰策略或优化技术参数。")
       
       with analysis_tabs[3]:
@@ -756,7 +756,7 @@ def show_tech_interaction():
             text = ax.text(j, i, f'{interaction_data[i, j]:.1f}',
                           ha="center", va="center", color=color, fontweight='bold')
     
-    ax.set_title('干扰技术交互因子热力图（基于文章表2）')
+    ax.set_title('干扰技术交互因子热力图')
     fig.colorbar(im, ax=ax, label='交互因子（>0增强，<0削弱）')
     
     st.pyplot(fig)
@@ -805,8 +805,8 @@ def show_tech_interaction():
                 st.dataframe(tech_df, use_container_width=True, hide_index=True)
 
 def load_paper_simulation_scenario():
-    """加载论文仿真场景"""
-    with st.spinner("正在加载论文仿真场景..."):
+    """加载基准仿真场景"""
+    with st.spinner("正在加载基准仿真场景..."):
         try:
             # 基于文章中的仿真参数创建场景
             jammers = []
@@ -871,10 +871,10 @@ def load_paper_simulation_scenario():
                 radar.current_stage = radar_stages[i]
                 radar.performance_level = 0.9  # 初始性能水平
             
-            # 创建论文仿真场景
+            # 创建基准仿真场景
             scenario = {
-                'name': '论文仿真场景（6时间间隔）',
-                'description': '基于文章的4v5仿真场景，包含6个时间间隔的动态仿真',
+                'name': '基准仿真场景（6时间间隔）',
+                'description': '4v5仿真场景，包含6个时间间隔的动态仿真',
                 'radars': radars,
                 'jammers': jammers,
                 'time_intervals': 6,
@@ -886,17 +886,17 @@ def load_paper_simulation_scenario():
             st.session_state.scenario = scenario
             st.session_state.scenario_type = 'paper_simulation'
             
-            st.success("✅ 论文仿真场景加载成功！")
+            st.success("✅ 基准仿真场景加载成功！")
             st.info("""
             **场景特性:**
-            - 基于文章图3的4v5配置
+            - 4v5配置
             - 支持6个时间间隔的动态仿真
             - 包含完整的干扰技术配置
             - 考虑平台照明效应
             """)
             
         except Exception as e:
-            st.error(f"加载论文仿真场景失败: {e}")
+            st.error(f"加载基准仿真场景失败: {e}")
 
 def plot_radar_stages():
     """绘制雷达阶段图"""
@@ -1163,7 +1163,7 @@ def show_system_overview():
                 st.warning("请先创建想定")
     
     with quick_col3:
-        if st.button("查看论文对比", width='stretch'):
+        if st.button("查看基准对比", width='stretch'):
             show_paper_comparison()
 
 def create_4v5_test_scenario():
@@ -1211,7 +1211,7 @@ def create_4v5_test_scenario():
             
             # 创建想定
             scenario = {
-                'name': '4v5测试想定（基于文章）',
+                'name': '4v5测试想定',
                 'description': '4个干扰机对抗5部雷达的典型场景',
                 'radars': radars,
                 'jammers': jammers,
@@ -1238,7 +1238,7 @@ def show_coteja_scenario():
     )
     
     if scenario_type == "4v5标准测试":
-        st.info("**4v5标准测试想定**: 4个干扰机对抗5部雷达，基于文章中的测试场景")
+        st.info("**4v5标准测试想定**: 4个干扰机对抗5部雷达的测试场景")
         
         if st.button("加载4v5想定", type="primary"):
             create_4v5_test_scenario()
@@ -1284,10 +1284,10 @@ def show_custom_scenario_config():
 
 def show_paper_simulation_scenario():
     """显示文章仿真场景"""
-    st.subheader("论文仿真场景配置")
+    st.subheader("基准仿真场景配置")
     
     st.info("""
-    **基于文章的仿真参数配置**:
+    **仿真参数配置**:
     - 干扰机: 4个远距支援干扰机
     - 雷达: 5部不同型号的警戒雷达  
     - 距离: 50-100km典型交战距离
@@ -1295,7 +1295,7 @@ def show_paper_simulation_scenario():
     """)
     
     # 文章中的具体参数
-    st.subheader("干扰技术参数（基于文章表1-3）")
+    st.subheader("干扰技术参数")
     
     tech_col1, tech_col2, tech_col3 = st.columns(3)
     
@@ -1311,7 +1311,7 @@ def show_paper_simulation_scenario():
         st.metric("VGPO效果", "0.9", "速度拖引")
         st.metric("带宽支持", "1-5目标", "N/M/W")
     
-    if st.button("加载论文仿真场景", type="primary"):
+    if st.button("加载基准仿真场景", type="primary"):
         load_paper_simulation_scenario()
 
 def show_intelligent_optimization():
@@ -1647,7 +1647,7 @@ def show_performance_assessment():
         st.metric("雷达中断", interruptions)
     
     # 与文章结果对比
-    st.subheader("📊 与论文结果对比")
+    st.subheader("📊 与基准结果对比")
     
     comparison_data = {
         '指标': ['优化时间', '资源利用率', '中断次数', '适应度'],
@@ -1657,7 +1657,7 @@ def show_performance_assessment():
             results['assignment_report']['summary']['interruption_count'],
             f"{results['best_fitness']:.3f}"
         ],
-        '论文结果': ['≤1.0s', '≥97.0%', '≥3', '≥0.9']
+        '基准结果': ['≤1.0s', '≥97.0%', '≥3', '≥0.9']
     }
     
     comparison_df = pd.DataFrame(comparison_data)

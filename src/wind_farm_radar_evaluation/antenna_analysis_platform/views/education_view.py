@@ -3548,7 +3548,7 @@ class EducationView:
             """)
             
             st.markdown("**推荐资源:**")
-            st.markdown("- IEEE期刊论文")
+            st.markdown("- IEEE期刊基准")
             st.markdown("- 专业会议资料")
             st.markdown("- 实际工程项目")
         
