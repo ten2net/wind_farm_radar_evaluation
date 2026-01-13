@@ -447,7 +447,7 @@ class EWVisualizer:
         plugins.Fullscreen().add_to(m)
         
         # 添加比例尺
-        plugins.ScaleBar(position='bottomleft').add_to(m) # type: ignore
+        # plugins.ScaleBar(position='bottomleft').add_to(m) # type: ignore
         
         # 添加绘制工具
         draw = plugins.Draw(

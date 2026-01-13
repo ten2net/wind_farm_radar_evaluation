@@ -30,8 +30,8 @@ class EntityState(Enum):
 @dataclass
 class Position:
     """三维位置"""
-    lat: float
-    lon: float
+    lat: float = 0.0  # 纬度，单位：度
+    lon: float = 0.0  # 经度，单位：度
     alt: float = 0.0  # 海拔高度，单位：米
     
     def to_array(self) -> np.ndarray:
