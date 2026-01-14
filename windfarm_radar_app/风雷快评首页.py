@@ -116,17 +116,132 @@ st.markdown('<h3 class="section-header">🚀 快速开始</h3>', unsafe_allow_ht
 
 col1, col2, col3 = st.columns(3)
 
+# 创建三列用于展示卡片
+col1, col2, col3 = st.columns(3)
+
 with col1:
-    st.markdown('<div class="metric-card"><h3>1️⃣</h3><p>风电场建模</p></div>', unsafe_allow_html=True)
-    st.markdown("配置风机参数、布局和地形条件")
+
+    # 卡片内容
+    st.markdown("""
+    <div class="metric-card" style="
+        background: linear-gradient(135deg, rgba(0, 100, 200, 0.2), rgba(0, 50, 100, 0.3));
+        border: 1px solid rgba(0, 150, 255, 0.3);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px 0;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    ">
+        <h3 style="
+            font-size: 2.5rem;
+            color: #00ccff;
+            margin: 0 0 10px 0;
+        ">1️⃣</h3>
+        <h4 style="
+            color: #a0d8ff;
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+        ">风电场建模</h4>
+        <p style="
+            color: #a0c8ff;
+            font-size: 0.9rem;
+            margin: 0;
+            opacity: 0.8;
+        ">配置风机参数、布局和地形条件</p>
+    </div>
+    """, unsafe_allow_html=True)
     
+    # 创建卡片容器，添加点击跳转功能
+    if st.button(
+        "打开 》",
+        key="wind_farm_card",
+        use_container_width=True,
+        help="点击进入风电场建模页面"
+    ):
+        st.switch_page("pages/1_📐 风电场建模.py")        
+
 with col2:
-    st.markdown('<div class="metric-card"><h3>2️⃣</h3><p>雷达配置</p></div>', unsafe_allow_html=True)
-    st.markdown("设置雷达参数、频段和探测模式")
+    # 卡片内容
+    st.markdown("""
+    <div class="metric-card" style="
+        background: linear-gradient(135deg, rgba(0, 100, 200, 0.2), rgba(0, 50, 100, 0.3));
+        border: 1px solid rgba(0, 150, 255, 0.3);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px 0;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    ">
+        <h3 style="
+            font-size: 2.5rem;
+            color: #00ccff;
+            margin: 0 0 10px 0;
+        ">2️⃣</h3>
+        <h4 style="
+            color: #a0d8ff;
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+        ">雷达配置</h4>
+        <p style="
+            color: #a0c8ff;
+            font-size: 0.9rem;
+            margin: 0;
+            opacity: 0.8;
+        ">设置雷达参数、频段和探测模式</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 创建卡片容器，添加点击跳转功能
+    if st.button(
+        "打开 》",
+        key="radar_card",
+        use_container_width=True,
+        help="点击进入雷达配置页面"
+    ):
+        st.switch_page("pages/2_📡 雷达参数配置.py")    
 
 with col3:
-    st.markdown('<div class="metric-card"><h3>3️⃣</h3><p>分析评估</p></div>', unsafe_allow_html=True)
-    st.markdown("进行影响评估和可视化分析")
+    # 卡片内容
+    st.markdown("""
+    <div class="metric-card" style="
+        background: linear-gradient(135deg, rgba(0, 100, 200, 0.2), rgba(0, 50, 100, 0.3));
+        border: 1px solid rgba(0, 150, 255, 0.3);
+        border-radius: 10px;
+        padding: 20px;
+        margin: 10px 0;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    ">
+        <h3 style="
+            font-size: 2.5rem;
+            color: #00ccff;
+            margin: 0 0 10px 0;
+        ">3️⃣</h3>
+        <h4 style="
+            color: #a0d8ff;
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+        ">目标设置</h4>
+        <p style="
+            color: #a0c8ff;
+            font-size: 0.9rem;
+            margin: 0;
+            opacity: 0.8;
+        ">设置雷达要探测的目标信息</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 创建卡片容器，添加点击跳转功能
+    if st.button(
+        "打开 》",
+        key="analysis_card",
+        use_container_width=True,
+        help="点击进入目标设置页面"
+    ):
+        st.switch_page("pages/3_🎯 目标设置.py")    
 
 # 功能模块介绍
 st.markdown('<h3 class="section-header">🔧 功能模块</h3>', unsafe_allow_html=True)
@@ -297,10 +412,10 @@ with st.sidebar:
     st.markdown("""
     **版本:** 1.0.0
     **更新日期:** 2026年1月
-    **开发者:** 雷达影响评估团队
+    **开发者:** 长城数字雷达影响评估团队
     
     **技术支持:**
-    - 邮箱: support@radar-windfarm.com
+    - 邮箱: wangf@e-u.cn
     - 电话: 400-123-4567
     """)
     
