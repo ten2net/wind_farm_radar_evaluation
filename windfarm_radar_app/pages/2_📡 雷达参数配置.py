@@ -303,14 +303,15 @@ with tab3:
                 value=1000,
                 step=100
             )
-            
-            beam_width = st.slider(
-                "波束宽度 (°)",
-                min_value=0.1,
-                max_value=10.0,
-                value=1.0,
-                step=0.1
-            )
+        
+        # 波束宽度设置（移到外面，让所有扫描类型都可以设置）
+        beam_width = st.slider(
+            "波束宽度 (°)",
+            min_value=0.1,
+            max_value=10.0,
+            value=1.0,
+            step=0.1
+        )
         
         scan_rate = st.slider(
             "扫描速率 (rpm)",
@@ -410,6 +411,10 @@ with tab4:
             import time
             time.sleep(1)
             
+            # 从会话状态或其他选项卡获取变量
+            # 如果beam_width未定义，使用默认值
+            beam_width_val = beam_width if 'beam_width' in locals() else 1.0
+            
             # 计算性能指标
             detection_probability = 0.95
             false_alarm_rate = 1e-6
@@ -421,6 +426,7 @@ with tab4:
             with col1:
                 st.subheader("探测性能")
                 
+                # 确保所有值都是字符串
                 metrics_data = {
                     '指标': ['探测概率', '虚警概率', '检测信噪比', '作用距离'],
                     '数值': [
@@ -431,7 +437,11 @@ with tab4:
                     ]
                 }
                 
-                st.dataframe(pd.DataFrame(metrics_data), width='stretch', hide_index=True)
+                metrics_df = pd.DataFrame(metrics_data)
+                # 确保数值列是字符串
+                metrics_df['数值'] = metrics_df['数值'].astype(str)
+                
+                st.dataframe(metrics_df, width='stretch', hide_index=True)
                 
                 # 探测概率曲线
                 ranges = np.linspace(10, max_range, 100)
@@ -457,17 +467,22 @@ with tab4:
             with col2:
                 st.subheader("分辨率性能")
                 
+                # 确保所有值都是字符串
                 res_data = {
                     '指标': ['距离分辨率', '多普勒分辨率', '角度分辨率', '速度分辨率'],
                     '数值': [
                         f"{range_resolution:.1f} m",
                         f"{doppler_resolution:.0f} Hz",
-                        f"{beam_width}°",
+                        f"{beam_width_val}°",
                         "待计算"
                     ]
                 }
                 
-                st.dataframe(pd.DataFrame(res_data), width='stretch', hide_index=True)
+                res_df = pd.DataFrame(res_data)
+                # 确保数值列是字符串
+                res_df['数值'] = res_df['数值'].astype(str)
+                
+                st.dataframe(res_df, width='stretch', hide_index=True)
                 
                 # 性能评分
                 performance_score = 85
@@ -510,6 +525,7 @@ with st.sidebar:
     
     if st.button("计算接收功率"):
         # 简化雷达方程
+        # 使用当前波长或默认值
         lambda_val = wavelength_calc if 'wavelength_calc' in locals() else 0.1
         pr = (pt * g**2 * lambda_val**2 * sigma) / ((4*np.pi)**3 * r**4)
         st.info(f"接收功率: {pr:.2e} W")
