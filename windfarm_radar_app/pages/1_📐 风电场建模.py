@@ -16,6 +16,16 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        color: #ffffff;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # 标题
 st.title("📐 风电场建模")
 st.markdown("配置风机参数、布局设计和地形设置")

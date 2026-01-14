@@ -7,7 +7,7 @@ import streamlit as st
 
 # 设置页面配置
 st.set_page_config(
-    page_title="风电场雷达影响评估系统",
+    page_title="风雷快评首页",
     page_icon="🌬️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -16,9 +16,14 @@ st.set_page_config(
 # 自定义CSS样式
 st.markdown("""
 <style>
+    .stApp {
+        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        color: #ffffff;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
     .main-header {
         font-size: 2.5rem;
-        color: #1E3A8A;
+        color: #1E3AFA;
         text-align: center;
         margin-bottom: 2rem;
         font-weight: bold;
@@ -64,8 +69,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 主标题
-st.markdown('<h1 class="main-header">🌬️ 风电场对雷达目标探测影响评估系统</h1>', unsafe_allow_html=True)
-
+st.markdown('<h2 class="main-header">🌬️ 长城数字风电场对雷达目标探测影响专业分析系统</h2>', unsafe_allow_html=True)
+# st.markdown('<div class="main-header">🌊 海上风力发电厂雷达性能影响专业分析系统</div>', unsafe_allow_html=True)
+    
 # 应用介绍
 st.markdown("""
 <div class="info-card">
@@ -75,7 +81,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 页面导航说明
-st.markdown('<h2 class="section-header">🚀 快速开始</h2>', unsafe_allow_html=True)
+st.markdown('<h3 class="section-header">🚀 快速开始</h3>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
@@ -92,7 +98,7 @@ with col3:
     st.markdown("进行影响评估和可视化分析")
 
 # 功能模块介绍
-st.markdown('<h2 class="section-header">🔧 功能模块</h2>', unsafe_allow_html=True)
+st.markdown('<h3 class="section-header">🔧 功能模块</h3>', unsafe_allow_html=True)
 
 # 创建功能模块的选项卡
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -184,7 +190,7 @@ with tab5:
     """)
 
 # 技术规格
-st.markdown('<h2 class="section-header">📈 技术规格</h2>', unsafe_allow_html=True)
+st.markdown('<h3 class="section-header">📈 技术规格</h3>', unsafe_allow_html=True)
 
 spec_col1, spec_col2 = st.columns(2)
 

@@ -17,6 +17,16 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        color: #ffffff;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # 标题
 st.title("👁️ 三维可视化")
 st.markdown("三维场景可视化，实时动画，交互分析")

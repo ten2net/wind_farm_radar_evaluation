@@ -18,6 +18,16 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        color: #ffffff;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # 标题
 st.title("📊 探测影响分析")
 st.markdown("进行雷达探测影响分析，包括遮挡、衰减、探测概率等计算")
