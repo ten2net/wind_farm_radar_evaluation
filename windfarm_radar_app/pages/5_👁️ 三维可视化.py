@@ -632,6 +632,8 @@ with tab1:
                 
                 # 设置场景布局
                 fig.update_layout(
+                    paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                    plot_bgcolor='rgba(10, 15, 30, 0.9)',                         
                     scene=dict(
                         xaxis_title="X (米)",
                         yaxis_title="Y (米)",
@@ -771,6 +773,8 @@ with tab2:
                 
                 # 添加动画控件
                 fig.update_layout(
+                    paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                    plot_bgcolor='rgba(10, 15, 30, 0.9)',                     
                     updatemenus=[{
                         "buttons": [
                             {
@@ -881,6 +885,8 @@ with tab3:
                 )
             elif preset_views == "俯视图":
                 fig.update_layout(
+                    paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                    plot_bgcolor='rgba(10, 15, 30, 0.9)',                     
                     scene_camera=dict(
                         eye=dict(x=0, y=0, z=5),
                         up=dict(x=0, y=1, z=0)
@@ -939,6 +945,8 @@ with tab3:
                     title="剖面高程图",
                     xaxis_title="距离 (米)",
                     yaxis_title="高程 (米)",
+                    paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                    plot_bgcolor='rgba(10, 15, 30, 0.9)',                     
                     height=300
                 )
                 

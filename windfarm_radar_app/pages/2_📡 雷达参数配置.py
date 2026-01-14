@@ -468,6 +468,8 @@ with tab2:
         title="雷达频段中心频率比较",
         xaxis_title="频段",
         yaxis_title="中心频率 (GHz)",
+        paper_bgcolor='rgba(15, 20, 40, 0.8)',
+        plot_bgcolor='rgba(10, 15, 30, 0.9)',         
         height=400
     )
     
@@ -485,7 +487,7 @@ with tab3:
         antenna_type = st.selectbox(
             "天线类型",
             ["抛物面天线", "阵列天线", "平板裂缝天线", "相控阵天线", "喇叭天线"],
-            index=1,
+            index=0,
             key="tab3_antenna_type"
         )
         
@@ -600,6 +602,7 @@ with tab3:
         beam_shape = st.selectbox(
             "波束形状",
             ["高斯波束", "切比雪夫波束", "泰勒加权", "均匀分布", "Sinc波束"],
+            index=4, # 默认选择Sinc波束
             key="tab3_beam_shape"
         )
         
@@ -804,6 +807,8 @@ with tab3:
                     eye=dict(x=1.5, y=1.5, z=1.0)
                 )
             ),
+            paper_bgcolor='rgba(15, 20, 40, 0.8)',
+            plot_bgcolor='rgba(10, 15, 30, 0.9)',        
             height=500
         )
         
@@ -989,9 +994,9 @@ with tab3:
         fig_slices.update_layout(
             height=500,
             showlegend=True,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
+            paper_bgcolor='rgba(15, 20, 40, 0.8)',
+            plot_bgcolor='rgba(10, 15, 30, 0.9)',          
             legend=dict(
                 yanchor="top",
                 y=0.99,
@@ -1219,6 +1224,8 @@ with tab4:
                     title="探测概率 vs 距离",
                     xaxis_title="距离 (km)",
                     yaxis_title="探测概率",
+                    paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                    plot_bgcolor='rgba(10, 15, 30, 0.9)',                     
                     height=300
                 )
                 

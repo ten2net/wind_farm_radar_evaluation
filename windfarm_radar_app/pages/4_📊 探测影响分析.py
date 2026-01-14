@@ -364,6 +364,8 @@ with tab1:
             
             fig.update_layout(
                 title="目标视线状态分布",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=400
             )
             
@@ -414,6 +416,8 @@ with tab1:
                 title="风电场遮挡区域分析（俯视图）",
                 xaxis_title="X 坐标 (米)",
                 yaxis_title="Y 坐标 (米)",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=500
             )
             
@@ -560,6 +564,8 @@ with tab2:
                 title="自由空间损耗 vs 距离（不同频率）",
                 xaxis_title="距离 (km)",
                 yaxis_title="损耗 (dB)",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=400
             )
             
@@ -602,6 +608,8 @@ with tab2:
                 title="信号强度分布（考虑风机遮挡）",
                 xaxis_title="X 坐标 (米)",
                 yaxis_title="Y 坐标 (米)",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=500
             )
             
@@ -775,6 +783,8 @@ with tab3:
                 title="探测概率 vs 距离（不同RCS）",
                 xaxis_title="距离 (km)",
                 yaxis_title="探测概率 (%)",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=400
             )
             
@@ -817,6 +827,8 @@ with tab3:
                     )
                 ),
                 title="雷达威力图（考虑风电场影响）",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=500
             )
             
@@ -970,6 +982,8 @@ with tab4:
                 title="盲区分布（方位-俯仰）",
                 xaxis_title="方位角 (°)",
                 yaxis_title="俯仰角 (°)",
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=500
             )
             
@@ -1013,6 +1027,8 @@ with tab4:
                     zaxis_title="Z",
                     aspectmode="auto"
                 ),
+                paper_bgcolor='rgba(15, 20, 40, 0.8)',
+                plot_bgcolor='rgba(10, 15, 30, 0.9)',                 
                 height=500
             )
             

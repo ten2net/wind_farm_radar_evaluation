@@ -534,6 +534,8 @@ with tab1:
             )
         ),
         title=f"{target_type} 3D模型",
+        paper_bgcolor='rgba(15, 20, 40, 0.8)',
+        plot_bgcolor='rgba(10, 15, 30, 0.9)',         
         height=400,
         margin=dict(l=0, r=0, t=30, b=0)
     )
@@ -720,6 +722,8 @@ with tab2:
             aspectratio=dict(x=2, y=2, z=1)
         ),
         title="目标飞行轨迹",
+        paper_bgcolor='rgba(15, 20, 40, 0.8)',
+        plot_bgcolor='rgba(10, 15, 30, 0.9)',         
         height=500
     )
     
@@ -890,6 +894,8 @@ with tab3:
             )
         ),
         title="RCS方向图（极坐标）",
+        paper_bgcolor='rgba(15, 20, 40, 0.8)',
+        plot_bgcolor='rgba(10, 15, 30, 0.9)',         
         height=400
     )
     
@@ -941,6 +947,8 @@ with tab3:
             title="RCS分布直方图",
             xaxis_title="RCS (dBsm)",
             yaxis_title="频数",
+            paper_bgcolor='rgba(15, 20, 40, 0.8)',
+            plot_bgcolor='rgba(10, 15, 30, 0.9)',             
             height=300
         )
         
