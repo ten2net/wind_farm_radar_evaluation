@@ -292,7 +292,7 @@ class MainApplication:
         
         with col4:
             # 快速操作按钮
-            if st.button("🔄 刷新系统", use_container_width=True):
+            if st.button("🔄 刷新系统", width='stretch'):
                 st.rerun()
     
     def _display_sidebar(self):
@@ -324,13 +324,13 @@ class MainApplication:
             # 快速操作面板
             st.markdown("### ⚡ 快速操作")
             
-            if st.button("🚀 新建仿真", use_container_width=True):
+            if st.button("🚀 新建仿真", width='stretch'):
                 self._create_new_simulation()
             
-            if st.button("💾 保存进度", use_container_width=True):
+            if st.button("💾 保存进度", width='stretch'):
                 self._save_current_session()
             
-            if st.button("📤 导出报告", use_container_width=True):
+            if st.button("📤 导出报告", width='stretch'):
                 self._export_reports()
             
             st.markdown("---")
@@ -445,15 +445,15 @@ class MainApplication:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("新建仿真场景", use_container_width=True, icon="🌍"):
+            if st.button("新建仿真场景", width='stretch', icon="🌍"):
                 self._create_new_scenario()
         
         with col2:
-            if st.button("导入历史数据", use_container_width=True, icon="📁"):
+            if st.button("导入历史数据", width='stretch', icon="📁"):
                 self._import_historical_data()
         
         with col3:
-            if st.button("查看使用教程", use_container_width=True, icon="📚"):
+            if st.button("查看使用教程", width='stretch', icon="📚"):
                 self._show_tutorial()
         
         # 最近活动
@@ -738,7 +738,7 @@ class MainApplication:
         )
         
         fig.update_layout(height=600, showlegend=True, title_text="仿真结果分析")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         
         # 添加关键指标
         st.subheader("📊 关键性能指标")
@@ -788,7 +788,7 @@ class MainApplication:
             title="导引头性能对比"
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         
         # 添加详细分析
         st.subheader("📈 详细分析")
@@ -844,7 +844,7 @@ class MainApplication:
         )
         
         fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         
         # 添加战术建议
         st.subheader("💡 多目标攻击战术")
@@ -880,7 +880,7 @@ class MainApplication:
             height=400
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         
         # 添加电子对抗建议
         st.subheader("🛡️ 电子对抗建议")
@@ -1030,9 +1030,9 @@ class MainApplication:
     
     def _display_measurement_tools(self):
         """显示测量工具"""
-        st.button("距离测量", use_container_width=True)
-        st.button("面积测量", use_container_width=True)
-        st.button("高程分析", use_container_width=True)
+        st.button("距离测量", width='stretch')
+        st.button("面积测量", width='stretch')
+        st.button("高程分析", width='stretch')
     
     def _display_scenario_preview(self):
         """显示场景预览"""
@@ -1521,20 +1521,20 @@ def main():
         
         # 添加管理控制到侧边栏
         with st.sidebar.expander("⚙️ 系统管理", expanded=False):
-            if st.button("🔄 重启应用", use_container_width=True):
+            if st.button("🔄 重启应用", width='stretch'):
                 if app_manager.restart_application():
                     st.rerun()
             
-            if st.button("📊 性能监控", use_container_width=True):
+            if st.button("📊 性能监控", width='stretch'):
                 show_performance_monitor(app_manager)
             
-            if st.button("🛡️ 安全检查", use_container_width=True):
+            if st.button("🛡️ 安全检查", width='stretch'):
                 show_security_status(app_manager)
             
-            if st.button("🔄 检查更新", use_container_width=True):
+            if st.button("🔄 检查更新", width='stretch'):
                 check_application_updates(app_manager)
             
-            if st.button("🚪 退出应用", use_container_width=True):
+            if st.button("🚪 退出应用", width='stretch'):
                 app_manager.stop_application()
                 st.stop()
         

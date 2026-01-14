@@ -534,7 +534,7 @@ def display_scenario_info():
     
     if radar_data:
         radar_df = pd.DataFrame(radar_data)
-        st.dataframe(radar_df, use_container_width=True, hide_index=True)
+        st.dataframe(radar_df, width='stretch', hide_index=True)
     
     # 干扰机详细信息
     st.subheader("🎯 干扰机配置详情")
@@ -552,7 +552,7 @@ def display_scenario_info():
     
     if jammer_data:
         jammer_df = pd.DataFrame(jammer_data)
-        st.dataframe(jammer_df, use_container_width=True, hide_index=True)
+        st.dataframe(jammer_df, width='stretch', hide_index=True)
     
     # 地理分布可视化
     st.subheader("🗺️ 地理分布")
@@ -802,7 +802,7 @@ def show_tech_interaction():
             
             if tech_stats:
                 tech_df = pd.DataFrame(tech_stats)
-                st.dataframe(tech_df, use_container_width=True, hide_index=True)
+                st.dataframe(tech_df, width='stretch', hide_index=True)
 
 def load_paper_simulation_scenario():
     """加载基准仿真场景"""

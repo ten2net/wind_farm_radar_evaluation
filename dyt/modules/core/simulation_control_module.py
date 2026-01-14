@@ -806,23 +806,23 @@ class SimulationUI:
         col1, col2, col3 = st.sidebar.columns(3)
         
         with col1:
-            if st.button("▶️ 开始", use_container_width=True, key="start_btn"):
+            if st.button("▶️ 开始", width='stretch', key="start_btn"):
                 self.controller.start_simulation()
                 st.rerun()
                 
         with col2:
-            if st.button("⏸️ 暂停", use_container_width=True, key="pause_btn"):
+            if st.button("⏸️ 暂停", width='stretch', key="pause_btn"):
                 self.controller.pause_simulation()
                 st.rerun()
                 
         with col3:
-            if st.button("⏹️ 停止", use_container_width=True, key="stop_btn"):
+            if st.button("⏹️ 停止", width='stretch', key="stop_btn"):
                 self.controller.stop_simulation()
                 st.rerun()
         
         # 单步控制
         st.sidebar.markdown("---")
-        if st.sidebar.button("🔹 单步仿真", use_container_width=True):
+        if st.sidebar.button("🔹 单步仿真", width='stretch'):
             result = self.controller.step_simulation()
             if result:
                 self.monitor.update_metrics({
@@ -858,7 +858,7 @@ class SimulationUI:
                 "回退到", 0.0, current_time, 0.0, 1.0
             )
             
-            if st.sidebar.button("↩️ 回退仿真", use_container_width=True):
+            if st.sidebar.button("↩️ 回退仿真", width='stretch'):
                 self.controller.rewind_simulation(rewind_time)
                 st.rerun()
         
@@ -964,7 +964,7 @@ class SimulationUI:
                     jammer_range = st.number_input("干扰范围(km)", 10, 200, 100, 10)
             
             # 提交按钮
-            if st.form_submit_button("创建并加载场景", use_container_width=True):
+            if st.form_submit_button("创建并加载场景", width='stretch'):
                 scenario_config = {
                     'name': scenario_name,
                     'description': scenario_desc,
@@ -1142,7 +1142,7 @@ class SimulationUI:
         session_name = st.text_input("会话名称", "仿真会话_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
         session_desc = st.text_area("会话描述", "仿真会话描述")
         
-        if st.button("💾 保存当前会话", use_container_width=True):
+        if st.button("💾 保存当前会话", width='stretch'):
             if self.controller.simulation_engine and self.controller.simulation_history:
                 session_id = f"session_{int(time.time())}"
                 success = self.data_manager.save_simulation_session(
@@ -1195,9 +1195,9 @@ class SimulationUI:
             if selected_sessions and len(selected_sessions) >= 2:
                 session_ids = [session_options[name] for name in selected_sessions]
                 
-                if st.button("📈 生成对比图表", use_container_width=True):
+                if st.button("📈 生成对比图表", width='stretch'):
                     fig = self.analysis_tools.create_performance_comparison_chart(session_ids)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
         
         # 导出功能
         st.markdown("---")
@@ -1209,7 +1209,7 @@ class SimulationUI:
                 options=[s['name'] for s in sessions]
             )
             
-            if st.button("📥 导出为Excel", use_container_width=True):
+            if st.button("📥 导出为Excel", width='stretch'):
                 # 创建临时文件
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
                     session_id = session_options[export_session]
@@ -1235,7 +1235,7 @@ class SimulationUI:
                 key="stat_select"
             )
             
-            if st.button("📊 生成统计摘要", use_container_width=True):
+            if st.button("📊 生成统计摘要", width='stretch'):
                 session_id = session_options[stat_session]
                 stats = self.analysis_tools.create_statistical_summary(session_id)
                 
@@ -1289,7 +1289,7 @@ class SimulationUI:
         # 显示监控图表
         if self.controller.is_running and not self.controller.is_paused:
             fig = self.monitor.create_realtime_dashboard()
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
     
     def run_simulation_loop(self):
         """运行仿真循环"""

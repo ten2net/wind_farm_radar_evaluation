@@ -860,14 +860,14 @@ class AdvancedIntegration:
                 fig = self.visualization_engine.create_time_slider_visualization(
                     self.integrated_systems['guidance_system'].trajectory
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             
             # 3D战场可视化
             fig_3d = self.visualization_engine.create_3d_battlefield(
                 self.integrated_systems['battlefield'],
                 self.integrated_systems['guidance_system']
             )
-            st.plotly_chart(fig_3d, use_container_width=True)
+            st.plotly_chart(fig_3d, width='stretch')
         
         with col2:
             # 关键指标
@@ -894,12 +894,12 @@ class AdvancedIntegration:
         if attack_plan:
             # 攻击优先级图表
             fig = self.multi_target_coordinator.create_attack_plan_chart(attack_plan)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
             # 攻击序列表格
             st.subheader("🎯 攻击序列规划")
             df = pd.DataFrame(attack_plan)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width='stretch')
             
             # 战术建议
             st.subheader("💡 多目标攻击战术建议")
@@ -941,7 +941,7 @@ class AdvancedIntegration:
                 self.integrated_systems['battlefield'],
                 self.integrated_systems['guidance_system']
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
             # 对抗措施建议
             st.subheader("🛡️ 电子对抗措施建议")
@@ -960,7 +960,7 @@ class AdvancedIntegration:
         if effectiveness_data:
             # 雷达图
             fig = self.effectiveness_evaluator.create_effectiveness_radar(effectiveness_data)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
             # 详细指标
             st.subheader("📈 详细效能指标")

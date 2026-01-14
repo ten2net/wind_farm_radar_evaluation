@@ -25,7 +25,7 @@ if 'current_scenario' not in st.session_state:
 # 返回按钮
 col1, col2 = st.columns([1, 5])
 with col1:
-    if st.button("← 返回主页面", use_container_width=True):
+    if st.button("← 返回主页面", width='stretch'):
         # 注意：需要确保main_application_module.py存在
         st.switch_page("main_application_module.py")
 
@@ -159,7 +159,7 @@ with st.form("scenario_creation_form", clear_on_submit=False):
     with col2:
         submit_button = st.form_submit_button(
             "🚀 创建场景并开始仿真", 
-            use_container_width=True,
+            width='stretch',
             type="primary"
         )
 
@@ -218,12 +218,12 @@ if st.session_state.scenario_created and st.session_state.current_scenario:
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("▶️ 立即开始仿真", use_container_width=True):
+        if st.button("▶️ 立即开始仿真", width='stretch'):
             # 切换到主应用程序页面
             st.switch_page("main_application_module.py")
     
     with col2:
-        if st.button("💾 保存场景配置", use_container_width=True):
+        if st.button("💾 保存场景配置", width='stretch'):
             # 保存场景到文件
             try:
                 filename = f"scenario_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -234,7 +234,7 @@ if st.session_state.scenario_created and st.session_state.current_scenario:
                 st.error(f"保存失败: {e}")
     
     with col3:
-        if st.button("🔄 创建新场景", use_container_width=True):
+        if st.button("🔄 创建新场景", width='stretch'):
             # 重置状态，允许创建新场景
             st.session_state.scenario_created = False
             st.session_state.current_scenario = None
