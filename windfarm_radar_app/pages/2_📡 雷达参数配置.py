@@ -24,6 +24,194 @@ st.markdown("""
         color: #ffffff;
         font-family: 'Segoe UI', 'Arial', sans-serif;
     }
+    .stMetric {
+        padding: 8px 0;
+    }
+    
+    .stMetric label {
+        font-size: 0.9rem !important;
+    }
+    
+    .stMetric div[data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+    
+    .stMetric div[data-testid="stMetricDelta"] {
+        font-size: 0.8rem !important;
+    }  
+    
+    .stSlider > div {
+        padding: 0.5rem 0;
+    }
+    
+    /* 滑块轨道 */
+    .stSlider > div > div > div > div {
+        background: linear-gradient(90deg, rgba(0, 150, 255, 0.1), rgba(0, 150, 255, 0.3));
+        height: 6px;
+        border-radius: 3px;
+    }
+    
+    /* 滑块轨道填充部分（已选择部分） */
+    .stSlider > div > div > div > div > div {
+        background: linear-gradient(90deg, 
+            rgba(0, 200, 255, 0.7), 
+            rgba(0, 150, 255, 0.9));
+        height: 6px;
+        border-radius: 3px 0 0 3px;
+    }
+    
+    /* 滑块轨道未填充部分 */
+    .stSlider > div > div > div > div > div > div {
+        background: rgba(100, 100, 150, 0.3);
+        height: 6px;
+        border-radius: 0 3px 3px 0;
+    }
+    
+    /* 滑块圆点 */
+    .stSlider > div > div > div > div > div > div > div {
+        background: linear-gradient(135deg, 
+            rgba(0, 200, 255, 1), 
+            rgba(0, 100, 200, 1));
+        border: 2px solid rgba(200, 220, 255, 0.8);
+        box-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+        width: 20px;
+        height: 20px;
+        transform: translateY(-7px);
+    }
+    
+    /* 滑块圆点悬停效果 */
+    .stSlider > div > div > div > div > div > div > div:hover {
+        background: linear-gradient(135deg, 
+            rgba(0, 220, 255, 1), 
+            rgba(0, 120, 220, 1));
+        box-shadow: 0 0 15px rgba(0, 180, 255, 0.8);
+        transform: translateY(-7px) scale(1.1);
+        transition: all 0.2s ease;
+    }
+    
+    /* 滑块标签样式 */
+    .stSlider label {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #a0c8ff;
+        margin-bottom: 0.3rem;
+    }
+    
+    /* 滑块数值显示 */
+    .stSlider > div > div > div + div {
+        color: #00ccff;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-shadow: 0 0 5px rgba(0, 150, 255, 0.5);
+    }
+    
+    /* 滑块容器的背景 */
+    .stSlider {
+        background: rgba(20, 25, 45, 0.3);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+        margin: 0.5rem 0;
+        transition: all 0.3s ease;
+    }
+    
+    /* 滑块容器悬停效果 */
+    .stSlider:hover {
+        background: rgba(25, 30, 50, 0.4);
+        border-color: rgba(0, 150, 255, 0.3);
+        box-shadow: 0 0 20px rgba(0, 100, 200, 0.1);
+    }
+    
+    /* 数字输入框样式 */
+    .stNumberInput {
+        background: rgba(20, 25, 45, 0.3);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+        margin: 0.5rem 0;
+    }
+    
+    .stNumberInput label {
+        color: #a0c8ff;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .stNumberInput input {
+        color: #00ccff;
+        background: rgba(10, 20, 40, 0.5);
+        border: 1px solid rgba(0, 100, 200, 0.3);
+        border-radius: 4px;
+    }
+    
+    /* 选择框样式 */
+    .stSelectbox {
+        background: rgba(20, 25, 45, 0.3);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+        margin: 0.5rem 0;
+    }
+    
+    .stSelectbox label {
+        color: #a0c8ff;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .stSelectbox > div > div {
+        background: rgba(10, 20, 40, 0.5);
+        border: 1px solid rgba(0, 100, 200, 0.3);
+        color: #00ccff;
+    }
+    
+    /* 选项卡样式 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: rgba(20, 25, 45, 0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 2.5rem;
+        color: #a0c8ff;
+        font-weight: 500;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, 
+            rgba(0, 150, 255, 0.3), 
+            rgba(0, 100, 200, 0.5));
+        color: #00ccff;
+        box-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+    }
+    
+    /* 调整间距 */
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(0, 100, 200, 0.2);
+    }
+    
+    /* 调整整体容器间距 */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    
+    /* 标题样式 */
+    h1, h2, h3 {
+        color: #a0d8ff;
+        text-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+    }
+    
+    /* 分隔线样式 */
+    hr {
+        border-color: rgba(0, 100, 200, 0.2);
+        margin: 1.5rem 0;
+    }      
 </style>
 """, unsafe_allow_html=True)
 
@@ -41,7 +229,7 @@ if 'beam_angle' not in st.session_state:
 tab1, tab2, tab3, tab4 = st.tabs([
     "雷达参数", 
     "频段配置", 
-    "扫描模式", 
+    "天线方向图与波束成形分析", 
     "性能评估"
 ])
 
@@ -286,350 +474,694 @@ with tab2:
     st.plotly_chart(fig, width='stretch')
 
 with tab3:
-    st.header("扫描与跟踪模式")
+    st.header("天线方向图与波束成形分析")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("扫描模式")
+        st.subheader("天线参数配置")
         
-        scan_type = st.selectbox(
-            "扫描类型",
-            ["机械扫描", "相控阵扫描", "频率扫描", "混合扫描"],
-            index=1
+        # 天线类型
+        antenna_type = st.selectbox(
+            "天线类型",
+            ["抛物面天线", "阵列天线", "平板裂缝天线", "相控阵天线", "喇叭天线"],
+            index=1,
+            key="tab3_antenna_type"
         )
         
-        if scan_type == "相控阵扫描":
-            num_elements = st.slider(
-                "阵元数量",
-                min_value=100,
-                max_value=10000,
-                value=1000,
-                step=100
+        # 阵列天线参数
+        if antenna_type in ["阵列天线", "相控阵天线"]:
+            st.markdown("**阵列参数**")
+            
+            col_array1, col_array2 = st.columns(2)
+            
+            with col_array1:
+                n_elements_x = st.slider(
+                    "X方向阵元数",
+                    min_value=1,
+                    max_value=50,
+                    value=8,
+                    step=1,
+                    key="tab3_n_elements_x"
+                )
+            
+            with col_array2:
+                n_elements_y = st.slider(
+                    "Y方向阵元数",
+                    min_value=1,
+                    max_value=50,
+                    value=8,
+                    step=1,
+                    key="tab3_n_elements_y"
+                )
+            
+            element_spacing = st.slider(
+                "阵元间距 (波长)",
+                min_value=0.1,
+                max_value=1.0,
+                value=0.5,
+                step=0.1,
+                key="tab3_element_spacing"
             )
         
-        # 波束宽度设置（移到外面，让所有扫描类型都可以设置）
-        beam_width = st.slider(
-            "波束宽度 (°)",
-            min_value=0.1,
-            max_value=10.0,
-            value=1.0,
-            step=0.1
-        )
+        st.markdown("**天线特性**")
         
-        scan_rate = st.slider(
-            "扫描速率 (rpm)",
-            min_value=1,
+        antenna_gain_db = st.slider(
+            "天线增益 (dB)",
+            min_value=20,
             max_value=60,
-            value=12,
-            step=1
+            value=40,
+            step=1,
+            key="tab3_antenna_gain"
         )
         
-        elevation_range = st.slider(
-            "俯仰角范围 (°)",
-            min_value=0,
-            max_value=90,
-            value=(0, 60)
+        hpbw = st.slider(
+            "3dB波束宽度 (°)",
+            min_value=0.1,
+            max_value=20.0,
+            value=3.0,
+            step=0.1,
+            key="tab3_hpbw"
         )
         
-        azimuth_range = st.slider(
-            "方位角范围 (°)",
-            min_value=0,
-            max_value=360,
-            value=(0, 360)
+        # 频率设置
+        freq_ghz = st.slider(
+            "工作频率 (GHz)",
+            min_value=1.0,
+            max_value=100.0,
+            value=3.0,
+            step=0.1,
+            key="tab3_freq_ghz"
+        )
+        
+        # 极化方式
+        polarization = st.selectbox(
+            "极化方式",
+            ["水平极化", "垂直极化", "圆极化", "线极化"],
+            key="tab3_polarization"
         )
     
     with col2:
-        st.subheader("跟踪模式")
+        st.subheader("波束成形参数")
         
-        track_mode = st.multiselect(
-            "跟踪模式选择",
-            ["单目标跟踪", "多目标跟踪", "边扫描边跟踪", "自适应跟踪", "预测跟踪"],
-            default=["单目标跟踪", "多目标跟踪"]
+        # 波束指向控制
+        steer_azimuth = st.slider(
+            "方位指向 (°)",
+            min_value=-60,
+            max_value=60,
+            value=0,
+            step=1,
+            key="tab3_steer_azimuth"
         )
         
-        max_targets = st.slider(
-            "最大跟踪目标数",
-            min_value=1,
-            max_value=200,
-            value=50,
-            step=1
+        steer_elevation = st.slider(
+            "俯仰指向 (°)",
+            min_value=-60,
+            max_value=60,
+            value=0,
+            step=1,
+            key="tab3_steer_elevation"
         )
         
-        update_rate = st.slider(
-            "数据更新率 (Hz)",
-            min_value=0.1,
-            max_value=100.0,
-            value=10.0,
-            step=0.1
+        # 副瓣电平
+        sidelobe_level = st.slider(
+            "副瓣电平 (dB)",
+            min_value=-50,
+            max_value=-10,
+            value=-20,
+            step=1,
+            key="tab3_sidelobe_level"
         )
         
-        track_accuracy = st.select_slider(
-            "跟踪精度",
-            options=['低', '中', '高', '极高'],
-            value='高'
+        # 波束形状控制
+        st.markdown("**波束形状控制**")
+        
+        # 修复1：添加Sinc函数选项
+        beam_shape = st.selectbox(
+            "波束形状",
+            ["高斯波束", "切比雪夫波束", "泰勒加权", "均匀分布", "Sinc波束"],
+            key="tab3_beam_shape"
         )
         
-        # 跟踪性能指标
-        st.metric("跟踪数据率", f"{update_rate} Hz")
-        st.metric("可跟踪目标数", max_targets)
+        if beam_shape == "切比雪夫波束":
+            sidelobe_ratio = st.slider(
+                "主副瓣比 (dB)",
+                min_value=20,
+                max_value=50,
+                value=30,
+                step=1,
+                key="tab3_sidelobe_ratio"
+            )
+        
+        # 扫描模式
+        st.markdown("**扫描特性**")
+        
+        col_scan1, col_scan2 = st.columns(2)
+        
+        with col_scan1:
+            scan_type = st.selectbox(
+                "扫描方式",
+                ["机械扫描", "电子扫描", "混合扫描"],
+                key="tab3_scan_type"
+            )
+        
+        with col_scan2:
+            scan_rate = st.number_input(
+                "扫描速率 (°/s)",
+                min_value=1,
+                max_value=1000,
+                value=100,
+                step=10,
+                key="tab3_scan_rate"
+            )
+        
+        # 波束宽度统计
+        st.markdown("**波束特性**")
+        col_stats1, col_stats2 = st.columns(2)
+        
+        with col_stats1:
+            st.metric("波束宽度", f"{hpbw:.1f}°")
+            st.metric("增益", f"{antenna_gain_db:.0f} dB")
+        
+        with col_stats2:
+            st.metric("波长", f"{300/freq_ghz:.1f} mm")
+            st.metric("指向", f"({steer_azimuth}°, {steer_elevation}°)")
     
-    # 天线方向图可视化
-    st.subheader("天线方向图")
+    # 3D天线方向图
+    st.subheader("3D天线方向图")
     
     col3, col4 = st.columns(2)
     
     with col3:
-        # 方位方向图
-        st.markdown("**方位方向图**")
+        st.markdown("**3D波束方向图**")
         
-        # 计算方位方向图（使用高斯模型）
-        azimuth_angles = np.linspace(-30, 30, 300)
-        azimuth_center = 0  # 方位中心指向
+        # 创建网格
+        theta = np.linspace(-np.pi/2, np.pi/2, 60)  # 方位角
+        phi = np.linspace(-np.pi/2, np.pi/2, 60)    # 俯仰角
+        Theta, Phi = np.meshgrid(theta, phi)
         
-        # 高斯方向图模型
-        azimuth_pattern = np.exp(-4 * np.log(2) * (azimuth_angles - azimuth_center)**2 / beam_width**2)
+        # 波束指向（弧度）- 在所有天线类型中都需要
+        theta0 = np.radians(steer_azimuth)
+        phi0 = np.radians(steer_elevation)
         
-        # 添加副瓣
-        azimuth_pattern += 0.1 * np.exp(-4 * np.log(2) * (azimuth_angles - azimuth_center - 3*beam_width)**2 / (beam_width/2)**2)
-        azimuth_pattern += 0.1 * np.exp(-4 * np.log(2) * (azimuth_angles - azimuth_center + 3*beam_width)**2 / (beam_width/2)**2)
+        # 计算天线方向图（基于天线类型）
+        if antenna_type in ["阵列天线", "相控阵天线"]:
+            # 阵列天线方向图
+            # 阵列因子
+            d = element_spacing * constants.c / (freq_ghz * 1e9)  # type: ignore # 物理间距
+            
+            # 简化阵列因子计算
+            k = 2 * np.pi * freq_ghz * 1e9 / constants.c
+            u = np.sin(Theta) * np.cos(Phi) - np.sin(theta0) * np.cos(phi0)
+            v = np.sin(Theta) * np.sin(Phi) - np.sin(theta0) * np.sin(phi0)
+            
+            # 阵列因子
+            AF_x = np.sin(n_elements_x * k * d * u / 2) / (n_elements_x * np.sin(k * d * u / 2) + 1e-10) # type: ignore
+            AF_y = np.sin(n_elements_y * k * d * v / 2) / (n_elements_y * np.sin(k * d * v / 2) + 1e-10) # type: ignore
+            
+            AF = AF_x * AF_y
+            
+            # 修复2：根据波束形状应用不同的加权
+            if beam_shape == "切比雪夫波束":
+                # 简化切比雪夫加权
+                R = 10**(sidelobe_ratio/20) # type: ignore
+                n = np.arange(-n_elements_x/2, n_elements_x/2) # type: ignore
+                w = np.cos(np.pi * n / (n_elements_x-1))  # type: ignore # 简化切比雪夫
+                w = w / np.sum(w)
+                AF = AF * w[:, np.newaxis]
+            elif beam_shape == "Sinc波束":
+                # Sinc函数波束
+                # 计算归一化的角度偏移
+                u_norm = (Theta - theta0) / (np.radians(hpbw)/2)
+                v_norm = (Phi - phi0) / (np.radians(hpbw)/2)
+                
+                # 计算Sinc函数
+                AF = np.sinc(u_norm) * np.sinc(v_norm)
+            elif beam_shape == "泰勒加权":
+                # 简化泰勒加权
+                n_bar = 4
+                SLL = 10**(sidelobe_level/20)
+                sigma = n_bar / np.sqrt(np.log(SLL) + n_bar**2)
+                n = np.arange(-n_elements_x/2, n_elements_x/2) # type: ignore
+                w = 1 + 0.5 * np.cos(2*np.pi*n/(n_elements_x-1)) # type: ignore
+                w = w / np.sum(w)
+                AF = AF * w[:, np.newaxis]
+            elif beam_shape == "均匀分布":
+                # 均匀分布，不需要额外加权
+                pass
+            
+            # 添加阵元方向图
+            element_pattern = np.cos(Theta)  # 简化阵元方向图
+            
+            # 总方向图
+            pattern = AF * element_pattern
+            
+        else:
+            # 抛物面天线方向图（根据波束形状选择不同模型）
+            theta_bw = np.radians(hpbw)
+            theta_offset = Theta - theta0
+            phi_offset = Phi - phi0
+            
+            if beam_shape == "高斯波束":
+                pattern = np.exp(-2.77 * (theta_offset**2 + phi_offset**2) / theta_bw**2)
+            elif beam_shape == "Sinc波束":
+                # Sinc函数波束
+                u = np.pi * theta_offset / (theta_bw/2)
+                v = np.pi * phi_offset / (theta_bw/2)
+                pattern = np.sinc(u/np.pi) * np.sinc(v/np.pi)
+            else:
+                # 默认高斯波束
+                pattern = np.exp(-2.77 * (theta_offset**2 + phi_offset**2) / theta_bw**2)
         
-        fig_azimuth = go.Figure()
-        fig_azimuth.add_trace(go.Scatter(
-            x=azimuth_angles,
-            y=20 * np.log10(azimuth_pattern + 1e-6),  # 转换为dB
-            mode='lines',
-            line=dict(color='cyan', width=2),
-            name='方位方向图'
+        # 转换为dB
+        pattern_db = 20 * np.log10(np.abs(pattern) + 1e-10)
+        
+        # 归一化
+        pattern_db = pattern_db - np.max(pattern_db)
+        
+        # 限制副瓣电平
+        pattern_db = np.maximum(pattern_db, sidelobe_level)
+        
+        # 转换为直角坐标
+        R = 10**(pattern_db/20)  # 转换为线性
+        X = R * np.sin(Theta) * np.cos(Phi)
+        Y = R * np.sin(Theta) * np.sin(Phi)
+        Z = R * np.cos(Theta)
+        
+        # 创建3D图
+        fig_3d = go.Figure(data=[
+            go.Surface(
+                x=X, y=Y, z=Z,
+                surfacecolor=pattern_db,
+                colorscale='Viridis',
+                opacity=0.8,
+                contours={
+                    "z": {"show": True, "usecolormap": True, "highlightcolor": "limegreen"}
+                },
+                # 修复4：修正colorbar配置
+                colorbar=dict(
+                    title="增益 (dB)",
+                    tickfont=dict(size=10)  # 使用tickfont
+                )
+            )
+        ])
+        
+        # 添加坐标轴
+        axis_len = 1.5
+        fig_3d.add_trace(go.Scatter3d(
+            x=[0, axis_len], y=[0, 0], z=[0, 0],
+            mode='lines+text',
+            line=dict(color='red', width=4),
+            text=['', 'X'],
+            textposition="top center",
+            showlegend=False
+        ))
+        fig_3d.add_trace(go.Scatter3d(
+            x=[0, 0], y=[0, axis_len], z=[0, 0],
+            mode='lines+text',
+            line=dict(color='green', width=4),
+            text=['', 'Y'],
+            textposition="top center",
+            showlegend=False
+        ))
+        fig_3d.add_trace(go.Scatter3d(
+            x=[0, 0], y=[0, 0], z=[0, axis_len],
+            mode='lines+text',
+            line=dict(color='blue', width=4),
+            text=['', 'Z'],
+            textposition="top center",
+            showlegend=False
         ))
         
-        # 添加波束宽度标记
-        half_power = 20 * np.log10(0.5)  # -3dB
-        half_idx = np.where(20*np.log10(azimuth_pattern+1e-6) >= half_power)[0]
-        if len(half_idx) > 0:
-            beam_3db_width = azimuth_angles[half_idx[-1]] - azimuth_angles[half_idx[0]]
-            fig_azimuth.add_shape(type="line",
-                x0=azimuth_center - beam_width/2, y0=half_power,
-                x1=azimuth_center + beam_width/2, y1=half_power,
-                line=dict(color="red", width=2, dash="dash"))
-            fig_azimuth.add_annotation(x=0, y=half_power-5,
-                text=f"波束宽度: {beam_width:.1f}°",
-                showarrow=True, arrowhead=1, font=dict(color="red"))
-        
-        fig_azimuth.update_layout(
-            title=f"方位方向图 (波束宽度: {beam_width:.1f}°)",
-            xaxis_title="方位角 (°)",
-            yaxis_title="增益 (dB)",
-            height=300
+        fig_3d.update_layout(
+            title=f"3D波束方向图 (方位: {steer_azimuth}°, 俯仰: {steer_elevation}°)",
+            scene=dict(
+                xaxis_title="X (归一化)",
+                yaxis_title="Y (归一化)", 
+                zaxis_title="Z (归一化)",
+                aspectmode="cube",
+                camera=dict(
+                    eye=dict(x=1.5, y=1.5, z=1.0)
+                )
+            ),
+            height=500
         )
         
-        st.plotly_chart(fig_azimuth, width='stretch')
+        st.plotly_chart(fig_3d, width='stretch')
     
     with col4:
-        # 俯仰方向图
-        st.markdown("**俯仰方向图**")
+        st.markdown("**天线方向剖面图**")
         
-        # 计算俯仰方向图（使用sinc函数模型，模拟阵列天线）
-        elevation_angles = np.linspace(-30, 30, 300)
-        elevation_center = 0  # 俯仰中心指向
+        # 创建子图
+        from plotly.subplots import make_subplots
         
-        # sinc函数方向图模型（适合阵列天线）
-        k = np.pi * beam_width / 180
-        elevation_pattern = np.abs(np.sinc(k * (elevation_angles - elevation_center) / np.pi))
+        # 方位方向图切片
+        phi_slice = np.radians(steer_elevation)
+        theta_range = np.linspace(-90, 90, 181)
+        theta_rad = np.radians(theta_range)
         
-        fig_elevation = go.Figure()
-        fig_elevation.add_trace(go.Scatter(
-            x=elevation_angles,
-            y=20 * np.log10(elevation_pattern + 1e-6),  # 转换为dB
-            mode='lines',
-            line=dict(color='magenta', width=2),
-            name='俯仰方向图'
-        ))
+        if antenna_type in ["阵列天线", "相控阵天线"]:
+            # 计算方位切片
+            u_slice = np.sin(theta_rad) * np.cos(phi_slice) - np.sin(np.radians(steer_azimuth)) * np.cos(phi_slice)
+            v_slice = np.sin(theta_rad) * np.sin(phi_slice) - np.sin(np.radians(steer_azimuth)) * np.sin(phi_slice)
+            
+            AF_x_slice = np.sin(n_elements_x * k * d * u_slice / 2) / (n_elements_x * np.sin(k * d * u_slice / 2) + 1e-10) # type: ignore
+            AF_y_slice = np.sin(n_elements_y * k * d * v_slice / 2) / (n_elements_y * np.sin(k * d * v_slice / 2) + 1e-10) # type: ignore
+            
+            AF_slice = AF_x_slice * AF_y_slice
+            element_pattern_slice = np.cos(theta_rad)
+            pattern_slice = AF_slice * element_pattern_slice
+            
+            # 应用波束形状
+            if beam_shape == "Sinc波束":
+                # Sinc函数波束
+                u_norm = (theta_rad - np.radians(steer_azimuth)) / (np.radians(hpbw)/2)
+                pattern_slice = np.sinc(u_norm/np.pi)
+                
+        else:
+            # 高斯近似
+            theta_bw = np.radians(hpbw)
+            
+            if beam_shape == "高斯波束":
+                pattern_slice = np.exp(-2.77 * (theta_rad - np.radians(steer_azimuth))**2 / theta_bw**2)
+            elif beam_shape == "Sinc波束":
+                u = np.pi * (theta_rad - np.radians(steer_azimuth)) / (theta_bw/2)
+                pattern_slice = np.sinc(u/np.pi)
+            else:
+                pattern_slice = np.exp(-2.77 * (theta_rad - np.radians(steer_azimuth))**2 / theta_bw**2)
         
-        fig_elevation.update_layout(
-            title=f"俯仰方向图 (波束宽度: {beam_width:.1f}°)",
-            xaxis_title="俯仰角 (°)",
-            yaxis_title="增益 (dB)",
-            height=300
+        pattern_slice_db = 20 * np.log10(np.abs(pattern_slice) + 1e-10)
+        pattern_slice_db = pattern_slice_db - np.max(pattern_slice_db)
+        
+        # 俯仰方向图切片
+        theta_slice = np.radians(steer_azimuth)
+        phi_range = np.linspace(-90, 90, 181)
+        phi_rad = np.radians(phi_range)
+        
+        if antenna_type in ["阵列天线", "相控阵天线"]:
+            u_slice2 = np.sin(theta_slice) * np.cos(phi_rad) - np.sin(theta_slice) * np.cos(np.radians(steer_elevation))
+            v_slice2 = np.sin(theta_slice) * np.sin(phi_rad) - np.sin(theta_slice) * np.sin(np.radians(steer_elevation))
+            
+            AF_x_slice2 = np.sin(n_elements_x * k * d * u_slice2 / 2) / (n_elements_x * np.sin(k * d * u_slice2 / 2) + 1e-10) # type: ignore
+            AF_y_slice2 = np.sin(n_elements_y * k * d * v_slice2 / 2) / (n_elements_y * np.sin(k * d * v_slice2 / 2) + 1e-10) # type: ignore
+            
+            AF_slice2 = AF_x_slice2 * AF_y_slice2
+            element_pattern_slice2 = np.cos(phi_rad)
+            pattern_slice2 = AF_slice2 * element_pattern_slice2
+            
+            # 应用波束形状
+            if beam_shape == "Sinc波束":
+                v_norm = (phi_rad - np.radians(steer_elevation)) / (np.radians(hpbw)/2)
+                pattern_slice2 = np.sinc(v_norm/np.pi)
+                
+        else:
+            theta_bw = np.radians(hpbw)  # 重新定义theta_bw
+            
+            if beam_shape == "高斯波束":
+                pattern_slice2 = np.exp(-2.77 * (phi_rad - np.radians(steer_elevation))**2 / theta_bw**2)
+            elif beam_shape == "Sinc波束":
+                v = np.pi * (phi_rad - np.radians(steer_elevation)) / (theta_bw/2)
+                pattern_slice2 = np.sinc(v/np.pi)
+            else:
+                pattern_slice2 = np.exp(-2.77 * (phi_rad - np.radians(steer_elevation))**2 / theta_bw**2)
+        
+        pattern_slice2_db = 20 * np.log10(np.abs(pattern_slice2) + 1e-10)
+        pattern_slice2_db = pattern_slice2_db - np.max(pattern_slice2_db)
+        
+        # 创建子图
+        fig_slices = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=(f"方位方向图 ({beam_shape})", f"俯仰方向图 ({beam_shape})"),
+            vertical_spacing=0.15
         )
         
-        st.plotly_chart(fig_elevation, width='stretch')
+        # 添加方位切片
+        fig_slices.add_trace(
+            go.Scatter(
+                x=theta_range, 
+                y=pattern_slice_db,
+                mode='lines',
+                line=dict(color='cyan', width=2),
+                name='方位方向图',
+                fill='tozeroy',
+                fillcolor='rgba(0, 255, 255, 0.2)'
+            ),
+            row=1, col=1
+        )
+        
+        # 添加-3dB线
+        fig_slices.add_hline(y=-3, line_dash="dash", line_color="red", 
+                            annotation_text="-3dB", annotation_position="top right",
+                            row=1, col=1) # type: ignore
+        
+        # 添加波束中心线
+        fig_slices.add_vline(x=steer_azimuth, line_dash="dash", line_color="white",
+                           annotation_text="波束中心", annotation_position="top right",
+                           row=1, col=1) # type: ignore
+        
+        # 计算3dB波束宽度
+        az_3db_idx = np.where(pattern_slice_db >= -3)[0]
+        if len(az_3db_idx) > 1:
+            az_3db_width = theta_range[az_3db_idx[-1]] - theta_range[az_3db_idx[0]]
+        else:
+            az_3db_width = hpbw
+        
+        # 添加3dB波束宽度标注
+        if len(az_3db_idx) > 1:
+            center_idx = len(theta_range) // 2
+            fig_slices.add_annotation(
+                x=theta_range[center_idx],
+                y=-5,
+                text=f"3dB宽度: {az_3db_width:.1f}°",
+                showarrow=True,
+                arrowhead=2,
+                ax=0,
+                ay=30,
+                row=1, col=1
+            )
+        
+        # 添加俯仰切片
+        fig_slices.add_trace(
+            go.Scatter(
+                x=phi_range, 
+                y=pattern_slice2_db,
+                mode='lines',
+                line=dict(color='magenta', width=2),
+                name='俯仰方向图',
+                fill='tozeroy',
+                fillcolor='rgba(255, 0, 255, 0.2)'
+            ),
+            row=2, col=1
+        )
+        
+        # 添加-3dB线
+        fig_slices.add_hline(y=-3, line_dash="dash", line_color="red", 
+                            annotation_text="-3dB", annotation_position="top right",
+                            row=2, col=1) # type: ignore
+        
+        # 添加波束中心线
+        fig_slices.add_vline(x=steer_elevation, line_dash="dash", line_color="white",
+                           annotation_text="波束中心", annotation_position="top right",
+                           row=2, col=1) # type: ignore
+        
+        # 计算3dB波束宽度
+        el_3db_idx = np.where(pattern_slice2_db >= -3)[0]
+        if len(el_3db_idx) > 1:
+            el_3db_width = phi_range[el_3db_idx[-1]] - phi_range[el_3db_idx[0]]
+        else:
+            el_3db_width = hpbw
+        
+        # 添加3dB波束宽度标注
+        if len(el_3db_idx) > 1:
+            center_idx = len(phi_range) // 2
+            fig_slices.add_annotation(
+                x=phi_range[center_idx],
+                y=-5,
+                text=f"3dB宽度: {el_3db_width:.1f}°",
+                showarrow=True,
+                arrowhead=2,
+                ax=0,
+                ay=30,
+                row=2, col=1
+            )
+        
+        # 更新布局
+        fig_slices.update_layout(
+            height=500,
+            showlegend=True,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white'),
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01
+            )
+        )
+        
+        # 更新子图样式
+        for i in [1, 2]:
+            fig_slices.update_xaxes(
+                title_text="角度 (°)",
+                gridcolor='rgba(100, 100, 100, 0.3)',
+                linecolor='rgba(200, 200, 200, 0.5)',
+                row=i, col=1
+            )
+            fig_slices.update_yaxes(
+                title_text="增益 (dB)",
+                gridcolor='rgba(100, 100, 100, 0.3)',
+                linecolor='rgba(200, 200, 200, 0.5)',
+                row=i, col=1
+            )
+        
+        st.plotly_chart(fig_slices, width='stretch')
     
-    # 扫描模式可视化
-    st.subheader("扫描模式可视化")
+    # 极坐标波束图
+    st.subheader("极坐标波束图")
     
     col5, col6 = st.columns(2)
     
     with col5:
-        # 极坐标波束扫描图
-        st.markdown("**极坐标波束扫描**")
+        st.markdown("**极坐标方向图**")
+        
+        # 创建极坐标方向图
+        theta_polar = np.linspace(0, 2*np.pi, 360)
+        
+        # 根据波束形状创建不同的波束
+        beam_width_rad = np.radians(hpbw)
+        beam_center = np.radians(steer_azimuth)
+        
+        if beam_shape == "高斯波束":
+            pattern_polar = np.exp(-4 * np.log(2) * (theta_polar - beam_center)**2 / beam_width_rad**2)
+        elif beam_shape == "Sinc波束":
+            u = np.pi * (theta_polar - beam_center) / (beam_width_rad/2)
+            pattern_polar = np.abs(np.sinc(u/np.pi))
+        elif beam_shape == "切比雪夫波束":
+            pattern_polar = np.exp(-4 * np.log(2) * (theta_polar - beam_center)**2 / beam_width_rad**2)
+            # 简化切比雪夫波束
+            pattern_polar = pattern_polar + 0.2 * np.exp(-4 * np.log(2) * (theta_polar - beam_center - beam_width_rad*1.5)**2 / (beam_width_rad/2)**2)
+            pattern_polar = pattern_polar + 0.2 * np.exp(-4 * np.log(2) * (theta_polar - beam_center + beam_width_rad*1.5)**2 / (beam_width_rad/2)**2)
+        else:
+            pattern_polar = np.exp(-4 * np.log(2) * (theta_polar - beam_center)**2 / beam_width_rad**2)
+        
+        # 转换为dB
+        pattern_polar_db = 20 * np.log10(pattern_polar + 1e-10)
+        pattern_polar_db = pattern_polar_db - np.max(pattern_polar_db)
         
         # 创建极坐标图
-        theta = np.linspace(0, 2*np.pi, 360)
-        
         fig_polar = go.Figure()
         
-        # 添加雷达扫描范围
-        r_max = 1.0
+        # 添加方向图
         fig_polar.add_trace(go.Scatterpolar(
-            r=[r_max, r_max, 0],
-            theta=[0, 360, 0],
+            r=10**(pattern_polar_db/20),  # 转换为线性
+            theta=np.degrees(theta_polar),
             mode='lines',
-            line=dict(color='gray', width=1, dash='dot'),
+            line=dict(color='lime', width=2),
             fill='toself',
-            fillcolor='rgba(128, 128, 128, 0.1)',
-            name='扫描范围'
-        ))
-        
-        # 添加当前波束位置
-        current_angle = st.session_state.beam_angle
-        beam_width_rad = np.radians(beam_width)
-        
-        # 创建波束形状（高斯函数）
-        beam_theta = np.linspace(-beam_width_rad*2, beam_width_rad*2, 50)
-        beam_pattern = np.exp(-4 * np.log(2) * beam_theta**2 / beam_width_rad**2)
-        beam_r = 0.8 * beam_pattern
-        
-        # 旋转到当前角度
-        beam_theta_rotated = beam_theta + np.radians(current_angle)
-        
-        fig_polar.add_trace(go.Scatterpolar(
-            r=np.concatenate([beam_r, beam_r[::-1]*0.1]),
-            theta=np.concatenate([np.degrees(beam_theta_rotated), np.degrees(beam_theta_rotated)[::-1]]),
-            mode='lines',
-            fill='toself',
-            fillcolor='rgba(0, 255, 255, 0.5)',
-            line=dict(color='cyan', width=2),
-            name=f'波束 (方位: {current_angle:.0f}°)'
+            fillcolor='rgba(0, 255, 0, 0.2)',
+            name=f'{beam_shape}'
         ))
         
         # 添加波束中心线
         fig_polar.add_trace(go.Scatterpolar(
-            r=[0, 0.9],
-            theta=[current_angle, current_angle],
+            r=[0, 1],
+            theta=[steer_azimuth, steer_azimuth],
             mode='lines',
-            line=dict(color='red', width=2, dash='dot'),
+            line=dict(color='red', width=2, dash='dash'),
             name='波束中心'
+        ))
+        
+        # 添加-3dB线
+        fig_polar.add_trace(go.Scatterpolar(
+            r=[0.5, 0.5],
+            theta=np.linspace(0, 360, 100),
+            mode='lines',
+            line=dict(color='white', width=1, dash='dot'),
+            name='-3dB线'
         ))
         
         fig_polar.update_layout(
             polar=dict(
-                angularaxis=dict(
-                    direction="clockwise",
-                    rotation=90
-                ),
                 radialaxis=dict(
                     visible=True,
-                    range=[0, 1]
-                )
+                    range=[0, 1],
+                    gridcolor='rgba(100, 100, 100, 0.3)',
+                    linecolor='rgba(200, 200, 200, 0.5)'
+                ),
+                angularaxis=dict(
+                    gridcolor='rgba(100, 100, 100, 0.3)',
+                    linecolor='rgba(200, 200, 200, 0.5)'
+                ),
+                bgcolor='rgba(0,0,0,0)'
             ),
             showlegend=True,
-            height=400
+            title=f"极坐标波束方向图 ({beam_shape})",
+            height=400,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
         )
         
         st.plotly_chart(fig_polar, width='stretch')
     
     with col6:
-        # 3D波束扫描图
-        st.markdown("**3D波束扫描**")
+        st.markdown("**波束特性分析**")
+        st.markdown("---")
         
-        # 创建3D波束方向图
-        azimuth_3d = np.linspace(-30, 30, 60)
-        elevation_3d = np.linspace(-30, 30, 60)
-        Az, El = np.meshgrid(azimuth_3d, elevation_3d)
+        # 波束参数统计
+        stats_col1, stats_col2 = st.columns(2)
         
-        # 3D方向图（二维高斯函数）
-        sigma = beam_width / 2.355  # 将波束宽度转换为标准差
-        current_az = st.session_state.beam_angle
-        current_el = 0
+        with stats_col1:
+            st.markdown("**基本参数**")
+            st.metric("波束形状", beam_shape)
+            st.metric("波束宽度", f"{hpbw:.1f}°")
+            st.metric("增益", f"{antenna_gain_db:.0f} dB")
+            st.metric("频率", f"{freq_ghz:.1f} GHz")
         
-        pattern_3d = np.exp(-0.5 * ((Az - current_az)**2 + (El - current_el)**2) / sigma**2)
+        with stats_col2:
+            st.markdown("**方向图特性**")
+            st.metric("方位3dB宽度", f"{az_3db_width:.1f}°")
+            st.metric("俯仰3dB宽度", f"{el_3db_width:.1f}°")
+            st.metric("副瓣电平", f"{sidelobe_level:.0f} dB")
+            st.metric("指向精度", "±0.1°")
         
-        # 转换为直角坐标
-        R = pattern_3d
-        theta_3d = np.radians(Az)
-        phi_3d = np.radians(90 - El)  # 转换为天顶角
-        
-        X = R * np.sin(phi_3d) * np.cos(theta_3d)
-        Y = R * np.sin(phi_3d) * np.sin(theta_3d)
-        Z = R * np.cos(phi_3d)
-        
-        fig_3d = go.Figure(data=[
-            go.Surface(
-                x=X, y=Y, z=Z,
-                surfacecolor=pattern_3d,
-                colorscale='Viridis',
-                opacity=0.8,
-                contours=dict(
-                    z=dict(show=True, size=0.1, color="white"),
-                    x=dict(show=True, size=1, color="white"),
-                    y=dict(show=True, size=1, color="white")
-                ),
-                colorbar=dict(title="增益")
-            )
-        ])
-        
-        # 添加坐标轴
-        fig_3d.add_trace(go.Scatter3d(
-            x=[0, 1], y=[0, 0], z=[0, 0],
-            mode='lines',
-            line=dict(color='red', width=4),
-            name='X轴'
-        ))
-        fig_3d.add_trace(go.Scatter3d(
-            x=[0, 0], y=[0, 1], z=[0, 0],
-            mode='lines',
-            line=dict(color='green', width=4),
-            name='Y轴'
-        ))
-        fig_3d.add_trace(go.Scatter3d(
-            x=[0, 0], y=[0, 0], z=[0, 1],
-            mode='lines',
-            line=dict(color='blue', width=4),
-            name='Z轴'
-        ))
-        
-        fig_3d.update_layout(
-            title=f"3D波束方向图 (方位: {current_az:.0f}°, 俯仰: {current_el:.0f}°)",
-            scene=dict(
-                xaxis_title="X",
-                yaxis_title="Y", 
-                zaxis_title="Z",
-                aspectmode="data"
-            ),
-            height=400
-        )
-        
-        st.plotly_chart(fig_3d, width='stretch')
-    
-    # 扫描控制
-    st.subheader("扫描控制")
-    
-    col7, col8, col9, col10 = st.columns(4)
-    
-    with col7:
-        if st.button("▶️ 开始扫描", width='stretch'):
-            st.session_state.beam_angle = (st.session_state.beam_angle + 10) % 360
-    
-    with col8:
-        if st.button("⏸️ 暂停扫描", width='stretch'):
-            st.info("扫描已暂停")
-    
-    with col9:
-        if st.button("🔄 重置角度", width='stretch'):
-            st.session_state.beam_angle = 0
-            st.success("波束角度已重置")
-    
-    with col10:
-        beam_speed = st.slider(
-            "扫描速度",
-            min_value=1,
-            max_value=10,
-            value=5,
-            step=1,
-            key="beam_speed"
-        )
+        st.markdown("---")
+    col7, col8 = st.columns(2)
 
+    with col7:
+
+        st.markdown("**天线信息**")
+        array_config = f'{n_elements_x if antenna_type in ["阵列天线", "相控阵天线"] else "N/A"} × {n_elements_y if antenna_type in ["阵列天线", "相控阵天线"] else "N/A"}' # type: ignore
+        st.markdown(f"""
+        **天线类型**: {antenna_type}
+        
+        **阵列配置**: {array_config}
+        
+        **极化方式**: {polarization}
+        
+        **波束形状**: {beam_shape}
+        
+        **扫描方式**: {scan_type}
+        """)
+
+    with col8:
+        # 波束成形技术说明
+        st.markdown("**波束成形技术**")
+        
+        st.markdown("""
+        波束成形通过控制阵列天线中每个阵元的相位和幅度，实现波束的指向和形状控制。
+        
+        主要技术参数：
+        - 波束指向：方位{steer_azimuth}°，俯仰{steer_elevation}°
+        - 波束形状：{beam_shape}
+        - 副瓣抑制：{sidelobe_level}dB
+        """.format(
+            steer_azimuth=steer_azimuth,
+            steer_elevation=steer_elevation,
+            beam_shape=beam_shape,
+            sidelobe_level=abs(sidelobe_level)
+        ))
 with tab4:
     st.header("雷达性能评估")
     
@@ -641,7 +1173,7 @@ with tab4:
             
             # 从会话状态或其他选项卡获取变量
             # 如果beam_width未定义，使用默认值
-            beam_width_val = beam_width if 'beam_width' in locals() else 1.0
+            beam_width_val = beam_width_rad if 'beam_width' in locals() else 1.0
             
             # 计算性能指标
             detection_probability = 0.95
