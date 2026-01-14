@@ -106,7 +106,7 @@ st.markdown('<h2 class="main-header">🌬️ 长城数字风电场对雷达目�
 # 应用介绍
 st.markdown("""
 <div class="info-card">
-    <h3>📊 系统概述</h3>
+    <h3>📊 风雷快评 概述</h3>
     <p>本系统提供了一套完整的风电场对雷达探测目标影响的评估工具，涵盖了从风电场建模、雷达参数配置、目标设置、探测分析到三维可视化的全流程分析。</p>
 </div>
 """, unsafe_allow_html=True)
