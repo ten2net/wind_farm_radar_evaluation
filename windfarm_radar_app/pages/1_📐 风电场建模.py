@@ -350,7 +350,7 @@ with tab3:
 with tab4:
     st.header("风电场配置预览")
     
-    if st.button("🔄 更新配置", type="primary"):
+    if st.button("🔄 保存配置到会话", type="primary"):
         st.session_state.wind_farm_config = {
             'turbine_height': turbine_height,
             'rotor_diameter': rotor_diameter,

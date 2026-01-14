@@ -993,7 +993,7 @@ with st.sidebar:
         config_name = st.text_input("配置名称", value="目标配置")
         config_description = st.text_area("配置描述", value="当前目标参数配置")
         
-        if st.form_submit_button("保存目标配置", width='stretch'):
+        if st.form_submit_button("保存目标配置到会话", width='stretch'):
             # 收集当前所有参数
             current_config = {
                 'name': config_name,

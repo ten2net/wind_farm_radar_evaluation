@@ -511,7 +511,7 @@ with st.sidebar:
         st.switch_page("pages/3_🎯 目标设置.py")
 
 # 保存配置
-if st.button("💾 保存雷达配置", type="primary", width='stretch'):
+if st.button("💾 保存雷达配置到会话", type="primary", width='stretch'):
     st.session_state.radar_config = {
         'type': radar_type,
         'position': [radar_x, radar_y, radar_z],
