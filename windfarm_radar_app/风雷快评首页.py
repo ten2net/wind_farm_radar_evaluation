@@ -65,6 +65,37 @@ st.markdown("""
         text-align: center;
         margin: 0.5rem;
     }
+    
+    /* 选项卡样式 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: rgba(20, 25, 45, 0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 2.5rem;
+        color: #a0c8ff;
+        font-weight: 500;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, 
+            rgba(0, 150, 255, 0.3), 
+            rgba(0, 100, 200, 0.5));
+        color: #00ccff;
+        box-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+    }
+    
+    /* 调整间距 */
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(0, 100, 200, 0.2);
+    }    
+  
 </style>
 """, unsafe_allow_html=True)
 
