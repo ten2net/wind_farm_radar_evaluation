@@ -456,7 +456,7 @@ with tab1:
         
         # 显示三维场景
         if 'scene_fig' in st.session_state:
-            st.plotly_chart(st.session_state.scene_fig, width='stretch', theme=None)
+            st.plotly_chart(st.session_state.scene_fig, width='stretch', key="three_d_view", theme=None)
             
             # 场景控制
             st.subheader("场景控制")
@@ -601,7 +601,7 @@ with tab2:
                 )
                 
                 # 显示动画
-                animation_placeholder.plotly_chart(fig, width='stretch', theme=None)
+                animation_placeholder.plotly_chart(fig, width='stretch', key="animation", theme=None)
                 
                 status_placeholder.success("动画准备就绪！点击播放按钮开始动画")
 
@@ -689,7 +689,7 @@ with tab3:
                     )
                 )
             
-            st.plotly_chart(fig, width='stretch', theme=None)
+            st.plotly_chart(fig, width='stretch',key="single_view", theme=None)
         
         elif view_mode == "四视图":
             # 创建四个子图
@@ -744,7 +744,7 @@ with tab3:
                     height=300
                 )
                 
-                st.plotly_chart(fig_section, width='stretch', theme=None)
+                st.plotly_chart(fig_section, width='stretch', key="profile_view", theme=None)
 
 with tab4:
     st.header("数据导出")
