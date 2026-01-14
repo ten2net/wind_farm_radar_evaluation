@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from scipy import constants
+from scipy.special import j1
+import time
 
 # 页面配置
 st.set_page_config(
@@ -32,6 +34,8 @@ st.markdown("配置雷达系统参数、频段选择和扫描模式")
 # 初始化会话状态
 if 'radar_config' not in st.session_state:
     st.session_state.radar_config = {}
+if 'beam_angle' not in st.session_state:
+    st.session_state.beam_angle = 0
 
 # 创建选项卡
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -370,37 +374,261 @@ with tab3:
         st.metric("跟踪数据率", f"{update_rate} Hz")
         st.metric("可跟踪目标数", max_targets)
     
+    # 天线方向图可视化
+    st.subheader("天线方向图")
+    
+    col3, col4 = st.columns(2)
+    
+    with col3:
+        # 方位方向图
+        st.markdown("**方位方向图**")
+        
+        # 计算方位方向图（使用高斯模型）
+        azimuth_angles = np.linspace(-30, 30, 300)
+        azimuth_center = 0  # 方位中心指向
+        
+        # 高斯方向图模型
+        azimuth_pattern = np.exp(-4 * np.log(2) * (azimuth_angles - azimuth_center)**2 / beam_width**2)
+        
+        # 添加副瓣
+        azimuth_pattern += 0.1 * np.exp(-4 * np.log(2) * (azimuth_angles - azimuth_center - 3*beam_width)**2 / (beam_width/2)**2)
+        azimuth_pattern += 0.1 * np.exp(-4 * np.log(2) * (azimuth_angles - azimuth_center + 3*beam_width)**2 / (beam_width/2)**2)
+        
+        fig_azimuth = go.Figure()
+        fig_azimuth.add_trace(go.Scatter(
+            x=azimuth_angles,
+            y=20 * np.log10(azimuth_pattern + 1e-6),  # 转换为dB
+            mode='lines',
+            line=dict(color='cyan', width=2),
+            name='方位方向图'
+        ))
+        
+        # 添加波束宽度标记
+        half_power = 20 * np.log10(0.5)  # -3dB
+        half_idx = np.where(20*np.log10(azimuth_pattern+1e-6) >= half_power)[0]
+        if len(half_idx) > 0:
+            beam_3db_width = azimuth_angles[half_idx[-1]] - azimuth_angles[half_idx[0]]
+            fig_azimuth.add_shape(type="line",
+                x0=azimuth_center - beam_width/2, y0=half_power,
+                x1=azimuth_center + beam_width/2, y1=half_power,
+                line=dict(color="red", width=2, dash="dash"))
+            fig_azimuth.add_annotation(x=0, y=half_power-5,
+                text=f"波束宽度: {beam_width:.1f}°",
+                showarrow=True, arrowhead=1, font=dict(color="red"))
+        
+        fig_azimuth.update_layout(
+            title=f"方位方向图 (波束宽度: {beam_width:.1f}°)",
+            xaxis_title="方位角 (°)",
+            yaxis_title="增益 (dB)",
+            height=300
+        )
+        
+        st.plotly_chart(fig_azimuth, width='stretch')
+    
+    with col4:
+        # 俯仰方向图
+        st.markdown("**俯仰方向图**")
+        
+        # 计算俯仰方向图（使用sinc函数模型，模拟阵列天线）
+        elevation_angles = np.linspace(-30, 30, 300)
+        elevation_center = 0  # 俯仰中心指向
+        
+        # sinc函数方向图模型（适合阵列天线）
+        k = np.pi * beam_width / 180
+        elevation_pattern = np.abs(np.sinc(k * (elevation_angles - elevation_center) / np.pi))
+        
+        fig_elevation = go.Figure()
+        fig_elevation.add_trace(go.Scatter(
+            x=elevation_angles,
+            y=20 * np.log10(elevation_pattern + 1e-6),  # 转换为dB
+            mode='lines',
+            line=dict(color='magenta', width=2),
+            name='俯仰方向图'
+        ))
+        
+        fig_elevation.update_layout(
+            title=f"俯仰方向图 (波束宽度: {beam_width:.1f}°)",
+            xaxis_title="俯仰角 (°)",
+            yaxis_title="增益 (dB)",
+            height=300
+        )
+        
+        st.plotly_chart(fig_elevation, width='stretch')
+    
     # 扫描模式可视化
     st.subheader("扫描模式可视化")
     
-    # 创建波束扫描示意图
-    fig = go.Figure()
+    col5, col6 = st.columns(2)
     
-    # 天线波束
-    theta = np.linspace(0, 2*np.pi, 100)
-    
-    for angle in np.linspace(0, 2*np.pi, 8, endpoint=False):
-        r = 1
-        x = r * np.cos(theta + angle) * 0.5
-        y = r * np.sin(theta + angle) * 0.5
-        fig.add_trace(go.Scatter(
-            x=x, y=y,
+    with col5:
+        # 极坐标波束扫描图
+        st.markdown("**极坐标波束扫描**")
+        
+        # 创建极坐标图
+        theta = np.linspace(0, 2*np.pi, 360)
+        
+        fig_polar = go.Figure()
+        
+        # 添加雷达扫描范围
+        r_max = 1.0
+        fig_polar.add_trace(go.Scatterpolar(
+            r=[r_max, r_max, 0],
+            theta=[0, 360, 0],
             mode='lines',
-            line=dict(color='blue', width=1),
+            line=dict(color='gray', width=1, dash='dot'),
             fill='toself',
-            fillcolor='rgba(0, 0, 255, 0.2)',
-            name=f'波束 {int(np.degrees(angle))}°'
+            fillcolor='rgba(128, 128, 128, 0.1)',
+            name='扫描范围'
         ))
+        
+        # 添加当前波束位置
+        current_angle = st.session_state.beam_angle
+        beam_width_rad = np.radians(beam_width)
+        
+        # 创建波束形状（高斯函数）
+        beam_theta = np.linspace(-beam_width_rad*2, beam_width_rad*2, 50)
+        beam_pattern = np.exp(-4 * np.log(2) * beam_theta**2 / beam_width_rad**2)
+        beam_r = 0.8 * beam_pattern
+        
+        # 旋转到当前角度
+        beam_theta_rotated = beam_theta + np.radians(current_angle)
+        
+        fig_polar.add_trace(go.Scatterpolar(
+            r=np.concatenate([beam_r, beam_r[::-1]*0.1]),
+            theta=np.concatenate([np.degrees(beam_theta_rotated), np.degrees(beam_theta_rotated)[::-1]]),
+            mode='lines',
+            fill='toself',
+            fillcolor='rgba(0, 255, 255, 0.5)',
+            line=dict(color='cyan', width=2),
+            name=f'波束 (方位: {current_angle:.0f}°)'
+        ))
+        
+        # 添加波束中心线
+        fig_polar.add_trace(go.Scatterpolar(
+            r=[0, 0.9],
+            theta=[current_angle, current_angle],
+            mode='lines',
+            line=dict(color='red', width=2, dash='dot'),
+            name='波束中心'
+        ))
+        
+        fig_polar.update_layout(
+            polar=dict(
+                angularaxis=dict(
+                    direction="clockwise",
+                    rotation=90
+                ),
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 1]
+                )
+            ),
+            showlegend=True,
+            height=400
+        )
+        
+        st.plotly_chart(fig_polar, width='stretch')
     
-    fig.update_layout(
-        title="天线波束扫描示意图",
-        xaxis_title="方位角",
-        yaxis_title="俯仰角",
-        showlegend=False,
-        height=400
-    )
+    with col6:
+        # 3D波束扫描图
+        st.markdown("**3D波束扫描**")
+        
+        # 创建3D波束方向图
+        azimuth_3d = np.linspace(-30, 30, 60)
+        elevation_3d = np.linspace(-30, 30, 60)
+        Az, El = np.meshgrid(azimuth_3d, elevation_3d)
+        
+        # 3D方向图（二维高斯函数）
+        sigma = beam_width / 2.355  # 将波束宽度转换为标准差
+        current_az = st.session_state.beam_angle
+        current_el = 0
+        
+        pattern_3d = np.exp(-0.5 * ((Az - current_az)**2 + (El - current_el)**2) / sigma**2)
+        
+        # 转换为直角坐标
+        R = pattern_3d
+        theta_3d = np.radians(Az)
+        phi_3d = np.radians(90 - El)  # 转换为天顶角
+        
+        X = R * np.sin(phi_3d) * np.cos(theta_3d)
+        Y = R * np.sin(phi_3d) * np.sin(theta_3d)
+        Z = R * np.cos(phi_3d)
+        
+        fig_3d = go.Figure(data=[
+            go.Surface(
+                x=X, y=Y, z=Z,
+                surfacecolor=pattern_3d,
+                colorscale='Viridis',
+                opacity=0.8,
+                contours=dict(
+                    z=dict(show=True, size=0.1, color="white"),
+                    x=dict(show=True, size=1, color="white"),
+                    y=dict(show=True, size=1, color="white")
+                ),
+                colorbar=dict(title="增益")
+            )
+        ])
+        
+        # 添加坐标轴
+        fig_3d.add_trace(go.Scatter3d(
+            x=[0, 1], y=[0, 0], z=[0, 0],
+            mode='lines',
+            line=dict(color='red', width=4),
+            name='X轴'
+        ))
+        fig_3d.add_trace(go.Scatter3d(
+            x=[0, 0], y=[0, 1], z=[0, 0],
+            mode='lines',
+            line=dict(color='green', width=4),
+            name='Y轴'
+        ))
+        fig_3d.add_trace(go.Scatter3d(
+            x=[0, 0], y=[0, 0], z=[0, 1],
+            mode='lines',
+            line=dict(color='blue', width=4),
+            name='Z轴'
+        ))
+        
+        fig_3d.update_layout(
+            title=f"3D波束方向图 (方位: {current_az:.0f}°, 俯仰: {current_el:.0f}°)",
+            scene=dict(
+                xaxis_title="X",
+                yaxis_title="Y", 
+                zaxis_title="Z",
+                aspectmode="data"
+            ),
+            height=400
+        )
+        
+        st.plotly_chart(fig_3d, width='stretch')
     
-    st.plotly_chart(fig, width='stretch')
+    # 扫描控制
+    st.subheader("扫描控制")
+    
+    col7, col8, col9, col10 = st.columns(4)
+    
+    with col7:
+        if st.button("▶️ 开始扫描", width='stretch'):
+            st.session_state.beam_angle = (st.session_state.beam_angle + 10) % 360
+    
+    with col8:
+        if st.button("⏸️ 暂停扫描", width='stretch'):
+            st.info("扫描已暂停")
+    
+    with col9:
+        if st.button("🔄 重置角度", width='stretch'):
+            st.session_state.beam_angle = 0
+            st.success("波束角度已重置")
+    
+    with col10:
+        beam_speed = st.slider(
+            "扫描速度",
+            min_value=1,
+            max_value=10,
+            value=5,
+            step=1,
+            key="beam_speed"
+        )
 
 with tab4:
     st.header("雷达性能评估")
