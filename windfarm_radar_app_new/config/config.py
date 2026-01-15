@@ -370,7 +370,7 @@ REPORT_CONFIG = {
         "appendices"  # 附录
     ],
     "max_pages": 50,  # 报告最大页数
-    "image_quality": "high",  # 图片质量: low, medium, high
+    "image_quality": "高",  # 图片质量: 低, 中, 高
     "toc_depth": 3,  # 目录深度
 }
 

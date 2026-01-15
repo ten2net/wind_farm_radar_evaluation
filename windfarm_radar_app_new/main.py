@@ -455,7 +455,6 @@ def create_sidebar():
         
         # 场景状态
         if st.session_state.scenario_loaded:
-            print(st.session_state)
             scenario_name = st.session_state.scenario_data.get('name', '未命名场景')
             st.success(f"✅ 场景已加载: {scenario_name}")
         else:

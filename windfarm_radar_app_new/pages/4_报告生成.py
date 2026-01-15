@@ -125,7 +125,7 @@ with tab1:
         image_quality = st.select_slider(
             "图片质量",
             options=["低", "中", "高"],
-            value="中", #REPORT_CONFIG['image_quality'],
+            value=REPORT_CONFIG['image_quality'],
             help="选择报告中图片的质量"
         )
         
