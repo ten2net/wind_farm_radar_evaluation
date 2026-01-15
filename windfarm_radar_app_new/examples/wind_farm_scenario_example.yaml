@@ -1,0 +1,55 @@
+# 风电场评估场景配置示例
+name: "示例风电场场景"
+description: "示例场景用于演示系统功能"
+
+metadata:
+  created_at: "2024-01-01"
+  updated_at: "2024-01-01"
+  author: "系统生成"
+  version: "1.0"
+
+wind_turbines:
+  - id: "WT001"
+    model: "Vestas_V150"
+    position: {lat: 40.123, lon: 116.234, alt: 50}
+    height: 150
+    rotor_diameter: 150
+    orientation: 0
+    operational: true
+    metadata: {rcs_profile: "medium", blade_material: "复合材料"}
+
+radar_stations:
+  - id: "RADAR001"
+    type: "气象雷达"
+    frequency_band: "S"
+    position: {lat: 40.1, lon: 116.2, alt: 100}
+    peak_power: 1000000
+    antenna_gain: 40
+    beam_width: 1.0
+    pulse_width: 2.0
+    prf: 300
+    noise_figure: 3.0
+    system_losses: 6.0
+    antenna_height: 30
+    metadata: {polarization: "horizontal", scanning_mode: "mechanical"}
+
+communication_stations:
+  - id: "COMM001"
+    service_type: "基站"
+    frequency: 1800
+    position: {lat: 40.15, lon: 116.25, alt: 30}
+    antenna_type: "sector"
+    eirp: 50
+    antenna_gain: 18
+    antenna_height: 30
+    metadata: {bandwidth: 20}
+
+targets:
+  - id: "TARGET001"
+    type: "民航飞机"
+    rcs: 10.0
+    position: {lat: 40.2, lon: 116.3, alt: 10000}
+    speed: 250
+    heading: 90
+    altitude: 10000
+    metadata: {category: "航空器", description: "商业客机"}
