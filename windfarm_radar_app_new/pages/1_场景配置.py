@@ -713,7 +713,7 @@ with tab2:
                     st.rerun()
         
         # 更新会话状态
-        if st.button("💾 保存编辑", type="primary", use_container_width=True):
+        if st.button("💾 保存编辑", type="primary", width='stretch'):
             # 更新基本数据
             scenario_data['name'] = scenario_name
             scenario_data['description'] = scenario_description
@@ -810,7 +810,7 @@ with tab3:
                 })
             
             turbines_df = pd.DataFrame(turbines_df_data)
-            st.dataframe(turbines_df, use_container_width=True, hide_index=True)
+            st.dataframe(turbines_df, width='stretch', hide_index=True)
         else:
             st.info("暂无风机数据")
         
@@ -833,7 +833,7 @@ with tab3:
                 })
             
             radars_df = pd.DataFrame(radars_df_data)
-            st.dataframe(radars_df, use_container_width=True, hide_index=True)
+            st.dataframe(radars_df, width='stretch', hide_index=True)
         else:
             st.info("暂无雷达数据")
         
@@ -856,7 +856,7 @@ with tab3:
                 })
             
             targets_df = pd.DataFrame(targets_df_data)
-            st.dataframe(targets_df, use_container_width=True, hide_index=True)
+            st.dataframe(targets_df, width='stretch', hide_index=True)
         else:
             st.info("暂无目标数据")
         
@@ -932,7 +932,7 @@ with tab4:
             )
         
         # 保存按钮
-        if st.button("💾 保存文件", type="primary", use_container_width=True):
+        if st.button("💾 保存文件", type="primary", width='stretch'):
             try:
                 if save_format == "YAML":
                     file_content = yaml.dump(scenario_data, default_flow_style=False, allow_unicode=True, indent=2)
@@ -1011,7 +1011,7 @@ with st.sidebar:
         # 快速操作
         st.markdown("### ⚡ 快速操作")
         
-        if st.button("🔄 重新验证", use_container_width=True):
+        if st.button("🔄 重新验证", width='stretch'):
             if st.session_state.scenario_data:
                 validator = YAMLConfigValidator()
                 is_valid, errors = validator.validate_scenario(st.session_state.scenario_data)
@@ -1031,7 +1031,7 @@ with st.sidebar:
                 
                 st.rerun()
         
-        if st.button("🗑️ 清除场景", use_container_width=True, type="secondary"):
+        if st.button("🗑️ 清除场景", width='stretch', type="secondary"):
             st.session_state.scenario_data = None
             st.session_state.scenario_loaded = False
             st.session_state.scenario_name = ""

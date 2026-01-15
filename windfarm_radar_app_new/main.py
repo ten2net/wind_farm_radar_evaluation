@@ -466,7 +466,7 @@ def create_sidebar():
         st.markdown("### 🧭 导航")
         
         # 主页按钮
-        if st.button("🏠 系统首页", use_container_width=True):
+        if st.button("🏠 系统首页", width='stretch'):
             st.session_state.current_page = "home"
             st.rerun()
         
@@ -479,7 +479,7 @@ def create_sidebar():
         ]
         
         for page_name, page_file in pages:
-            if st.button(page_name, use_container_width=True, key=f"nav_{page_file}"):
+            if st.button(page_name, width='stretch', key=f"nav_{page_file}"):
                 st.switch_page(f"pages/{page_file}.py")
         
         st.markdown("---")
@@ -487,12 +487,12 @@ def create_sidebar():
         # 快速操作
         st.markdown("### ⚡ 快速操作")
         
-        if st.button("🔄 重新加载场景", use_container_width=True):
+        if st.button("🔄 重新加载场景", width='stretch'):
             st.session_state.scenario_loaded = False
             st.session_state.scenario_data = None
             st.rerun()
         
-        if st.button("🗑️ 清除所有数据", use_container_width=True, type="secondary"):
+        if st.button("🗑️ 清除所有数据", width='stretch', type="secondary"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()

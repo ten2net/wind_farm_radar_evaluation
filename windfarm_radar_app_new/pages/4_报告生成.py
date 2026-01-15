@@ -40,7 +40,7 @@ st.markdown("生成专业的评估报告，集成Kimi AI智能分析")
 if 'analysis_results' not in st.session_state or not st.session_state.get('calculation_complete', False):
     st.warning("⚠️ 请先进行雷达性能分析")
     
-    if st.button("📡 前往雷达性能分析页面", use_container_width=True):
+    if st.button("📡 前往雷达性能分析页面", width='stretch'):
         st.switch_page("pages/3_雷达性能分析.py")
     
     st.stop()
@@ -188,7 +188,7 @@ with tab1:
     st.markdown("---")
     
     # 生成按钮
-    if st.button("🚀 生成评估报告", type="primary", use_container_width=True):
+    if st.button("🚀 生成评估报告", type="primary", width='stretch'):
         with st.spinner("正在生成评估报告，这可能需要几分钟..."):
             try:
                 # 准备报告数据
@@ -379,7 +379,7 @@ with tab2:
                             '变化': f"{prob_change:+.1f}%"
                         })
                         
-                        st.dataframe(pd.DataFrame(metrics_data), use_container_width=True, hide_index=True)
+                        st.dataframe(pd.DataFrame(metrics_data), width='stretch', hide_index=True)
                 
                 with col_data2:
                     st.markdown("##### 影响评估")
@@ -417,7 +417,7 @@ with tab2:
                                     '状态': color
                                 })
                         
-                        st.dataframe(pd.DataFrame(impact_data), use_container_width=True, hide_index=True)
+                        st.dataframe(pd.DataFrame(impact_data), width='stretch', hide_index=True)
         
         st.markdown("---")
         
@@ -540,7 +540,7 @@ with tab3:
             st.markdown("---")
             
             # 开始AI分析按钮
-            if st.button("🤖 开始AI分析", type="primary", use_container_width=True):
+            if st.button("🤖 开始AI分析", type="primary", width='stretch'):
                 st.session_state.ai_analysis_in_progress = True
                 
                 with st.spinner("AI正在分析报告，这可能需要一些时间..."):
@@ -654,7 +654,7 @@ with tab3:
                     st.metric("分析状态", "已完成")
                 
                 # 导出AI分析结果
-                if st.button("📥 导出AI分析结果", use_container_width=True):
+                if st.button("📥 导出AI分析结果", width='stretch'):
                     # 创建AI分析报告
                     ai_report = {
                         "报告信息": {
@@ -776,7 +776,7 @@ with tab4:
                     data=markdown_content,
                     file_name=f"{export_filename}.md",
                     mime="text/markdown",
-                    use_container_width=True
+                    width='stretch'
                 )
         
         with col_btn2:
@@ -791,13 +791,13 @@ with tab4:
                         data=pdf_content,
                         file_name=f"{export_filename}.pdf",
                         mime="application/pdf",
-                        use_container_width=True
+                        width='stretch'
                     )
                 except:
-                    st.button("📥 生成PDF", disabled=True, use_container_width=True)
+                    st.button("📥 生成PDF", disabled=True, width='stretch')
                     st.caption("PDF文件不存在")
             else:
-                st.button("📥 生成PDF", disabled=True, use_container_width=True)
+                st.button("📥 生成PDF", disabled=True, width='stretch')
                 st.caption("PDF文件未生成")
         
         with col_btn3:
@@ -823,7 +823,7 @@ with tab4:
                     data=export_json,
                     file_name=f"{export_filename}_数据.json",
                     mime="application/json",
-                    use_container_width=True
+                    width='stretch'
                 )
         
         with col_btn4:
@@ -848,13 +848,13 @@ with tab4:
                         data=zip_buffer,
                         file_name=f"{export_filename}_图表.zip",
                         mime="application/zip",
-                        use_container_width=True
+                        width='stretch'
                     )
                 else:
-                    st.button("📥 下载图表包", disabled=True, use_container_width=True)
+                    st.button("📥 下载图表包", disabled=True, width='stretch')
                     st.caption("无图表文件")
             else:
-                st.button("📥 下载图表包", disabled=True, use_container_width=True)
+                st.button("📥 下载图表包", disabled=True, width='stretch')
                 st.caption("图表目录不存在")
         
         st.markdown("---")
@@ -862,7 +862,7 @@ with tab4:
         # 批量导出选项
         st.subheader("批量导出")
         
-        if st.button("📦 批量导出所有文件", type="primary", use_container_width=True):
+        if st.button("📦 批量导出所有文件", type="primary", width='stretch'):
             st.info("批量导出功能开发中...")
             st.info("此功能将打包所有相关文件（报告、图表、数据）为一个压缩包")
 
@@ -894,14 +894,14 @@ with st.sidebar:
     # 快速操作
     st.markdown("## ⚡ 快速操作")
     
-    if st.button("🔄 重新生成报告", use_container_width=True):
+    if st.button("🔄 重新生成报告", width='stretch'):
         st.session_state.report_generated = False
         st.session_state.report_data = None
         st.session_state.ai_analysis_complete = False
         st.session_state.ai_analysis_in_progress = False
         st.rerun()
     
-    if st.button("🧹 清除所有报告", use_container_width=True, type="secondary"):
+    if st.button("🧹 清除所有报告", width='stretch', type="secondary"):
         st.session_state.report_generated = False
         st.session_state.report_data = None
         st.session_state.ai_analysis_complete = False
@@ -913,13 +913,13 @@ with st.sidebar:
     # 导航
     st.markdown("## 🧭 页面导航")
     
-    if st.button("📁 场景配置", use_container_width=True):
+    if st.button("📁 场景配置", width='stretch'):
         st.switch_page("pages/1_场景配置.py")
     
-    if st.button("🗺️ 场景可视化", use_container_width=True):
+    if st.button("🗺️ 场景可视化", width='stretch'):
         st.switch_page("pages/2_场景可视化.py")
     
-    if st.button("📡 雷达性能分析", use_container_width=True):
+    if st.button("📡 雷达性能分析", width='stretch'):
         st.switch_page("pages/3_雷达性能分析.py")
     
     st.markdown("---")

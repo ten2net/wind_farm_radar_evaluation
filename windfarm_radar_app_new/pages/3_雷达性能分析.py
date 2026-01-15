@@ -44,7 +44,7 @@ st.markdown("量化分析有/无风机条件下的雷达探测性能")
 if 'scenario_data' not in st.session_state or not st.session_state.get('scenario_loaded', False):
     st.warning("⚠️ 请先加载场景配置文件")
     
-    if st.button("📁 前往场景配置页面", use_container_width=True):
+    if st.button("📁 前往场景配置页面", width='stretch'):
         st.switch_page("pages/1_场景配置.py")
     
     st.stop()
@@ -354,7 +354,7 @@ with tab1:
     st.markdown("---")
     
     # 分析按钮
-    if st.button("🚀 开始性能分析", type="primary", use_container_width=True):
+    if st.button("🚀 开始性能分析", type="primary", width='stretch'):
         with st.spinner("正在进行雷达性能分析..."):
             # 初始化进度
             st.session_state.analysis_progress = 0
@@ -480,7 +480,7 @@ with tab2:
                 )
             )
             
-            st.plotly_chart(fig_snr, use_container_width=True)
+            st.plotly_chart(fig_snr, width='stretch')
             
             # 统计分析
             col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
@@ -567,7 +567,7 @@ with tab2:
                 )
             )
             
-            st.plotly_chart(fig_power, use_container_width=True)
+            st.plotly_chart(fig_power, width='stretch')
             
             # 功率损失分析
             col_power1, col_power2, col_power3, col_power4 = st.columns(4)
@@ -672,7 +672,7 @@ with tab2:
                 )
             )
             
-            st.plotly_chart(fig_prob, use_container_width=True)
+            st.plotly_chart(fig_prob, width='stretch')
             
             # 检测概率分析
             col_prob1, col_prob2, col_prob3, col_prob4 = st.columns(4)
@@ -829,7 +829,7 @@ with tab2:
             fig_multipath.update_xaxes(title_text="影响等级", row=2, col=2)
             fig_multipath.update_yaxes(title_text="频数", row=2, col=2)
             
-            st.plotly_chart(fig_multipath, use_container_width=True)
+            st.plotly_chart(fig_multipath, width='stretch')
             
             # 多径效应分析
             st.markdown("### 📊 多径效应分析解读")
@@ -957,7 +957,7 @@ with tab3:
             height=400
         )
         
-        st.plotly_chart(fig_doppler, use_container_width=True)
+        st.plotly_chart(fig_doppler, width='stretch')
         
         st.markdown("---")
         
@@ -1031,7 +1031,7 @@ with tab3:
             height=500
         )
         
-        st.plotly_chart(fig_range_vel, use_container_width=True)
+        st.plotly_chart(fig_range_vel, width='stretch')
 
 with tab4:
     st.header("综合分析报告")
@@ -1106,7 +1106,7 @@ with tab4:
             })
         
         impact_df = pd.DataFrame(impact_data)
-        st.dataframe(impact_df, use_container_width=True, hide_index=True)
+        st.dataframe(impact_df, width='stretch', hide_index=True)
         
         st.markdown("---")
         
@@ -1129,7 +1129,7 @@ with tab4:
         col_export1, col_export2, col_export3 = st.columns(3)
         
         with col_export1:
-            if st.button("📊 导出数据表格", use_container_width=True):
+            if st.button("📊 导出数据表格", width='stretch'):
                 # 准备导出数据
                 export_data = {
                     '分析配置': st.session_state.analysis_config,
@@ -1172,11 +1172,11 @@ with tab4:
                 )
         
         with col_export2:
-            if st.button("📈 导出分析图表", use_container_width=True):
+            if st.button("📈 导出分析图表", width='stretch'):
                 st.info("图表导出功能开发中...")
         
         with col_export3:
-            if st.button("📄 生成详细报告", use_container_width=True):
+            if st.button("📄 生成详细报告", width='stretch'):
                 st.info("详细报告生成功能在报告生成页面可用")
                 if st.button("前往报告生成页面"):
                     st.switch_page("pages/4_报告生成.py")
@@ -1226,12 +1226,12 @@ with st.sidebar:
     # 快速操作
     st.markdown("## ⚡ 快速操作")
     
-    if st.button("🔄 重新分析", use_container_width=True):
+    if st.button("🔄 重新分析", width='stretch'):
         st.session_state.calculation_complete = False
         st.session_state.analysis_results = None
         st.rerun()
     
-    if st.button("🧹 清除结果", use_container_width=True, type="secondary"):
+    if st.button("🧹 清除结果", width='stretch', type="secondary"):
         st.session_state.calculation_complete = False
         st.session_state.analysis_results = None
         st.session_state.analysis_progress = 0
@@ -1242,13 +1242,13 @@ with st.sidebar:
     # 导航
     st.markdown("## 🧭 页面导航")
     
-    if st.button("📁 场景配置", use_container_width=True):
+    if st.button("📁 场景配置", width='stretch'):
         st.switch_page("pages/1_场景配置.py")
     
-    if st.button("🗺️ 场景可视化", use_container_width=True):
+    if st.button("🗺️ 场景可视化", width='stretch'):
         st.switch_page("pages/2_场景可视化.py")
     
-    if st.button("📊 报告生成", use_container_width=True):
+    if st.button("📊 报告生成", width='stretch'):
         st.switch_page("pages/4_报告生成.py")
 
 # 页脚
