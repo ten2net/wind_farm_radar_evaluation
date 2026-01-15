@@ -394,18 +394,267 @@ with tab1:
         st.error(f"地图创建失败: {str(e)}")
         st.info("请检查Folium和Streamlit-Folium的安装情况")
 
-# 其余标签页代码保持不变...
 with tab2:
     st.header("数据概览")
     
-    # 数据统计和表格显示代码...
-    # 这里可以添加原有的数据统计代码
+    col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+    
+    with col_stats1:
+        turbines_count = len(scenario_data.get('wind_turbines', []))
+        st.metric("风机数量", turbines_count)
+    
+    with col_stats2:
+        radars_count = len(scenario_data.get('radar_stations', []))
+        st.metric("雷达台站", radars_count)
+    
+    with col_stats3:
+        comms_count = len(scenario_data.get('communication_stations', []))
+        st.metric("通信台站", comms_count)
+    
+    with col_stats4:
+        targets_count = len(scenario_data.get('targets', []))
+        st.metric("评估目标", targets_count)
+    
+    st.markdown("---")
+    
+    # 显示风机表格
+    if turbines_count > 0:
+        st.subheader("风机列表")
+        
+        turbines_df_data = []
+        for turbine in scenario_data['wind_turbines']:
+            turbines_df_data.append({
+                'ID': turbine.get('id', ''),
+                '型号': turbine.get('model', ''),
+                '纬度': turbine.get('position', {}).get('lat', 0),
+                '经度': turbine.get('position', {}).get('lon', 0),
+                '高度(m)': turbine.get('height', 0),
+                '转子直径(m)': turbine.get('rotor_diameter', 0),
+                '方位角(°)': turbine.get('orientation', 0)
+            })
+        
+        turbines_df = pd.DataFrame(turbines_df_data)
+        st.dataframe(turbines_df, width='stretch', hide_index=True)
+        
+        # 风机统计
+        col_turbine_stats1, col_turbine_stats2, col_turbine_stats3 = st.columns(3)
+        
+        with col_turbine_stats1:
+            avg_height = turbines_df['高度(m)'].mean()
+            st.metric("平均高度", f"{avg_height:.1f} m")
+        
+        with col_turbine_stats2:
+            avg_diameter = turbines_df['转子直径(m)'].mean()
+            st.metric("平均转子直径", f"{avg_diameter:.1f} m")
+        
+        with col_turbine_stats3:
+            # 计算风电场面积（简化：凸包面积）
+            if len(turbines_df) >= 3:
+                from scipy.spatial import ConvexHull
+                try:
+                    points = turbines_df[['纬度', '经度']].values
+                    hull = ConvexHull(points)
+                    # 简化面积计算（近似）
+                    area_approx = hull.volume * 111 * 111  # 1度约111km
+                    st.metric("风电场面积", f"{area_approx:.2f} km²")
+                except:
+                    st.metric("风电场面积", "N/A")
+            else:
+                st.metric("风电场面积", "N/A")
+    
+    # 显示雷达表格
+    if radars_count > 0:
+        st.subheader("雷达台站列表")
+        
+        radars_df_data = []
+        for radar in scenario_data['radar_stations']:
+            radars_df_data.append({
+                'ID': radar.get('id', ''),
+                '类型': radar.get('type', ''),
+                '频段': radar.get('frequency_band', ''),
+                '纬度': radar.get('position', {}).get('lat', 0),
+                '经度': radar.get('position', {}).get('lon', 0),
+                '峰值功率(kW)': radar.get('peak_power', 0) / 1000,
+                '天线增益(dBi)': radar.get('antenna_gain', 0),
+                '波束宽度(°)': radar.get('beam_width', 0)
+            })
+        
+        radars_df = pd.DataFrame(radars_df_data)
+        st.dataframe(radars_df, width='stretch', hide_index=True)
+    
+    # 显示目标表格
+    if targets_count > 0:
+        st.subheader("评估目标列表")
+        
+        targets_df_data = []
+        for target in scenario_data['targets']:
+            targets_df_data.append({
+                'ID': target.get('id', ''),
+                '类型': target.get('type', ''),
+                'RCS(m²)': target.get('rcs', 0),
+                '纬度': target.get('position', {}).get('lat', 0),
+                '经度': target.get('position', {}).get('lon', 0),
+                '高度(m)': target.get('position', {}).get('alt', 0),
+                '速度(m/s)': target.get('speed', 0),
+                '航向(°)': target.get('heading', 0)
+            })
+        
+        targets_df = pd.DataFrame(targets_df_data)
+        st.dataframe(targets_df, width='stretch', hide_index=True)
+    
+    # 位置统计
+    st.subheader("位置统计")
+    
+    col_loc1, col_loc2 = st.columns(2)
+    
+    with col_loc1:
+        st.markdown("**经纬度范围**")
+        
+        all_lats = []
+        all_lons = []
+        
+        # 收集所有位置
+        for element_type in ['wind_turbines', 'radar_stations', 'targets']:
+            for element in scenario_data.get(element_type, []):
+                pos = element.get('position', {})
+                all_lats.append(pos.get('lat', 0))
+                all_lons.append(pos.get('lon', 0))
+        
+        if all_lats and all_lons:
+            lat_min, lat_max = min(all_lats), max(all_lats)
+            lon_min, lon_max = min(all_lons), max(all_lons)
+            
+            st.metric("纬度范围", f"{lat_min:.4f}° - {lat_max:.4f}°")
+            st.metric("经度范围", f"{lon_min:.4f}° - {lon_max:.4f}°")
+            
+            # 计算中心点
+            center_lat = (lat_min + lat_max) / 2
+            center_lon = (lon_min + lon_max) / 2
+            st.metric("中心点", f"{center_lat:.4f}°, {center_lon:.4f}°")
+    
+    with col_loc2:
+        st.markdown("**海拔高度统计**")
+        
+        all_alts = []
+        
+        # 收集所有高度
+        for element_type in ['wind_turbines', 'radar_stations', 'targets']:
+            for element in scenario_data.get(element_type, []):
+                pos = element.get('position', {})
+                all_alts.append(pos.get('alt', 0))
+        
+        if all_alts:
+            alt_min, alt_max = min(all_alts), max(all_alts)
+            alt_avg = sum(all_alts) / len(all_alts)
+            
+            st.metric("最低海拔", f"{alt_min:.0f} m")
+            st.metric("最高海拔", f"{alt_max:.0f} m")
+            st.metric("平均海拔", f"{alt_avg:.0f} m")
 
 with tab3:
     st.header("地图设置")
     
-    # 地图设置代码...
-    # 这里可以添加原有的地图设置代码
+    col_settings1, col_settings2 = st.columns(2)
+    
+    with col_settings1:
+        st.subheader("显示设置")
+        
+        # 标记大小设置
+        marker_size = st.slider(
+            "标记大小",
+            min_value=1,
+            max_value=20,
+            value=8,
+            help="调整地图上标记的大小"
+        )
+        
+        # 透明度设置
+        opacity_level = st.slider(
+            "标记透明度",
+            min_value=0.1,
+            max_value=1.0,
+            value=0.7,
+            step=0.1,
+            help="调整标记的透明度"
+        )
+        
+        # 覆盖范围透明度
+        coverage_opacity = st.slider(
+            "覆盖范围透明度",
+            min_value=0.1,
+            max_value=1.0,
+            value=0.2,
+            step=0.1,
+            help="调整雷达覆盖范围的透明度"
+        )
+    
+    with col_settings2:
+        st.subheader("交互设置")
+        
+        # 点击行为
+        click_behavior = st.selectbox(
+            "点击行为",
+            ["显示信息", "高亮标记", "居中显示", "无动作"],
+            help="选择点击地图标记时的行为"
+        )
+        
+        # 悬停效果
+        hover_effect = st.checkbox(
+            "启用悬停效果",
+            value=True,
+            help="鼠标悬停时显示详细信息"
+        )
+        
+        # 拖拽行为
+        drag_behavior = st.selectbox(
+            "拖拽行为",
+            ["平移地图", "测量距离", "选择区域"],
+            help="选择鼠标拖拽时的行为"
+        )
+    
+    st.markdown("---")
+    st.subheader("导出设置")
+    
+    col_export1, col_export2 = st.columns(2)
+    
+    with col_export1:
+        # 导出图片选项
+        export_format = st.selectbox(
+            "导出格式",
+            ["PNG", "JPEG", "PDF"],
+            help="选择导出的图片格式"
+        )
+        
+        export_quality = st.slider(
+            "图片质量",
+            min_value=1,
+            max_value=100,
+            value=90,
+            help="调整导出图片的质量（仅JPEG格式）"
+        )
+    
+    with col_export2:
+        # 导出尺寸
+        export_width = st.number_input(
+            "宽度(像素)",
+            min_value=100,
+            max_value=4000,
+            value=1200,
+            step=100
+        )
+        
+        export_height = st.number_input(
+            "高度(像素)",
+            min_value=100,
+            max_value=4000,
+            value=700,
+            step=100
+        )
+    
+    # 导出按钮
+    if st.button("💾 导出当前视图", type="primary", width='stretch'):
+        st.info("地图导出功能需要后端支持，请在服务器环境中使用")
+        st.info("在本地运行时，可以使用浏览器的截图功能保存地图")
 
 # 侧边栏代码...
 with st.sidebar:
