@@ -66,6 +66,204 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        color: #ffffff;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+    }
+    .stMetric {
+        padding: 8px 0;
+    }
+    
+    .stMetric label {
+        font-size: 0.9rem !important;
+    }
+    
+    .stMetric div[data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+    
+    .stMetric div[data-testid="stMetricDelta"] {
+        font-size: 0.8rem !important;
+    }  
+    
+    .stSlider > div {
+        padding: 0.5rem 0;
+    }
+    
+    /* 滑块轨道 */
+    .stSlider > div > div > div > div {
+        background: linear-gradient(90deg, rgba(0, 150, 255, 0.1), rgba(0, 150, 255, 0.3));
+        height: 6px;
+        border-radius: 3px;
+    }
+    
+    /* 滑块轨道填充部分（已选择部分） */
+    .stSlider > div > div > div > div > div {
+        background: linear-gradient(90deg, 
+            rgba(0, 200, 255, 0.7), 
+            rgba(0, 150, 255, 0.9));
+        height: 6px;
+        border-radius: 3px 0 0 3px;
+    }
+    
+    /* 滑块轨道未填充部分 */
+    .stSlider > div > div > div > div > div > div {
+        background: rgba(100, 100, 150, 0.3);
+        height: 6px;
+        border-radius: 0 3px 3px 0;
+    }
+    
+    /* 滑块圆点 */
+    .stSlider > div > div > div > div > div > div > div {
+        background: linear-gradient(135deg, 
+            rgba(0, 200, 255, 1), 
+            rgba(0, 100, 200, 1));
+        border: 2px solid rgba(200, 220, 255, 0.8);
+        box-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+        width: 20px;
+        height: 20px;
+        transform: translateY(-7px);
+    }
+    
+    /* 滑块圆点悬停效果 */
+    .stSlider > div > div > div > div > div > div > div:hover {
+        background: linear-gradient(135deg, 
+            rgba(0, 220, 255, 1), 
+            rgba(0, 120, 220, 1));
+        box-shadow: 0 0 15px rgba(0, 180, 255, 0.8);
+        transform: translateY(-7px) scale(1.1);
+        transition: all 0.2s ease;
+    }
+    
+    /* 滑块标签样式 */
+    .stSlider label {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #a0c8ff;
+        margin-bottom: 0.3rem;
+    }
+    
+    /* 滑块数值显示 */
+    .stSlider > div > div > div + div {
+        color: #00ccff;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-shadow: 0 0 5px rgba(0, 150, 255, 0.5);
+    }
+    
+    /* 滑块容器的背景 */
+    .stSlider {
+        background: rgba(20, 25, 45, 0.3);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+        margin: 0.5rem 0;
+        transition: all 0.3s ease;
+    }
+    
+    /* 滑块容器悬停效果 */
+    .stSlider:hover {
+        background: rgba(25, 30, 50, 0.4);
+        border-color: rgba(0, 150, 255, 0.3);
+        box-shadow: 0 0 20px rgba(0, 100, 200, 0.1);
+    }
+    
+    /* 数字输入框样式 */
+    .stNumberInput {
+        background: rgba(20, 25, 45, 0.3);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+        margin: 0.5rem 0;
+    }
+    
+    .stNumberInput label {
+        color: #a0c8ff;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .stNumberInput input {
+        color: #00ccff;
+        background: rgba(10, 20, 40, 0.5);
+        border: 1px solid rgba(0, 100, 200, 0.3);
+        border-radius: 4px;
+    }
+    
+    /* 选择框样式 */
+    .stSelectbox {
+        background: rgba(20, 25, 45, 0.3);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+        margin: 0.5rem 0;
+    }
+    
+    .stSelectbox label {
+        color: #a0c8ff;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .stSelectbox > div > div {
+        background: rgba(10, 20, 40, 0.5);
+        border: 1px solid rgba(0, 100, 200, 0.3);
+        color: #00ccff;
+    }
+    
+    /* 选项卡样式 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: rgba(20, 25, 45, 0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 100, 200, 0.2);
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 2.5rem;
+        color: #a0c8ff;
+        font-weight: 500;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, 
+            rgba(0, 150, 255, 0.3), 
+            rgba(0, 100, 200, 0.5));
+        color: #00ccff;
+        box-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+    }
+    
+    /* 调整间距 */
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(0, 100, 200, 0.2);
+    }
+    
+    /* 调整整体容器间距 */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    
+    /* 标题样式 */
+    h1, h2, h3 {
+        color: #a0d8ff;
+        text-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+    }
+    
+    /* 分隔线样式 */
+    hr {
+        border-color: rgba(0, 100, 200, 0.2);
+        margin: 1.5rem 0;
+    }      
+</style>
+""", unsafe_allow_html=True)
+
 # 页面标题
 st.title("🗺️ 场景可视化")
 st.markdown("交互式地图展示风电场、雷达、通信站和目标的地理分布")
