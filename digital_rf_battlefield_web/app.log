@@ -1,0 +1,14 @@
+2026-01-16 07:15:49,572 - __main__ - INFO - Session state initialized
+2026-01-16 07:22:58,931 - __main__ - INFO - Session state initialized
+2026-01-16 07:23:23,592 - __main__ - INFO - Session state initialized
+2026-01-16 07:24:08,807 - __main__ - INFO - Session state initialized
+2026-01-16 07:28:44,651 - __main__ - INFO - Session state initialized
+2026-01-16 07:28:46,410 - __main__ - INFO - Session state initialized
+2026-01-16 07:32:24,713 - __main__ - INFO - Session state initialized
+2026-01-16 07:34:48,717 - __main__ - INFO - Session state initialized
+2026-01-16 07:42:57,614 - __main__ - INFO - Session state initialized
+2026-01-16 07:42:59,576 - __main__ - INFO - Session state initialized
+2026-01-16 08:00:34,329 - utils.simulation_api - ERROR - 初始化请求失败: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/simulation/initialize (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+2026-01-16 08:06:12,515 - __main__ - INFO - Session state initialized
+2026-01-16 08:06:14,761 - __main__ - INFO - Session state initialized
+2026-01-16 08:17:33,399 - __main__ - INFO - Session state initialized

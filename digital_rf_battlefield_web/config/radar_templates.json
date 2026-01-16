@@ -1,0 +1,119 @@
+{
+  "templates": [
+    {
+      "id": "jyl-1",
+      "name": "JYL-1远程预警雷达",
+      "type": "phased_array",
+      "frequency_band": "UHF",
+      "range_km": 500,
+      "power_kw": 1000,
+      "beamwidth_deg": 2.5,
+      "scan_rate_rpm": 6,
+      "description": "远程空中预警雷达，具备多目标跟踪能力",
+      "parameters": {
+        "frequency_mhz": 500,
+        "bandwidth_mhz": 5,
+        "peak_power_kw": 1000,
+        "prf_hz": 300,
+        "pulse_width_us": 100,
+        "antenna_gain_db": 35,
+        "beamwidth_az_deg": 2.5,
+        "beamwidth_el_deg": 2.5,
+        "range_resolution_m": 150,
+        "azimuth_resolution_deg": 2.0
+      }
+    },
+    {
+      "id": "yj-26",
+      "name": "YJ-26相控阵雷达",
+      "type": "phased_array",
+      "frequency_band": "L",
+      "range_km": 400,
+      "power_kw": 800,
+      "beamwidth_deg": 3.0,
+      "scan_rate_rpm": 10,
+      "description": "多功能相控阵雷达，支持电子对抗",
+      "parameters": {
+        "frequency_mhz": 1200,
+        "bandwidth_mhz": 10,
+        "peak_power_kw": 800,
+        "prf_hz": 1000,
+        "pulse_width_us": 50,
+        "antenna_gain_db": 32,
+        "beamwidth_az_deg": 3.0,
+        "beamwidth_el_deg": 3.0,
+        "range_resolution_m": 75,
+        "azimuth_resolution_deg": 2.5
+      }
+    },
+    {
+      "id": "hq-9",
+      "name": "HQ-9防空雷达",
+      "type": "mechanical",
+      "frequency_band": "S",
+      "range_km": 300,
+      "power_kw": 600,
+      "beamwidth_deg": 1.5,
+      "scan_rate_rpm": 12,
+      "description": "防空导弹系统配套雷达",
+      "parameters": {
+        "frequency_mhz": 3000,
+        "bandwidth_mhz": 10,
+        "peak_power_kw": 600,
+        "prf_hz": 2000,
+        "pulse_width_us": 10,
+        "antenna_gain_db": 30,
+        "beamwidth_az_deg": 1.5,
+        "beamwidth_el_deg": 1.5,
+        "range_resolution_m": 15,
+        "azimuth_resolution_deg": 1.5
+      }
+    },
+    {
+      "id": "cl-1010",
+      "name": "CL-1010无源雷达",
+      "type": "passive",
+      "frequency_band": "VHF",
+      "range_km": 350,
+      "power_kw": 50,
+      "beamwidth_deg": 5.0,
+      "scan_rate_rpm": 0,
+      "description": "无源探测系统，高隐蔽性",
+      "parameters": {
+        "frequency_mhz": 150,
+        "bandwidth_mhz": 2,
+        "peak_power_kw": 50,
+        "prf_hz": 0,
+        "pulse_width_us": 0,
+        "antenna_gain_db": 20,
+        "beamwidth_az_deg": 5.0,
+        "beamwidth_el_deg": 5.0,
+        "range_resolution_m": 300,
+        "azimuth_resolution_deg": 5.0
+      }
+    },
+    {
+      "id": "sj-212",
+      "name": "SJ-212 MIMO雷达",
+      "type": "mimo",
+      "frequency_band": "X",
+      "range_km": 250,
+      "power_kw": 200,
+      "beamwidth_deg": 2.0,
+      "scan_rate_rpm": 20,
+      "description": "MIMO实验雷达，高分辨率",
+      "parameters": {
+        "frequency_mhz": 10000,
+        "bandwidth_mhz": 100,
+        "peak_power_kw": 200,
+        "prf_hz": 5000,
+        "pulse_width_us": 5,
+        "antenna_gain_db": 25,
+        "beamwidth_az_deg": 2.0,
+        "beamwidth_el_deg": 2.0,
+        "range_resolution_m": 1.5,
+        "azimuth_resolution_deg": 1.0
+      }
+    }
+  ]
+}

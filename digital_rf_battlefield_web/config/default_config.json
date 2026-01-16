@@ -1,0 +1,52 @@
+{
+  "system_name": "数字射频战场仿真系统",
+  "system_mode": "single_radar",
+  "simulation_duration": 300.0,
+  "time_step": 0.1,
+  "real_time_factor": 1.0,
+  "num_radars": 1,
+  "radar_type": "phased_array",
+  "num_targets": 3,
+  "target_type": "fighter",
+  "output_dir": "./output",
+  "enable_visualization": true,
+  "enable_evaluation": true,
+  "generate_report": true,
+  "save_plots": true,
+  "open_browser": false,
+  "max_memory_mb": 4096,
+  "random_seed": 42,
+  "debug_mode": false,
+  "verbose": false,
+  "time_settings": {
+    "start_time": "2024-01-01 12:00:00",
+    "duration_seconds": 300,
+    "time_step": 0.1,
+    "real_time_factor": 1.0
+  },
+  "environment": {
+    "weather": "clear",
+    "visibility_km": 20.0,
+    "temperature_c": 15.0,
+    "humidity_percent": 60.0,
+    "wind_speed_kts": 10.0,
+    "wind_direction_deg": 0.0,
+    "sea_state": 1,
+    "terrain_type": "flat"
+  },
+  "performance": {
+    "simulation_speed": "normal",
+    "data_logging": true,
+    "log_interval": 1.0,
+    "max_memory_mb": 4096,
+    "parallel_processing": true,
+    "num_threads": 4
+  },
+  "advanced": {
+    "random_seed": 42,
+    "enable_interference": true,
+    "enable_multipath": false,
+    "signal_attenuation_model": "free_space",
+    "atmospheric_model": "standard"
+  }
+}

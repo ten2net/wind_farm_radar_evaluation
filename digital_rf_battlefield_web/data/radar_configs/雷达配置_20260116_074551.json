@@ -1,0 +1,19 @@
+{
+  "name": "雷达配置",
+  "radar_configs": [
+    {
+      "id": "radar_001",
+      "name": "雷达站",
+      "type": "phased_array",
+      "position": [
+        27.13736835979561,
+        118.65234375000001
+      ],
+      "range_km": 200,
+      "status": "active",
+      "created_at": "2026-01-16T07:45:05.802174"
+    }
+  ],
+  "save_time": "2026-01-16T07:45:51.458729",
+  "version": "1.0"
+}

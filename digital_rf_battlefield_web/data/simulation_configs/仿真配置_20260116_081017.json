@@ -1,0 +1,31 @@
+{
+  "name": "仿真配置",
+  "configuration": {
+    "time_settings": {
+      "start_time": "2026-01-16 08:09:00",
+      "duration_seconds": 30,
+      "time_step": 0.01,
+      "real_time_factor": 1.0
+    },
+    "performance": {
+      "simulation_speed": "标准",
+      "data_logging": true,
+      "log_interval": 1.0,
+      "max_memory_mb": 4096,
+      "parallel_processing": true,
+      "num_threads": 4
+    },
+    "environment": {
+      "weather": "晴朗",
+      "visibility_km": 20.0,
+      "temperature_c": 15,
+      "humidity_percent": 60,
+      "wind_speed_kts": 10,
+      "wind_direction_deg": 0,
+      "sea_state": 1,
+      "terrain_type": "平坦"
+    }
+  },
+  "save_time": "2026-01-16T08:10:17.446096",
+  "version": "1.0"
+}
