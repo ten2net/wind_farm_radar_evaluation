@@ -45,6 +45,29 @@ class KimiAPI:
             - radar_configs: 雷达配置列表
             - target_configs: 目标配置列表
             
+            结果示例数据：
+            {
+                "name": "红蓝对抗",
+                "type": "combat",
+                "region": "华北地区",
+                "time": "2023-10-01 08:00:00",
+                "red_forces":{
+                    "radar_count": 2,
+                    "target_count": 3
+                },
+                "blue_forces": {
+                    "radar_count": 2,
+                    "target_count": 3
+                },
+                "environment": {
+                    "weather": "晴天",
+                    "terrain": "平原"
+                },
+                "mission_description": "红蓝双方进行对抗，目标是摧毁对方雷达和目标",
+                "radar_configs":[...], 
+                "target_configs": [...]
+            }            
+            
             确保所有参数符合军事仿真要求。"""
             
             # 构建消息
@@ -110,7 +133,8 @@ class KimiAPI:
             3. 改进建议
             4. 风险评估
             
-            以JSON格式返回分析结果。"""
+            以JSON格式返回分析结果。
+            """
             
             # 准备数据
             data_str = json.dumps(metrics_data, ensure_ascii=False, indent=2)
@@ -170,7 +194,7 @@ class KimiAPI:
             ]
             
             params = {
-                "model": "moonshot-v1-8k",
+                "model": "moonshot-v1-8k-vision-preview",
                 "messages": messages,
                 "temperature": 0.6,
                 "max_tokens": 1500

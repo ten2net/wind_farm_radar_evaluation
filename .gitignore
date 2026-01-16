@@ -84,3 +84,4 @@ data/processed/*
 Thumbs.db
 outputs/
 Ubuntu22_x86_64_GPU.zip
+app.log

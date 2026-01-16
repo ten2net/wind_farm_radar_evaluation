@@ -37,9 +37,9 @@ def show_scenario_description():
         st.subheader("想定描述")
         scenario_description = st.text_area(
             "描述您的想定场景:",
-            value="在南海区域，3架战斗机从西沙群岛起飞，执行巡逻任务。我方部署2部相控阵雷达进行监视...",
+            value="红方3架战斗机从西沙群岛起飞，拦截向中国领空飞来的2架蓝方轰炸机，确保领空安全。",
             height=200,
-            placeholder="例如：在南海区域，3架战斗机从西沙群岛起飞，执行巡逻任务。我方部署2部相控阵雷达进行监视...",
+            placeholder="例如：在南海区域，红方3架战斗机从西沙群岛起飞，拦截向中国领空飞来的2架蓝方轰炸机，确保领空安全...",
             help="详细描述战场环境、双方兵力、任务目标等信息"
         )
         
@@ -114,9 +114,13 @@ def show_scenario_preview(scenario):
             st.markdown(f"**时间:** {scenario.get('time', '未知')}")
             
             st.markdown("### 红方力量")
+            print(">>>>>>>>>",scenario)
             red_forces = scenario.get('red_forces', {})
-            st.markdown(f"**雷达数量:** {red_forces.get('radar_count', 0)}")
-            st.markdown(f"**目标数量:** {red_forces.get('target_count', 0)}")
+            print("红方力量:", red_forces)
+            st.markdown(f"**雷达数量:** {len(scenario.get('radar_configs', []))}")
+            st.markdown(f"**目标数量:** {len(scenario.get('target_configs', []))}")
+            # st.markdown(f"**雷达数量:** {red_forces.get('radar_count', 0)}")
+            # st.markdown(f"**目标数量:** {red_forces.get('target_count', 0)}")
         
         with col2:
             st.markdown("### 蓝方力量")
