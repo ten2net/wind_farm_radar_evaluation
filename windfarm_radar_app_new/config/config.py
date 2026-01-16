@@ -304,12 +304,11 @@ EVALUATION_PARAMS = {
 
 # 地图配置
 MAP_CONFIG = {
-    "default_center": [40.0, 116.0],  # 默认地图中心 [lat, lon]
+    "default_center": [39.2, 119.2],  # 默认地图中心 [lat, lon]
     "default_zoom": 9,  # 默认缩放级别
     "tile_providers": {
         "OpenStreetMap": "OpenStreetMap",
         "CartoDB Dark": "CartoDB dark_matter",
-        "Stamen Terrain": "Stamen Terrain",
         "Esri Satellite": "Esri.WorldImagery"
     },
     "tile_provider_default": "CartoDB dark_matter"
