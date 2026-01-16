@@ -1,17 +1,21 @@
 """
 场景配置页面
-功能：加载和管理YAML格式的风电场评估场景文件
+功能：加载和管理YAML/CSV格式的风电场评估场景文件
+支持CSV文件自动生成完整场景配置
 """
 
+import io
 import streamlit as st
 import yaml
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-import json
 import pandas as pd
+import numpy as np
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
+import json
 from datetime import datetime
 import sys
 import os
+import math
 
 # 添加utils路径
 sys.path.append(str(Path(__file__).parent.parent / "config"))
@@ -20,7 +24,7 @@ sys.path.append(str(Path(__file__).parent.parent / "utils"))
 from config.config import (
     TURBINE_MODELS, RADAR_FREQUENCY_BANDS, ANTENNA_TYPES,
     COMMUNICATION_SYSTEMS, TARGET_RCS_DB, RADAR_TYPES,
-    VALIDATION_RULES, SYSTEM_MESSAGES
+    VALIDATION_RULES, SYSTEM_MESSAGES, COLOR_SCHEME
 )
 from utils.yaml_loader import YAMLConfigValidator, YAMLLoader
 
@@ -230,7 +234,7 @@ st.markdown("""
 
 # 页面标题
 st.title("📁 场景配置")
-st.markdown("加载和管理YAML格式的风电场评估场景配置文件")
+st.markdown("加载和管理YAML/CSV格式的风电场评估场景配置文件")
 
 # 初始化会话状态
 if 'scenario_data' not in st.session_state:
@@ -240,7 +244,401 @@ if 'scenario_data' not in st.session_state:
     st.session_state.scenario_file_path = ""
     st.session_state.validation_errors = []
     st.session_state.validation_warnings = []
+    st.session_state.file_type = None  # 新增：文件类型标识
+    
+# CSV场景生成器类
+class CSVScenarioGenerator:
+    """CSV文件场景自动生成器"""
+    
+    def __init__(self):
+        self.validator = YAMLConfigValidator()
+        self.radar_library = self._init_radar_library()
+        self.default_parameters = self._init_default_parameters()
+    
+    def _init_radar_library(self) -> Dict[str, Dict]:
+        """初始化雷达参数库"""
+        return {
+            'S波段雷达': {
+                'type': '对空监视雷达',
+                'frequency_band': 'S',
+                'peak_power': 1000000,
+                'antenna_gain': 40,
+                'beam_width': 1.2,
+                'pulse_width': 2.0,
+                'prf': 300,
+                'noise_figure': 3.0,
+                'system_losses': 6.0,
+                'antenna_height': 30,
+                'max_range': 300000,
+                'description': 'S波段对空监视雷达，用于远程空中目标探测'
+            },
+            'C波段雷达': {
+                'type': '气象雷达',
+                'frequency_band': 'C',
+                'peak_power': 500000,
+                'antenna_gain': 45,
+                'beam_width': 0.9,
+                'pulse_width': 1.5,
+                'prf': 1000,
+                'noise_figure': 2.5,
+                'system_losses': 5.0,
+                'antenna_height': 25,
+                'max_range': 250000,
+                'description': 'C波段气象雷达，用于天气监测和风场分析'
+            },
+            'X波段雷达': {
+                'type': '导航雷达',
+                'frequency_band': 'X',
+                'peak_power': 25000,
+                'antenna_gain': 30,
+                'beam_width': 1.8,
+                'pulse_width': 0.1,
+                'prf': 3000,
+                'noise_figure': 4.0,
+                'system_losses': 7.0,
+                'antenna_height': 20,
+                'max_range': 150000,
+                'description': 'X波段导航雷达，用于近程目标探测和导航'
+            },
+            'L波段雷达': {
+                'type': '二次雷达',
+                'frequency_band': 'L',
+                'peak_power': 2000,
+                'antenna_gain': 25,
+                'beam_width': 2.5,
+                'pulse_width': 0.5,
+                'prf': 500,
+                'noise_figure': 2.0,
+                'system_losses': 4.0,
+                'antenna_height': 15,
+                'max_range': 400000,
+                'description': 'L波段二次雷达，用于空中交通管制'
+            }
+        }
+    
+    def _init_default_parameters(self) -> Dict[str, Any]:
+        """初始化默认参数"""
+        return {
+            'radar_distance_west_km': 5,  # 雷达在西边5公里
+            'target_spacing_km': 1,       # 目标间隔1公里
+            'target_count': 10,           # 目标数量
+            'target_altitude_m': 200,     # 目标高度200米
+            'target_heading': 270,        # 目标航向向西(270度)
+            'target_rcs': 5,              # 目标RCS 5平方米
+            'target_speed': 100,          # 目标速度100米/秒
+            'default_turbine_height': 100, # 默认风机高度
+            'default_rotor_diameter': 120, # 默认转子直径
+        }
+    
+    def parse_csv_file(self, csv_content: str) -> Tuple[bool, List[Dict], str]:
+        """
+        解析CSV文件内容
+        
+        参数:
+            csv_content: CSV文件内容字符串
+            
+        返回:
+            (是否成功, 风机数据列表, 错误信息)
+        """
+        try:
+            # 使用 io.StringIO 读取CSV文件
+            df = pd.read_csv(io.StringIO(csv_content))
+            
+            # 检查必需的列
+            required_columns = ['lat', 'lon']
+            if not all(col in df.columns for col in required_columns):
+                return False, [], f"CSV文件必须包含以下列: {required_columns}"
+            
+            turbines = []
+            for idx, row in df.iterrows():
+                turbine = {
+                    'id': f"WT{idx+1:03d}",
+                    'model': row.get('model', 'Vestas_V150'),
+                    'position': {
+                        'lat': float(row['lat']),
+                        'lon': float(row['lon']),
+                        'alt': float(row.get('alt', 50))
+                    },
+                    'height': float(row.get('height', self.default_parameters['default_turbine_height'])),
+                    'rotor_diameter': float(row.get('rotor_diameter', self.default_parameters['default_rotor_diameter'])),
+                    'orientation': float(row.get('orientation', 0)),
+                    'operational': row.get('operational', True) if 'operational' in row else True
+                }
+                turbines.append(turbine)
+            
+            return True, turbines, "CSV解析成功"
+            
+        except Exception as e:
+            return False, [], f"CSV解析错误: {str(e)}"
+    
+    def calculate_wind_farm_center(self, turbines: List[Dict]) -> Tuple[float, float]:
+        """计算风电场中心点"""
+        lats = [t['position']['lat'] for t in turbines]
+        lons = [t['position']['lon'] for t in turbines]
+        
+        center_lat = sum(lats) / len(lats)
+        center_lon = sum(lons) / len(lons)
+        
+        return center_lat, center_lon
+    
+    def calculate_wind_farm_boundary(self, turbines: List[Dict]) -> Dict[str, float]:
+        """计算风电场边界"""
+        lats = [t['position']['lat'] for t in turbines]
+        lons = [t['position']['lon'] for t in turbines]
+        
+        return {
+            'north': max(lats),
+            'south': min(lats),
+            'east': max(lons),
+            'west': min(lons),
+            'center_lat': sum(lats) / len(lats),
+            'center_lon': sum(lons) / len(lons)
+        }
+    
+    def generate_radar_position(self, farm_center: Tuple[float, float], 
+                               distance_km: float = 5) -> Dict[str, float]:
+        """
+        生成雷达位置（风电场西边指定距离）
+        
+        参数:
+            farm_center: 风电场中心点 (lat, lon)
+            distance_km: 距离（公里）
+        """
+        center_lat, center_lon = farm_center
+        
+        # 计算经度偏移（近似计算）
+        # 1度经度约等于111km * cos(纬度)
+        lon_degree_per_km = 1 / (111.32 * math.cos(math.radians(center_lat)))
+        lon_offset = -distance_km * lon_degree_per_km  # 西边为负
+        
+        radar_lon = center_lon + lon_offset
+        radar_lat = center_lat  # 纬度不变
+        
+        return {'lat': radar_lat, 'lon': radar_lon, 'alt': 100}
+    
+    def generate_radar_stations(self, farm_center: Tuple[float, float]) -> List[Dict]:
+        """生成雷达站配置"""
+        radar_position = self.generate_radar_position(farm_center, 
+                                                    self.default_parameters['radar_distance_west_km'])
+        
+        radars = []
+        for i, (radar_name, radar_params) in enumerate(self.radar_library.items()):
+            radar = {
+                'id': f"RADAR{i+1:03d}",
+                'type': radar_params['type'],
+                'frequency_band': radar_params['frequency_band'],
+                'position': radar_position.copy(),
+                'peak_power': radar_params['peak_power'],
+                'antenna_gain': radar_params['antenna_gain'],
+                'beam_width': radar_params['beam_width'],
+                'pulse_width': radar_params['pulse_width'],
+                'prf': radar_params['prf'],
+                'noise_figure': radar_params['noise_figure'],
+                'system_losses': radar_params['system_losses'],
+                'antenna_height': radar_params['antenna_height'],
+                'max_range': radar_params['max_range'],
+                'metadata': {
+                    'description': radar_params['description'],
+                    'source': '开源数据',
+                    'auto_generated': True
+                }
+            }
+            radars.append(radar)
+        
+        return radars
+    
+    def generate_target_positions(self, farm_boundary: Dict[str, float]) -> List[Dict[str, float]]:
+        """生成目标位置序列（风电场东边）"""
+        east_boundary = farm_boundary['east']
+        center_lat = farm_boundary['center_lat']
+        
+        # 计算经度偏移（近似计算）
+        lon_degree_per_km = 1 / (111.32 * math.cos(math.radians(center_lat)))
+        
+        targets = []
+        for i in range(self.default_parameters['target_count']):
+            distance_km = (i + 1) * self.default_parameters['target_spacing_km']
+            lon_offset = distance_km * lon_degree_per_km
+            
+            target_position = {
+                'lat': center_lat,
+                'lon': east_boundary + lon_offset,
+                'alt': self.default_parameters['target_altitude_m']
+            }
+            targets.append(target_position)
+        
+        return targets
+    
+    def generate_targets(self, farm_boundary: Dict[str, float]) -> List[Dict]:
+        """生成目标配置"""
+        target_positions = self.generate_target_positions(farm_boundary)
+        
+        targets = []
+        for i, position in enumerate(target_positions):
+            target = {
+                'id': f"TARGET{i+1:03d}",
+                'type': "无人机",
+                'rcs': self.default_parameters['target_rcs'],
+                'position': position,
+                'speed': self.default_parameters['target_speed'],
+                'heading': self.default_parameters['target_heading'],
+                'altitude': self.default_parameters['target_altitude_m'],
+                'metadata': {
+                    'category': '航空器',
+                    'description': '自动生成评估目标',
+                    'auto_generated': True,
+                    'distance_km': (i + 1) * self.default_parameters['target_spacing_km']
+                }
+            }
+            targets.append(target)
+        
+        return targets
+    
+    def generate_communication_stations(self, farm_center: Tuple[float, float]) -> List[Dict]:
+        """生成通信站配置"""
+        # 在风电场中心附近生成一个通信站
+        comm_position = {
+            'lat': farm_center[0] + 0.01,  # 稍微偏移
+            'lon': farm_center[1] + 0.01,
+            'alt': 30
+        }
+        
+        comm_station = {
+            'id': "COMM001",
+            'service_type': "基站",
+            'frequency': 1800,
+            'position': comm_position,
+            'antenna_type': "sector",
+            'eirp': 50,
+            'antenna_gain': 18,
+            'antenna_height': 30,
+            'metadata': {
+                'description': '自动生成通信基站',
+                'auto_generated': True
+            }
+        }
+        
+        return [comm_station]
+    
+    def generate_scenario_from_csv(self, csv_content: str, scenario_name: str = None) -> Dict[str, Any]:
+        """
+        从CSV文件生成完整场景配置
+        
+        参数:
+            csv_content: CSV文件内容
+            scenario_name: 场景名称
+            
+        返回:
+            完整的场景配置字典
+        """
+        # 解析CSV文件
+        success, turbines, message = self.parse_csv_file(csv_content)
+        if not success:
+            raise ValueError(f"CSV解析失败: {message}")
+        
+        if not turbines:
+            raise ValueError("CSV文件中未找到有效的风机数据")
+        
+        # 计算风电场信息
+        farm_center = self.calculate_wind_farm_center(turbines)
+        farm_boundary = self.calculate_wind_farm_boundary(turbines)
+        
+        # 生成场景名称
+        if not scenario_name:
+            scenario_name = f"自动生成场景_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # 构建完整场景
+        scenario = {
+            'name': scenario_name,
+            'description': f"自动生成的评估场景，基于CSV风机数据。包含{len(turbines)}个风机。",
+            'metadata': {
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'author': 'CSV自动生成器',
+                'version': '1.0',
+                'source_file_type': 'CSV',
+                'auto_generated': True
+            },
+            'wind_turbines': turbines,
+            'radar_stations': self.generate_radar_stations(farm_center),
+            'communication_stations': self.generate_communication_stations(farm_center),
+            'targets': self.generate_targets(farm_boundary)
+        }
+        
+        return scenario
 
+# 初始化CSV生成器
+if 'csv_generator' not in st.session_state:
+    st.session_state.csv_generator = CSVScenarioGenerator()
+
+def _display_scenario_overview(scenario_data: Dict[str, Any]):
+    """显示场景概览"""
+    st.subheader("场景概览")
+    
+    col_overview1, col_overview2, col_overview3, col_overview4 = st.columns(4)
+    
+    with col_overview1:
+        turbines_count = len(scenario_data.get('wind_turbines', []))
+        st.metric("风机数量", turbines_count)
+    
+    with col_overview2:
+        radars_count = len(scenario_data.get('radar_stations', []))
+        st.metric("雷达台站", radars_count)
+    
+    with col_overview3:
+        comms_count = len(scenario_data.get('communication_stations', []))
+        st.metric("通信台站", comms_count)
+    
+    with col_overview4:
+        targets_count = len(scenario_data.get('targets', []))
+        st.metric("评估目标", targets_count)
+    
+    # 显示场景描述
+    description = scenario_data.get('description', '无描述')
+    st.info(f"场景描述: {description}")
+    
+    # 显示元数据
+    if 'metadata' in scenario_data:
+        metadata = scenario_data['metadata']
+        if metadata.get('auto_generated'):
+            st.success("🔄 此场景为自动生成")
+
+def _display_generation_summary(scenario_data: Dict[str, Any]):
+    """显示场景生成摘要"""
+    st.subheader("生成摘要")
+    
+    # 风机信息
+    turbines = scenario_data.get('wind_turbines', [])
+    if turbines:
+        st.success(f"✅ 成功导入 {len(turbines)} 个风机")
+        
+        # 显示风机统计
+        lats = [t['position']['lat'] for t in turbines]
+        lons = [t['position']['lon'] for t in turbines]
+        
+        col_turbine1, col_turbine2 = st.columns(2)
+        with col_turbine1:
+            st.metric("纬度范围", f"{min(lats):.4f}° - {max(lats):.4f}°")
+        with col_turbine2:
+            st.metric("经度范围", f"{min(lons):.4f}° - {max(lons):.4f}°")
+    
+    # 雷达信息
+    radars = scenario_data.get('radar_stations', [])
+    if radars:
+        st.success(f"✅ 自动生成 {len(radars)} 个雷达站")
+        
+        # 显示雷达类型
+        radar_types = [f"{r['frequency_band']}波段" for r in radars]
+        st.write(f"雷达频段: {', '.join(set(radar_types))}")
+    
+    # 目标信息
+    targets = scenario_data.get('targets', [])
+    if targets:
+        st.success(f"✅ 自动生成 {len(targets)} 个评估目标")
+        
+        target_distances = [t['metadata']['distance_km'] for t in targets if 'metadata' in t and 'distance_km' in t['metadata']]
+        if target_distances:
+            st.write(f"目标距离: {min(target_distances)} - {max(target_distances)} km")
 # 创建选项卡
 tab1, tab2, tab3, tab4 = st.tabs([
     "📤 加载场景", 
@@ -255,206 +653,219 @@ with tab1:
     col_load1, col_load2 = st.columns([2, 1])
     
     with col_load1:
-        # 文件上传
+        # 文件上传 - 支持YAML和CSV格式
         uploaded_file = st.file_uploader(
-            "选择YAML配置文件",
-            type=["yaml", "yml"],
-            help="上传符合规范的风电场评估场景YAML文件"
+            "选择配置文件 (YAML/CSV)",
+            type=["yaml", "yml", "csv"],
+            help="上传YAML格式的场景配置文件或CSV格式的风机数据文件"
         )
         
         if uploaded_file is not None:
+            file_extension = uploaded_file.name.split('.')[-1].lower()
+            st.session_state.file_type = file_extension
+            
             try:
-                # 读取文件内容
                 file_content = uploaded_file.getvalue().decode("utf-8")
                 
-                # 验证YAML格式
-                scenario_data = yaml.safe_load(file_content)
-                
-                if scenario_data:
-                    # 使用新的验证器验证场景数据
-                    validator = YAMLConfigValidator()
-                    is_valid, errors = validator.validate_scenario(scenario_data)
-                    warnings = validator.get_warnings()
+                if file_extension in ['yaml', 'yml']:
+                    # YAML文件处理
+                    scenario_data = yaml.safe_load(file_content)
                     
-                    if errors:
-                        st.error("❌ 场景文件验证失败")
-                        for error in errors:
-                            st.error(f"❌ {error}")
-                        st.session_state.validation_errors = errors
-                        st.session_state.validation_warnings = warnings
-                    else:
-                        # 保存到会话状态
-                        st.session_state.scenario_data = scenario_data
-                        st.session_state.scenario_loaded = True
-                        st.session_state.scenario_name = scenario_data.get('name', '未命名场景')
-                        st.session_state.scenario_file_path = uploaded_file.name
-                        st.session_state.validation_errors = []
-                        st.session_state.validation_warnings = warnings
+                    if scenario_data:
+                        # 使用验证器验证场景数据
+                        validator = YAMLConfigValidator()
+                        is_valid, errors = validator.validate_scenario(scenario_data)
+                        warnings = validator.get_warnings()
                         
-                        st.success(f"✅ 场景文件加载成功: {st.session_state.scenario_name}")
-                        
-                        # 显示警告信息（如果有）
-                        if warnings:
-                            st.warning("⚠️ 验证警告（不影响使用）:")
-                            for warning in warnings:
-                                st.warning(f"⚠️ {warning}")
-                        
-                        # 显示场景概览
-                        st.subheader("场景概览")
-                        
-                        col_overview1, col_overview2, col_overview3, col_overview4 = st.columns(4)
-                        
-                        with col_overview1:
-                            turbines_count = len(scenario_data.get('wind_turbines', []))
-                            st.metric("风机数量", turbines_count)
-                        
-                        with col_overview2:
-                            radars_count = len(scenario_data.get('radar_stations', []))
-                            st.metric("雷达台站", radars_count)
-                        
-                        with col_overview3:
-                            comms_count = len(scenario_data.get('communication_stations', []))
-                            st.metric("通信台站", comms_count)
-                        
-                        with col_overview4:
-                            targets_count = len(scenario_data.get('targets', []))
-                            st.metric("评估目标", targets_count)
-                        
-                        # 显示场景描述
-                        description = scenario_data.get('description', '无描述')
-                        st.info(f"场景描述: {description}")
+                        if errors:
+                            st.error("❌ 场景文件验证失败")
+                            for error in errors:
+                                st.error(f"❌ {error}")
+                            st.session_state.validation_errors = errors
+                        else:
+                            # 保存到会话状态
+                            st.session_state.scenario_data = scenario_data
+                            st.session_state.scenario_loaded = True
+                            st.session_state.scenario_name = scenario_data.get('name', '未命名场景')
+                            st.session_state.scenario_file_path = uploaded_file.name
+                            st.session_state.validation_errors = []
+                            
+                            st.success(f"✅ YAML场景文件加载成功: {st.session_state.scenario_name}")
+                            
+                            # 显示警告信息
+                            if warnings:
+                                st.warning("⚠️ 验证警告:")
+                                for warning in warnings:
+                                    st.warning(f"⚠️ {warning}")
+                            
+                            # 显示场景概览
+                            _display_scenario_overview(scenario_data)
                 
-            except yaml.YAMLError as e:
-                st.error(f"❌ YAML解析错误: {e}")
+                elif file_extension == 'csv':
+                    # CSV文件处理 - 自动生成场景
+                    st.info("📊 检测到CSV文件，正在自动生成场景配置...")
+                    
+                    with st.expander("CSV文件预览", expanded=True):
+                        # 显示CSV预览
+                        try:
+                            # 使用 io.StringIO
+                            df = pd.read_csv(io.StringIO(file_content))
+                            st.dataframe(df.head(), width='stretch')
+                            st.write(f"CSV文件包含 {len(df)} 行数据")
+                        except Exception as e:
+                            st.error(f"CSV预览失败: {e}")
+                    
+                    # CSV生成选项
+                    st.subheader("场景生成选项")
+                    
+                    col_gen1, col_gen2 = st.columns(2)
+                    
+                    with col_gen1:
+                        scenario_name = st.text_input(
+                            "场景名称",
+                            value=f"CSV自动生成_{datetime.now().strftime('%Y%m%d')}",
+                            help="输入生成的场景名称"
+                        )
+                    
+                    with col_gen2:
+                        # 雷达配置选项
+                        radar_config = st.selectbox(
+                            "雷达配置方案",
+                            ["标准配置", "简化配置", "详细配置"],
+                            help="选择雷达站的配置详细程度"
+                        )
+                    
+                    # 目标生成选项
+                    col_target1, col_target2, col_target3 = st.columns(3)
+                    
+                    with col_target1:
+                        target_count = st.slider(
+                            "目标数量",
+                            min_value=1,
+                            max_value=20,
+                            value=10,
+                            help="设置生成的目标数量"
+                        )
+                        st.session_state.csv_generator.default_parameters['target_count'] = target_count
+                    
+                    with col_target2:
+                        target_spacing = st.slider(
+                            "目标间距 (km)",
+                            min_value=0.5,
+                            max_value=5.0,
+                            value=1.0,
+                            step=0.5,
+                            help="目标之间的间距"
+                        )
+                        st.session_state.csv_generator.default_parameters['target_spacing_km'] = target_spacing
+                    
+                    with col_target3:
+                        radar_distance = st.slider(
+                            "雷达距离 (km)",
+                            min_value=1,
+                            max_value=20,
+                            value=5,
+                            help="雷达站距离风电场的距离"
+                        )
+                        st.session_state.csv_generator.default_parameters['radar_distance_west_km'] = radar_distance
+                    
+                    # 生成按钮
+                    if st.button("🚀 生成场景", type="primary", width='stretch'):
+                        with st.spinner("正在生成场景配置..."):
+                            try:
+                                # 生成场景
+                                scenario_data = st.session_state.csv_generator.generate_scenario_from_csv(
+                                    file_content, scenario_name
+                                )
+                                
+                                # 验证生成的场景
+                                validator = YAMLConfigValidator()
+                                is_valid, errors = validator.validate_scenario(scenario_data)
+                                
+                                if errors:
+                                    st.error("❌ 生成的场景验证失败")
+                                    for error in errors:
+                                        st.error(f"❌ {error}")
+                                else:
+                                    # 保存到会话状态
+                                    st.session_state.scenario_data = scenario_data
+                                    st.session_state.scenario_loaded = True
+                                    st.session_state.scenario_name = scenario_name
+                                    st.session_state.scenario_file_path = uploaded_file.name
+                                    st.session_state.validation_errors = []
+                                    
+                                    st.success(f"✅ 场景生成成功: {scenario_name}")
+                                    st.balloons()
+                                    
+                                    # 显示生成结果概览
+                                    _display_scenario_overview(scenario_data)
+                                    
+                                    # 显示生成详情
+                                    with st.expander("📋 生成详情", expanded=True):
+                                        _display_generation_summary(scenario_data)
+                            
+                            except Exception as e:
+                                st.error(f"❌ 场景生成失败: {str(e)}")
+                
             except Exception as e:
-                st.error(f"❌ 文件加载错误: {e}")
+                st.error(f"❌ 文件处理错误: {str(e)}")
     
     with col_load2:
-        st.markdown("### 示例文件")
+        st.markdown("### 文件格式说明")
         
-        # 显示示例文件结构
-        with st.expander("查看示例结构"):
-            st.code("""# 风电场评估场景配置示例
-name: "华北风电场评估场景"
-description: "华北地区典型风电场对周边雷达影响评估"
-
-metadata:
-  created_at: "2024-01-01"
-  updated_at: "2024-01-01"
-  author: "系统生成"
-  version: "1.0"
-
-# 风机配置
-wind_turbines:
-  - id: "WT001"
-    model: "Vestas_V150"
-    position: {lat: 40.123456, lon: 116.234567, alt: 50}
-    height: 150
-    rotor_diameter: 150
-    orientation: 0
-    operational: true
-
-# 雷达台站配置
-radar_stations:
-  - id: "RADAR001"
-    type: "气象雷达"
-    frequency_band: "S"
-    position: {lat: 40.1, lon: 116.2, alt: 100}
-    peak_power: 1000000
-    antenna_gain: 40
-    beam_width: 1.0
-    pulse_width: 2.0
-    prf: 300
-    noise_figure: 3.0
-    system_losses: 6.0
-    antenna_height: 30
-
-# 通信台站配置
-communication_stations:
-  - id: "COMM001"
-    service_type: "基站"
-    frequency: 1800
-    position: {lat: 40.15, lon: 116.25, alt: 30}
-    antenna_type: "sector"
-    eirp: 50
-    antenna_gain: 18
-    antenna_height: 30
-
-# 评估目标配置
-targets:
-  - id: "TARGET001"
-    type: "民航飞机"
-    rcs: 10.0
-    position: {lat: 40.2, lon: 116.3, alt: 10000}
-    speed: 250
-    heading: 90
-    altitude: 10000""", language="yaml")
-        
-        # 下载示例文件
-        example_yaml = """# 风电场评估场景配置示例
-name: "示例风电场场景"
-description: "示例场景用于演示系统功能"
-
-metadata:
-  created_at: "2024-01-01"
-  updated_at: "2024-01-01"
-  author: "系统生成"
-  version: "1.0"
+        # 格式说明
+        with st.expander("YAML格式", expanded=True):
+            st.markdown("""
+            **YAML格式** - 完整场景配置
+            - 包含风机、雷达、目标完整配置
+            - 支持复杂参数和元数据
+            - 适合精细化的场景配置
+            """)
+            
+            st.download_button(
+                label="📥 下载YAML示例",
+                data="""# 示例YAML配置
+name: "示例场景"
+description: "YAML格式示例"
 
 wind_turbines:
   - id: "WT001"
     model: "Vestas_V150"
     position: {lat: 40.123, lon: 116.234, alt: 50}
     height: 150
-    rotor_diameter: 150
-    orientation: 0
-    operational: true
-    metadata: {rcs_profile: "medium", blade_material: "复合材料"}
-
-radar_stations:
-  - id: "RADAR001"
-    type: "气象雷达"
-    frequency_band: "S"
-    position: {lat: 40.1, lon: 116.2, alt: 100}
-    peak_power: 1000000
-    antenna_gain: 40
-    beam_width: 1.0
-    pulse_width: 2.0
-    prf: 300
-    noise_figure: 3.0
-    system_losses: 6.0
-    antenna_height: 30
-    metadata: {polarization: "horizontal", scanning_mode: "mechanical"}
-
-communication_stations:
-  - id: "COMM001"
-    service_type: "基站"
-    frequency: 1800
-    position: {lat: 40.15, lon: 116.25, alt: 30}
-    antenna_type: "sector"
-    eirp: 50
-    antenna_gain: 18
-    antenna_height: 30
-    metadata: {bandwidth: 20}
-
-targets:
-  - id: "TARGET001"
-    type: "民航飞机"
-    rcs: 10.0
-    position: {lat: 40.2, lon: 116.3, alt: 10000}
-    speed: 250
-    heading: 90
-    altitude: 10000
-    metadata: {category: "航空器", description: "商业客机"}
-"""
+    rotor_diameter: 150""",
+                file_name="wind_farm_example.yaml",
+                mime="text/yaml"
+            )
         
-        st.download_button(
-            label="📥 下载示例文件",
-            data=example_yaml,
-            file_name="wind_farm_scenario_example.yaml",
-            mime="text/yaml",
-            help="下载示例YAML配置文件"
-        )
+        with st.expander("CSV格式", expanded=True):
+            st.markdown("""
+            **CSV格式** - 风机数据文件
+            - 每行一个风机，包含经纬度
+            - 系统自动生成雷达和目标
+            - 适合快速场景构建
+            """)
+            
+            # CSV示例
+            csv_example = """lat,lon,alt,model,height,rotor_diameter
+40.123,116.234,50,Vestas_V150,150,150
+40.124,116.235,52,Siemens_SG145,120,145
+40.125,116.236,48,Goldwind_G140,140,140"""
+            
+            st.download_button(
+                label="📥 下载CSV示例",
+                data=csv_example,
+                file_name="wind_turbines_example.csv",
+                mime="text/csv"
+            )
+            
+            st.markdown("""
+            **CSV文件要求**:
+            - 必须包含: `lat`, `lon` 列
+            - 可选列: `alt`, `model`, `height`, `rotor_diameter`, `orientation`
+            - 编码: UTF-8
+            """)
+
 
 with tab2:
     st.header("编辑场景配置")
@@ -1171,75 +1582,62 @@ with tab4:
             except Exception as e:
                 st.error(f"❌ 保存失败: {e}")
 
-# 侧边栏信息
+# 侧边栏
 with st.sidebar:
     st.markdown("## ℹ️ 场景状态")
     
     if st.session_state.scenario_loaded:
         st.success(f"✅ 已加载: {st.session_state.scenario_name}")
         
-        # 显示验证状态
+        # 显示文件类型
+        if st.session_state.file_type:
+            file_type_display = "YAML" if st.session_state.file_type in ['yaml', 'yml'] else "CSV"
+            st.info(f"**文件类型**: {file_type_display}")
+        
         if st.session_state.validation_errors:
             st.error(f"⚠️ 验证错误: {len(st.session_state.validation_errors)} 个")
         else:
             st.success("✅ 验证通过")
         
-        if st.session_state.validation_warnings:
-            st.warning(f"⚠️ 验证警告: {len(st.session_state.validation_warnings)} 个")
-        
         # 快速统计
-        st.markdown("### 📊 快速统计")
-        
         if st.session_state.scenario_data:
             scenario = st.session_state.scenario_data
-            
             turbines_count = len(scenario.get('wind_turbines', []))
             radars_count = len(scenario.get('radar_stations', []))
             targets_count = len(scenario.get('targets', []))
             
-            col_stat1, col_stat2 = st.columns(2)
-            
-            with col_stat1:
-                st.metric("风机", turbines_count)
-                st.metric("目标", targets_count)
-            
-            with col_stat2:
-                st.metric("雷达", radars_count)
-        
-        # 快速操作
-        st.markdown("### ⚡ 快速操作")
-        
-        if st.button("🔄 重新验证", width='stretch'):
-            if st.session_state.scenario_data:
-                validator = YAMLConfigValidator()
-                is_valid, errors = validator.validate_scenario(st.session_state.scenario_data)
-                warnings = validator.get_warnings()
-                
-                if errors:
-                    st.session_state.validation_errors = errors
-                    st.session_state.validation_warnings = warnings
-                    st.error(f"❌ 验证发现 {len(errors)} 个错误")
-                else:
-                    st.session_state.validation_errors = []
-                    st.session_state.validation_warnings = warnings
-                    st.success("✅ 验证通过")
-                
-                if warnings:
-                    st.warning(f"⚠️ 发现 {len(warnings)} 个警告")
-                
-                st.rerun()
-        
-        if st.button("🗑️ 清除场景", width='stretch', type="secondary"):
-            st.session_state.scenario_data = None
-            st.session_state.scenario_loaded = False
-            st.session_state.scenario_name = ""
-            st.session_state.scenario_file_path = ""
-            st.session_state.validation_errors = []
-            st.session_state.validation_warnings = []
-            st.rerun()
+            st.metric("风机", turbines_count)
+            st.metric("雷达", radars_count)
+            st.metric("目标", targets_count)
     
     else:
         st.warning("⚠️ 未加载场景")
+    
+    st.markdown("---")
+    
+    # 快速操作
+    st.markdown("## ⚡ 快速操作")
+    
+    if st.button("🔄 重新验证", width='stretch'):
+        if st.session_state.scenario_loaded:
+            validator = YAMLConfigValidator()
+            is_valid, errors = validator.validate_scenario(st.session_state.scenario_data)
+            if errors:
+                st.session_state.validation_errors = errors
+                st.error("验证失败")
+            else:
+                st.session_state.validation_errors = []
+                st.success("验证通过")
+            st.rerun()
+    
+    if st.button("🗑️ 清除场景", width='stretch', type="secondary"):
+        st.session_state.scenario_data = None
+        st.session_state.scenario_loaded = False
+        st.session_state.scenario_name = ""
+        st.session_state.scenario_file_path = ""
+        st.session_state.validation_errors = []
+        st.session_state.file_type = None
+        st.rerun()
     
     st.markdown("---")
     
@@ -1248,23 +1646,16 @@ with st.sidebar:
     
     with st.expander("查看说明"):
         st.markdown("""
-        1. **加载场景**: 上传YAML格式的场景配置文件
-        2. **编辑场景**: 修改风机、雷达、目标等参数
-        3. **预览场景**: 查看JSON数据和统计信息
-        4. **保存场景**: 将编辑后的场景保存为文件
+        **支持的文件格式**:
+        - **YAML**: 完整场景配置文件
+        - **CSV**: 风机数据文件（自动生成场景）
         
-        **文件格式要求**:
-        - 必须包含风机、雷达、目标配置
-        - 坐标必须在有效范围内
-        - 参数必须符合类型和范围要求
+        **CSV自动生成功能**:
+        1. 上传包含风机经纬度的CSV文件
+        2. 系统自动在西边5公里生成雷达站
+        3. 在东边生成评估目标序列
+        4. 自动验证并生成完整场景
         """)
-    
-    # 技术支持
-    st.markdown("---")
-    st.markdown("### 🆘 技术支持")
-    st.caption("如有问题，请联系技术支持")
-    st.caption("邮箱: support@wind-radar-assessment.com")
-    st.caption("电话: 010-12345678")
 
 # 页脚
 st.markdown("---")
