@@ -831,7 +831,7 @@ description: "YAML格式示例"
 wind_turbines:
   - id: "WT001"
     model: "Vestas_V150"
-    position: {lat: 40.123, lon: 116.234, alt: 50}
+    position: {lat: 39.123, lon: 119.234, alt: 50}
     height: 150
     rotor_diameter: 150""",
                 file_name="wind_farm_example.yaml",
@@ -848,9 +848,9 @@ wind_turbines:
             
             # CSV示例
             csv_example = """lat,lon,alt,model,height,rotor_diameter
-40.123,116.234,50,Vestas_V150,150,150
-40.124,116.235,52,Siemens_SG145,120,145
-40.125,116.236,48,Goldwind_G140,140,140"""
+39.123,119.234,50,Vestas_V150,150,150
+39.124,119.235,52,Siemens_SG145,120,145
+39.125,119.236,48,Goldwind_G140,140,140"""
             
             st.download_button(
                 label="📥 下载CSV示例",
@@ -916,7 +916,7 @@ with tab2:
             new_turbine = {
                 'id': f"WT{len(turbines)+1:03d}",
                 'model': "Vestas_V150",
-                'position': {'lat': 40.0, 'lon': 116.0, 'alt': 50},
+                'position': {'lat': 39.5, 'lon': 119.5, 'alt': 50},
                 'height': 150,
                 'rotor_diameter': 150,
                 'orientation': 0,
@@ -962,7 +962,7 @@ with tab2:
                             "纬度",
                             min_value=-90.0,
                             max_value=90.0,
-                            value=turbine.get('position', {}).get('lat', 40.0),
+                            value=turbine.get('position', {}).get('lat', 39.0),
                             format="%.6f",
                             key=f"turbine_lat_{i}"
                         )
@@ -972,7 +972,7 @@ with tab2:
                             "经度",
                             min_value=-180.0,
                             max_value=180.0,
-                            value=turbine.get('position', {}).get('lon', 116.0),
+                            value=turbine.get('position', {}).get('lon', 119.0),
                             format="%.6f",
                             key=f"turbine_lon_{i}"
                         )
@@ -1041,7 +1041,7 @@ with tab2:
                 'id': f"RADAR{len(radars)+1:03d}",
                 'type': "气象雷达",
                 'frequency_band': "S",
-                'position': {'lat': 40.0, 'lon': 116.0, 'alt': 100},
+                'position': {'lat': 39.0, 'lon': 119.0, 'alt': 100},
                 'peak_power': 1000000,
                 'antenna_gain': 40,
                 'beam_width': 1.0,
@@ -1094,7 +1094,7 @@ with tab2:
                             "纬度",
                             min_value=-90.0,
                             max_value=90.0,
-                            value=radar.get('position', {}).get('lat', 40.0),
+                            value=radar.get('position', {}).get('lat', 39.0),
                             format="%.6f",
                             key=f"radar_lat_{i}"
                         )
@@ -1104,7 +1104,7 @@ with tab2:
                             "经度",
                             min_value=-180.0,
                             max_value=180.0,
-                            value=radar.get('position', {}).get('lon', 116.0),
+                            value=radar.get('position', {}).get('lon', 119.0),
                             format="%.6f",
                             key=f"radar_lon_{i}"
                         )
@@ -1211,7 +1211,7 @@ with tab2:
                 'id': f"TARGET{len(targets)+1:03d}",
                 'type': "民航飞机",
                 'rcs': 10.0,
-                'position': {'lat': 40.2, 'lon': 116.3, 'alt': 10000},
+                'position': {'lat': 39.2, 'lon': 119.3, 'alt': 10000},
                 'speed': 250,
                 'heading': 90,
                 'altitude': 10000
@@ -1256,7 +1256,7 @@ with tab2:
                             "纬度",
                             min_value=-90.0,
                             max_value=90.0,
-                            value=target.get('position', {}).get('lat', 40.0),
+                            value=target.get('position', {}).get('lat', 39.0),
                             format="%.6f",
                             key=f"target_lat_{i}"
                         )
@@ -1266,7 +1266,7 @@ with tab2:
                             "经度",
                             min_value=-180.0,
                             max_value=180.0,
-                            value=target.get('position', {}).get('lon', 116.0),
+                            value=target.get('position', {}).get('lon', 119.0),
                             format="%.6f",
                             key=f"target_lon_{i}"
                         )

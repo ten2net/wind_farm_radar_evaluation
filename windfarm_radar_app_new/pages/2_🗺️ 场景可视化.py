@@ -35,7 +35,7 @@ except ImportError:
     }
     
     MAP_CONFIG = {
-        'default_center': [40.0, 116.0],
+        'default_center': [39.0, 119.0],
         'tile_providers': {
             'OpenStreetMap': 'OpenStreetMap',
             '卫星影像': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
@@ -311,9 +311,9 @@ with tab1:
         if map_center_option == "自定义中心":
             col_custom_lat, col_custom_lon = st.columns(2)
             with col_custom_lat:
-                custom_lat = st.number_input("纬度", value=40.0, min_value=-90.0, max_value=90.0, step=0.1)
+                custom_lat = st.number_input("纬度", value=39.0, min_value=-90.0, max_value=90.0, step=0.1)
             with col_custom_lon:
-                custom_lon = st.number_input("经度", value=116.0, min_value=-180.0, max_value=180.0, step=0.1)
+                custom_lon = st.number_input("经度", value=119.0, min_value=-180.0, max_value=180.0, step=0.1)
     
     with col_controls2:
         # 缩放级别

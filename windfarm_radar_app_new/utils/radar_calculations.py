@@ -972,7 +972,7 @@ def create_turbine_parameters_from_config(config: Dict[str, Any]) -> TurbinePara
     return TurbineParameters(
         height_m=config.get('height_m', 150),
         rotor_diameter_m=config.get('rotor_diameter_m', 150),
-        position=config.get('position', {'lat': 40.0, 'lon': 116.0, 'alt': 0}),
+        position=config.get('position', {'lat': 39.0, 'lon': 119.0, 'alt': 0}),
         orientation_deg=config.get('orientation_deg', 0),
         rcs_profile=config.get('rcs_profile', 'medium'),
         blade_material=config.get('blade_material', '复合材料')

@@ -552,8 +552,8 @@ class VisualizationTools:
             包含场景的folium地图
         """
         # 获取中心位置
-        center_lat = scenario_data.get('center_lat', 40.0)
-        center_lon = scenario_data.get('center_lon', 116.0)
+        center_lat = scenario_data.get('center_lat', 39.0)
+        center_lon = scenario_data.get('center_lon', 119.0)
         
         # 创建基础地图
         m = self.create_base_map(center=[center_lat, center_lon])
