@@ -239,7 +239,7 @@ if 'analysis_results' not in st.session_state or not st.session_state.get('calcu
     st.warning("⚠️ 请先进行雷达性能分析")
     
     if st.button("📡 前往雷达性能分析页面", width='stretch'):
-        st.switch_page("pages/3_雷达性能分析.py")
+        st.switch_page("pages/3_📡 雷达性能分析.py")
     
     st.stop()
 
@@ -1112,13 +1112,13 @@ with st.sidebar:
     st.markdown("## 🧭 页面导航")
     
     if st.button("📁 场景配置", width='stretch'):
-        st.switch_page("pages/1_场景配置.py")
+        st.switch_page("pages/1_📁 场景配置.py")
     
     if st.button("🗺️ 场景可视化", width='stretch'):
-        st.switch_page("pages/2_场景可视化.py")
+        st.switch_page("pages/2_🗺️ 场景可视化.py")
     
     if st.button("📡 雷达性能分析", width='stretch'):
-        st.switch_page("pages/3_雷达性能分析.py")
+        st.switch_page("pages/3_📡 雷达性能分析.py")
     
     st.markdown("---")
     

@@ -243,7 +243,7 @@ if 'scenario_data' not in st.session_state or not st.session_state.get('scenario
     st.warning("⚠️ 请先加载场景配置文件")
     
     if st.button("📁 前往场景配置页面", width='stretch'):
-        st.switch_page("pages/1_场景配置.py")
+        st.switch_page("pages/1_📁 场景配置.py")
     
     st.stop()
 
@@ -1377,7 +1377,7 @@ with tab4:
             if st.button("📄 生成详细报告", width='stretch'):
                 st.info("详细报告生成功能在报告生成页面可用")
                 if st.button("前往报告生成页面"):
-                    st.switch_page("pages/4_报告生成.py")
+                    st.switch_page("pages/4_📊 报告生成.py")
 
 # 侧边栏
 with st.sidebar:
@@ -1441,13 +1441,13 @@ with st.sidebar:
     st.markdown("## 🧭 页面导航")
     
     if st.button("📁 场景配置", width='stretch'):
-        st.switch_page("pages/1_场景配置.py")
+        st.switch_page("pages/1_📁 场景配置.py")
     
     if st.button("🗺️ 场景可视化", width='stretch'):
-        st.switch_page("pages/2_场景可视化.py")
+        st.switch_page("pages/2_🗺️ 场景可视化.py")
     
     if st.button("📊 报告生成", width='stretch'):
-        st.switch_page("pages/4_报告生成.py")
+        st.switch_page("pages/4_📊 报告生成.py")
 
 # 页脚
 st.markdown("---")

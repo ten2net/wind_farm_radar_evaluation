@@ -278,7 +278,7 @@ if 'scenario_data' not in st.session_state or not st.session_state.get('scenario
     
     # 提供跳转到场景配置页面的按钮
     if st.button("📁 前往场景配置页面", width='stretch'):
-        st.switch_page("pages/1_场景配置.py")
+        st.switch_page("pages/1_📁 场景配置.py")
     
     st.stop()
 
