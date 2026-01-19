@@ -67,15 +67,13 @@ def show_simulation_control():
             "running": "green",
             "paused": "orange"
         }.get(status, "gray")
-        print(st.session_state)
-        print(">>>>>>>>>>>>>>>>",st.session_state.simulation_data)
+        
         st.markdown(
             f"""
             <div style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 4px solid {status_color}; margin-bottom: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h3 style="margin: 0;">仿真状态: <span style="color: {status_color};">{status}</span></h3>
-                        
                     </div>
                     <div style="font-size: 2rem;">
                         {"⏸️" if status == "paused" else "▶️" if status == "running" else "⏹️"}
@@ -85,22 +83,6 @@ def show_simulation_control():
             """,
             unsafe_allow_html=True
         )
-        # st.markdown(
-        #     f"""
-        #     <div style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 4px solid {status_color}; margin-bottom: 1rem;">
-        #         <div style="display: flex; justify-content: space-between; align-items: center;">
-        #             <div>
-        #                 <h3 style="margin: 0;">仿真状态: <span style="color: {status_color};">{status}</span></h3>
-        #                 <p style="margin: 0.5rem 0 0 0; color: #888;">当前时间: {st.session_state.simulation_data['current_time']:.1f}s</p>
-        #             </div>
-        #             <div style="font-size: 2rem;">
-        #                 {"⏸️" if status == "paused" else "▶️" if status == "running" else "⏹️"}
-        #             </div>
-        #         </div>
-        #     </div>
-        #     """,
-        #     unsafe_allow_html=True
-        # )
         
         # 进度条
         progress = st.session_state.simulation_data.get('progress', 0.0)

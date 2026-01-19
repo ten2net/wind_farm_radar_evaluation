@@ -147,7 +147,7 @@ def show_map_configuration():
     with col1:
         # 初始化地图
         if 'map_center' not in st.session_state:
-            st.session_state.map_center = [39.9042, 116.4074]
+            st.session_state.map_center = [39.9042, 119.4074]
         
         m = create_military_map(
             center=st.session_state.map_center,
