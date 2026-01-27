@@ -282,8 +282,13 @@ class AdvancedRadarImpactAnalyzer:
             'is_frequency_selective': coherence_bandwidth < 10  # 相干带宽小于10MHz为频率选择性衰落
         }
     
-    def evaluate_single_vs_multiple_turbines(self, base_params, num_turbines_list=[1, 5, 10, 20, 30]):
+    def evaluate_single_vs_multiple_turbines(self, base_params, num_turbines_list=None):
         """比较单个风机与多个风机的影响"""
+        # 如果未提供列表，则生成从1到max_turbines的所有整数
+        if num_turbines_list is None:
+            max_turbines = base_params.get('max_turbines', 30)
+            num_turbines_list = list(range(1, max_turbines + 1))
+        
         results = []
         
         for num_turbines in num_turbines_list:
