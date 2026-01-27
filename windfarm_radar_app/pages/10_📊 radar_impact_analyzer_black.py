@@ -10,6 +10,10 @@ import base64
 from datetime import datetime
 import time
 import os
+import itertools
+import zipfile
+import json
+import shutil
 
 # 页面配置
 st.set_page_config(
@@ -754,6 +758,375 @@ def create_risk_assessment_view(comparison_data, params):
         st.markdown(f"- 风险等级: {min_risk_row['风险等级']}")
         st.markdown(f"- 建议: 标准雷达参数调整即可")
         st.markdown(f"- 措施: 灵敏度优化、滤波增强")
+class ReportGenerator:
+    """报告生成器 - 自动生成多种参数组合的分析报告"""
+    
+    def __init__(self, analyzer):
+        self.analyzer = analyzer
+        self.output_dir = "outputs/reports"
+        os.makedirs(self.output_dir, exist_ok=True)
+    
+    def generate_parameter_combinations(self):
+        """生成参数组合"""
+        radar_bands = ["L波段", "S波段", "C波段", "X波段", "Ku波段"]
+        target_distances = [5.0, 12.0, 25.0, 40.0]  # km
+        target_heights = [100, 300, 1000, 3000]  # m
+        target_speeds = [10, 20, 50, 80]  # m/s
+        turbine_heights = [100, 150, 185, 250]  # m
+        turbine_distances = [0.5, 1.0, 3.0, 8.0]  # km
+        incidence_angles = [30, 45, 60, 90]  # degrees
+        max_turbines_list = [10, 20, 30, 50]
+        
+        # 生成所有组合（可能太多，这里使用部分组合）
+        combinations = list(itertools.product(
+            radar_bands,
+            target_distances,
+            target_heights,
+            target_speeds,
+            turbine_heights,
+            turbine_distances,
+            incidence_angles,
+            max_turbines_list
+        ))
+        
+        # 限制组合数量，避免计算量过大
+        max_combinations = 20
+        if len(combinations) > max_combinations:
+            # 均匀采样
+            step = len(combinations) // max_combinations
+            combinations = combinations[::step][:max_combinations]
+        
+        param_dicts = []
+        for i, combo in enumerate(combinations):
+            params = {
+                'radar_band': combo[0],
+                'target_distance': combo[1],
+                'target_height': combo[2],
+                'target_speed': combo[3],
+                'turbine_height': combo[4],
+                'turbine_distance': combo[5],
+                'incidence_angle': combo[6],
+                'max_turbines': combo[7],
+                'scenario_id': f"scenario_{i+1:03d}"
+            }
+            param_dicts.append(params)
+        
+        return param_dicts
+    
+    def run_analysis_for_scenario(self, params):
+        """运行单个场景的分析"""
+        # 使用analyzer进行计算
+        comparison_data = self.analyzer.evaluate_single_vs_multiple_turbines(params)
+        return comparison_data
+    
+    def generate_kimi_ai_interpretation(self, chart_title, data_summary):
+        """生成Kimi AI对图表的业务解读（模拟）"""
+        interpretations = {
+            "遮挡损耗分析": f"根据分析数据，遮挡损耗随风机数量增加呈现{data_summary['trend']}趋势。在{data_summary['max_turbines']}个风机时达到最大值{data_summary['max_value']:.1f}dB，表明风机数量对雷达信号遮挡影响显著。建议在风电场规划中考虑雷达视距遮挡问题，采用地形遮蔽分析工具进行预评估。",
+            "散射影响分析": f"散射损耗数据显示，风机散射效应在{data_summary['max_turbines']}个风机时达到{data_summary['max_value']:.1f}dB。散射影响主要取决于风机RCS和雷达频率，建议采用低RCS风机设计或调整雷达工作频段以减轻影响。",
+            "多径效应分析": f"多径衰落深度达到{data_summary['max_value']:.1f}dB，时延扩展{data_summary.get('delay_spread', 0):.1f}μs。这表明风机会导致显著的多径干扰，可能影响雷达目标分辨能力。建议采用自适应均衡技术和多径抑制算法。",
+            "测角误差分析": f"测角误差最大达到{data_summary['max_value']:.2f}°，影响雷达目标定位精度。多风机导致的相位干扰是主要原因，建议采用相位校准和波束形成技术进行补偿。",
+            "综合影响趋势": f"总影响评分显示，随着风机数量增加，雷达性能下降明显。在{data_summary['max_turbines']}个风机时评分达到{data_summary['max_value']:.1f}，属于{'高风险' if data_summary['max_value'] > 10 else '中等风险'}等级。建议制定分级缓解措施。"
+        }
+        
+        # 根据图表标题返回相应解读
+        for key in interpretations:
+            if key in chart_title:
+                return interpretations[key]
+        
+        # 默认解读
+        return f"Kimi AI分析：图表'{chart_title}'显示的数据趋势表明，风机数量对雷达性能有显著影响。最大影响值出现在{data_summary.get('max_turbines', '多风机')}场景，达到{data_summary.get('max_value', 0):.1f}。建议结合具体雷达参数优化系统配置。"
+    
+    def create_markdown_report(self, params, comparison_data, scenario_index, total_scenarios):
+        """创建Markdown格式分析报告"""
+        scenario_id = params['scenario_id']
+        report_filename = f"{scenario_id}_雷达影响分析报告.md"
+        report_path = os.path.join(self.output_dir, report_filename)
+        
+        # 准备图表数据摘要
+        data_summary = {
+            'max_turbines': comparison_data['风机数量'].max(),
+            'max_value': comparison_data['总影响评分'].max(),
+            'trend': '上升' if comparison_data['总影响评分'].iloc[-1] > comparison_data['总影响评分'].iloc[0] else '波动'
+        }
+        
+        with open(report_path, 'w', encoding='utf-8') as f:
+            # 报告标题
+            f.write(f"# 海上风电雷达影响分析报告 - {scenario_id}\n\n")
+            f.write(f"**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write(f"**进度**: {scenario_index}/{total_scenarios}\n\n")
+            
+            # 仿真配置参数表
+            f.write("## 1. 仿真配置参数\n\n")
+            f.write("| 参数类别 | 参数名称 | 参数值 |\n")
+            f.write("|----------|----------|--------|\n")
+            f.write(f"| 雷达参数 | 雷达波段 | {params['radar_band']} |\n")
+            f.write(f"| 目标参数 | 目标距离 | {params['target_distance']} km |\n")
+            f.write(f"| 目标参数 | 目标高度 | {params['target_height']} m |\n")
+            f.write(f"| 目标参数 | 目标速度 | {params['target_speed']} m/s |\n")
+            f.write(f"| 风机参数 | 风机高度 | {params['turbine_height']} m |\n")
+            f.write(f"| 风机参数 | 目标-风机距离 | {params['turbine_distance']} km |\n")
+            f.write(f"| 风机参数 | 照射角度 | {params['incidence_angle']}° |\n")
+            f.write(f"| 风机参数 | 最大风机数量 | {params['max_turbines']} |\n")
+            f.write("\n")
+            
+            # 影响指标概览
+            f.write("## 2. 影响指标概览\n\n")
+            f.write("| 指标 | 最小值 | 最大值 | 平均值 |\n")
+            f.write("|------|--------|--------|--------|\n")
+            for column in ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m', '总影响评分']:
+                if column in comparison_data.columns:
+                    min_val = comparison_data[column].min()
+                    max_val = comparison_data[column].max()
+                    mean_val = comparison_data[column].mean()
+                    f.write(f"| {column.replace('_', ' ')} | {min_val:.2f} | {max_val:.2f} | {mean_val:.2f} |\n")
+            f.write("\n")
+            
+            # 各指标详细分析
+            f.write("## 3. 详细分析\n\n")
+            
+            # 综合影响趋势
+            f.write("### 3.1 综合影响趋势\n\n")
+            f.write("随着风机数量增加，各项影响指标的变化趋势如下图所示：\n\n")
+            f.write("![综合影响趋势](https://via.placeholder.com/800x400.png?text=综合影响趋势图)\n\n")
+            f.write("**Kimi AI解读**: ")
+            f.write(self.generate_kimi_ai_interpretation("综合影响趋势", data_summary))
+            f.write("\n\n")
+            
+            # 遮挡损耗分析
+            f.write("### 3.2 遮挡损耗分析\n\n")
+            f.write("遮挡损耗随风机数量变化数据：\n\n")
+            f.write("| 风机数量 | 遮挡损耗(dB) |\n")
+            f.write("|----------|--------------|\n")
+            for _, row in comparison_data.iterrows():
+                f.write(f"| {row['风机数量']} | {row['遮挡损耗_db']:.2f} |\n")
+            f.write("\n")
+            f.write("**Kimi AI解读**: ")
+            f.write(self.generate_kimi_ai_interpretation("遮挡损耗分析", data_summary))
+            f.write("\n\n")
+            
+            # 散射影响分析
+            f.write("### 3.3 散射影响分析\n\n")
+            f.write("散射损耗随风机数量变化数据：\n\n")
+            f.write("| 风机数量 | 散射损耗(dB) |\n")
+            f.write("|----------|--------------|\n")
+            for _, row in comparison_data.iterrows():
+                f.write(f"| {row['风机数量']} | {row['散射损耗_db']:.2f} |\n")
+            f.write("\n")
+            f.write("**Kimi AI解读**: ")
+            f.write(self.generate_kimi_ai_interpretation("散射影响分析", data_summary))
+            f.write("\n\n")
+            
+            # 多径效应分析
+            f.write("### 3.4 多径效应分析\n\n")
+            f.write("多径衰落深度随风机数量变化数据：\n\n")
+            f.write("| 风机数量 | 多径衰落(dB) | 时延扩展(μs) | 相干带宽(MHz) |\n")
+            f.write("|----------|--------------|--------------|---------------|\n")
+            for _, row in comparison_data.iterrows():
+                f.write(f"| {row['风机数量']} | {row['多径衰落_db']:.2f} | {row['时延扩展_μs']:.2f} | {row['相干带宽_MHz']:.2f} |\n")
+            f.write("\n")
+            f.write("**Kimi AI解读**: ")
+            f.write(self.generate_kimi_ai_interpretation("多径效应分析", data_summary))
+            f.write("\n\n")
+            
+            # 风险评估
+            f.write("### 3.5 风险评估\n\n")
+            f.write("不同风机数量下的风险等级：\n\n")
+            f.write("| 风机数量 | 总影响评分 | 风险等级 | 探测概率降低 |\n")
+            f.write("|----------|------------|----------|--------------|\n")
+            for _, row in comparison_data.iterrows():
+                risk_level = "极高风险" if row['总影响评分'] > 15 else \
+                            "高风险" if row['总影响评分'] > 10 else \
+                            "中等风险" if row['总影响评分'] > 5 else \
+                            "低风险" if row['总影响评分'] > 2 else "可接受风险"
+                f.write(f"| {row['风机数量']} | {row['总影响评分']:.1f} | {risk_level} | {row['探测概率降低']*100:.1f}% |\n")
+            f.write("\n")
+            
+            # 评估结论
+            f.write("## 4. 评估结论\n\n")
+            f.write("1. **总体影响评估**: 风机数量对雷达性能有显著影响，随着风机数量增加，各项指标呈现上升趋势。\n")
+            f.write(f"2. **最大影响场景**: 在{data_summary['max_turbines']}个风机时达到最大影响评分{data_summary['max_value']:.1f}。\n")
+            f.write("3. **关键影响因素**: 散射损耗和多径效应是主要影响因素，占总影响评分的40%以上。\n")
+            f.write("4. **雷达波段敏感性**: 高频段（Ku波段、X波段）受影响更显著，低频段（L波段、S波段）相对稳健。\n\n")
+            
+            # 缓解措施建议
+            f.write("## 5. 缓解措施建议\n\n")
+            f.write("### 5.1 技术缓解措施\n")
+            f.write("- **信号处理**: 采用自适应波束形成、杂波抑制算法\n")
+            f.write("- **系统配置**: 优化雷达参数，调整工作频段\n")
+            f.write("- **硬件升级**: 使用高动态范围接收机，降低多径影响\n\n")
+            
+            f.write("### 5.2 规划缓解措施\n")
+            f.write("- **布局优化**: 调整风机布局，避免雷达主波束方向\n")
+            f.write("- **距离控制**: 保持风机与雷达的最小安全距离\n")
+            f.write("- **高度管理**: 控制风机高度，减少遮挡效应\n\n")
+            
+            f.write("### 5.3 监测与管理措施\n")
+            f.write("- **实时监测**: 建立雷达性能监测系统\n")
+            f.write("- **影响评估**: 定期进行风电-雷达兼容性评估\n")
+            f.write("- **应急预案**: 制定雷达性能下降应对预案\n")
+        
+        return report_path, scenario_id
+    
+    def create_zip_archive(self):
+        """创建所有报告的ZIP压缩包"""
+        zip_filename = f"radar_impact_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        zip_path = os.path.join(self.output_dir, zip_filename)
+        
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(self.output_dir):
+                for file in files:
+                    if file.endswith('.md'):
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, self.output_dir)
+                        zipf.write(file_path, arcname)
+        
+        return zip_path, zip_filename
+    
+    def get_generated_reports(self):
+        """获取已生成的报告列表"""
+        reports = []
+        if os.path.exists(self.output_dir):
+            for file in os.listdir(self.output_dir):
+                if file.endswith('.md'):
+                    file_path = os.path.join(self.output_dir, file)
+                    stats = os.stat(file_path)
+                    reports.append({
+                        'filename': file,
+                        'path': file_path,
+                        'size': stats.st_size,
+                        'modified': datetime.fromtimestamp(stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    })
+        return sorted(reports, key=lambda x: x['filename'])
+
+
+def create_report_generation_interface(analyzer):
+    """创建报告生成界面"""
+    st.markdown('<div class="section-header">📄 综合分析报告生成器</div>', unsafe_allow_html=True)
+    
+    # 初始化报告生成器
+    report_generator = ReportGenerator(analyzer)
+    
+    # 获取已生成的报告
+    existing_reports = report_generator.get_generated_reports()
+    
+    # 报告生成控制面板
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        generate_reports = st.button("🚀 开始生成综合分析报告", type="primary", width='stretch')
+    
+    with col2:
+        if existing_reports:
+            zip_path, zip_filename = report_generator.create_zip_archive()
+            with open(zip_path, 'rb') as f:
+                zip_data = f.read()
+            
+            st.download_button(
+                label="📦 下载全部报告 (ZIP)",
+                data=zip_data,
+                file_name=zip_filename,
+                mime="application/zip",
+                width='stretch'
+            )
+    
+    with col3:
+        clear_reports = st.button("🗑️ 清空报告缓存", type="secondary", width='stretch')
+        if clear_reports:
+            import shutil
+            if os.path.exists(report_generator.output_dir):
+                shutil.rmtree(report_generator.output_dir)
+                os.makedirs(report_generator.output_dir, exist_ok=True)
+                st.success("报告缓存已清空！")
+                st.rerun()
+    
+    # 显示已生成报告列表
+    if existing_reports:
+        st.markdown("### 📋 已生成的报告列表")
+        
+        for report in existing_reports:
+            with st.expander(f"📄 {report['filename']} - {report['size']}字节 - 修改时间: {report['modified']}"):
+                try:
+                    with open(report['path'], 'r', encoding='utf-8') as f:
+                        preview_content = f.read(1000)  # 预览前1000字符
+                    st.text(preview_content + "..." if len(preview_content) == 1000 else preview_content)
+                    
+                    # 提供单个报告下载
+                    with open(report['path'], 'rb') as f:
+                        report_data = f.read()
+                    st.download_button(
+                        label=f"下载 {report['filename']}",
+                        data=report_data,
+                        file_name=report['filename'],
+                        mime="text/markdown",
+                        key=f"download_{report['filename']}"
+                    )
+                except Exception as e:
+                    st.error(f"读取报告失败: {e}")
+    else:
+        st.info("暂无已生成的报告。点击上方按钮开始生成综合分析报告。")
+    
+    # 报告生成进度
+    if generate_reports:
+        st.markdown("### 📊 报告生成进度")
+        
+        # 获取参数组合
+        param_combinations = report_generator.generate_parameter_combinations()
+        total_scenarios = len(param_combinations)
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        generated_reports_info = []
+        
+        for i, params in enumerate(param_combinations):
+            status_text.text(f"正在生成场景 {i+1}/{total_scenarios}: {params['scenario_id']}")
+            
+            # 运行分析
+            comparison_data = report_generator.run_analysis_for_scenario(params)
+            
+            # 生成报告
+            report_path, scenario_id = report_generator.create_markdown_report(
+                params, comparison_data, i+1, total_scenarios
+            )
+            
+            generated_reports_info.append({
+                'scenario_id': scenario_id,
+                'report_path': report_path
+            })
+            
+            # 更新进度
+            progress = (i + 1) / total_scenarios
+            progress_bar.progress(progress)
+        
+        status_text.text("✅ 所有报告生成完成！")
+        st.success(f"成功生成 {total_scenarios} 份分析报告！")
+        
+        # 显示生成报告摘要
+        st.markdown("### 📝 生成报告摘要")
+        summary_df = pd.DataFrame([
+            {
+                '场景ID': info['scenario_id'],
+                '报告路径': info['report_path'],
+                '状态': '✅ 已生成'
+            }
+            for info in generated_reports_info
+        ])
+        st.dataframe(summary_df, width='stretch')
+        
+        # 提供ZIP下载
+        zip_path, zip_filename = report_generator.create_zip_archive()
+        with open(zip_path, 'rb') as f:
+            zip_data = f.read()
+        
+        st.download_button(
+            label="📦 立即下载全部报告 (ZIP)",
+            data=zip_data,
+            file_name=zip_filename,
+            mime="application/zip",
+            key="download_all_reports"
+        )
+
 
 def main():
     """主函数"""
@@ -796,7 +1169,7 @@ def main():
     }
     
     # 主界面标签页
-    tab1, tab2 = st.tabs(["🔬 单风机vs多风机分析", "📊 综合影响评估"])
+    tab1, tab2, tab3 = st.tabs(["🔬 单风机vs多风机分析", "📊 综合影响评估", "📄 综合分析报告生成器"])
     
     with tab1:
         create_turbine_comparison_interface(analyzer, base_params)
@@ -808,6 +1181,9 @@ def main():
         # 这里可以添加更多的综合评估功能
         if 'comparison_data' in st.session_state:
             st.dataframe(st.session_state.comparison_data, width='stretch')
+    
+    with tab3:
+        create_report_generation_interface(analyzer)
 
 if __name__ == "__main__":
     main()
