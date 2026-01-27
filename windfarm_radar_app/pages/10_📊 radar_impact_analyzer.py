@@ -22,6 +22,7 @@ st.set_page_config(
 # 自定义CSS样式 - 优化布局
 st.markdown("""
 <style>
+    /* 全局样式 */
     .stApp {
         background-color: white;
     }
@@ -29,6 +30,7 @@ st.markdown("""
         background-color: white;
         color: #111111;
     }
+    
     /* Streamlit选项卡样式 */
     .stTabs [data-baseweb="tab"] {
         color: #111111 !important;
@@ -41,30 +43,34 @@ st.markdown("""
         color: #1f77b4 !important;
         font-weight: 600;
     }
+    
     /* 图表容器样式 */
     .plotly-container {
         background-color: white;
     }
+    
+    /* 标题样式 */
     .main-header {
         font-size: 2.5rem;
-        color: #1f77b4;
         text-align: center;
         margin-bottom: 1rem;
         font-weight: bold;
         padding: 1rem;
-        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%);
+        background: linear-gradient(135deg, #1a73e8 0%, #0c46a0 100%);
         border-radius: 10px;
         color: white;
     }
     .section-header {
         font-size: 1.8rem;
-        color: #2e86ab;
-        border-bottom: 2px solid #2e86ab;
+        color: #1a73e8;
+        border-bottom: 2px solid #1a73e8;
         padding-bottom: 0.5rem;
         margin-top: 1rem;
         margin-bottom: 1rem;
         font-weight: bold;
     }
+    
+    /* 指标卡片样式 */
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1rem;
@@ -77,9 +83,13 @@ st.markdown("""
         flex-direction: column;
         justify-content: center;
     }
+    
+    /* 风险等级颜色 */
     .risk-high { color: #ff4b4b; font-weight: bold; }
     .risk-medium { color: #ffa500; font-weight: bold; }
     .risk-low { color: #32cd32; font-weight: bold; }
+    
+    /* 控制面板样式 */
     .simulation-control {
         background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
         padding: 1rem;
@@ -87,6 +97,8 @@ st.markdown("""
         margin: 1rem 0;
         color: white;
     }
+    
+    /* 影响卡片样式 */
     .impact-card {
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         padding: 1rem;
@@ -95,12 +107,264 @@ st.markdown("""
         margin: 0.5rem;
         text-align: center;
     }
+    
+    /* 风机对比样式 */
     .turbine-comparison {
         background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         padding: 1rem;
         border-radius: 10px;
         margin: 1rem 0;
         color: white;
+    }
+    
+    
+    /* 下拉框样式 - 修复黑色背景问题 */
+    div[data-baseweb="select"] div,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="select"] button {
+        background-color: white !important;
+        color: #111111 !important;
+    }
+    div[data-baseweb="select"] [role="listbox"] {
+        background-color: white !important;
+        color: #111111 !important;
+    }
+    div[data-baseweb="select"] [role="option"] {
+        background-color: white !important;
+        color: #111111 !important;
+    }
+    div[data-baseweb="select"] [role="option"]:hover {
+        background-color: #f0f0f0 !important;
+        color: #111111 !important;
+    }
+    
+    /* 多选框样式 */
+    .stCheckbox label {
+        color: #111111 !important;
+    }
+    
+    /* 按钮样式 */
+    .stButton button {
+        background-color: #1a73e8;
+        color: white !important;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    .stButton button:hover {
+        background-color: #0c46a0;
+        color: white !important;
+    }
+    
+    /* 滑块样式 */
+    .stSlider label {
+        color: #111111 !important;
+    }
+    
+    /* 指标数值显示 */
+    .stMetric {
+        background-color: white;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+    }
+    .stMetric label {
+        color: #555555 !important;
+        font-weight: 500;
+    }
+    .stMetric div {
+        color: #111111 !important;
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+    
+    /* 图表标题文字颜色 - 更具体的选择器 */
+    .js-plotly-plot .plotly .main-title,
+    .js-plotly-plot .plotly .gtitle,
+    .js-plotly-plot .plotly .xtitle,
+    .js-plotly-plot .plotly .ytitle,
+    .js-plotly-plot .plotly .title {
+        color: #111111 !important;
+        fill: #111111 !important;
+    }
+    
+    /* 标签文字颜色 */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+    .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+        color: #111111 !important;
+    }
+    .stMarkdown p {
+        color: #111111 !important;
+    }
+    
+    /* 选项卡内容区域 */
+    .stTabs [data-baseweb="tab-panel"] {
+        background-color: white;
+        color: #111111;
+    }
+    
+    /* 侧边栏样式 - 简化修复 */
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    /* 侧边栏中的文字元素 */
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5,
+    section[data-testid="stSidebar"] h6,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] div,
+    section[data-testid="stSidebar"] label {
+        color: #000000 !important;
+    }
+    
+    /* 侧边栏扩展面板 */
+    section[data-testid="stSidebar"] .streamlit-expanderHeader {
+        background-color: #f0f0f0 !important;
+        color: #000000 !important;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+    
+    section[data-testid="stSidebar"] .streamlit-expanderContent {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    /* 侧边栏中的Streamlit组件 */
+    section[data-testid="stSidebar"] .stSelectbox,
+    section[data-testid="stSidebar"] .stSlider,
+    section[data-testid="stSidebar"] .stCheckbox,
+    section[data-testid="stSidebar"] .stRadio,
+    section[data-testid="stSidebar"] .stMultiselect,
+    section[data-testid="stSidebar"] .stTextInput,
+    section[data-testid="stSidebar"] .stNumberInput,
+    section[data-testid="stSidebar"] .stTextArea {
+        color: #000000 !important;
+    }
+    
+    /* 侧边栏下拉框 */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    section[data-testid="stSidebar"] div[data-baseweb="select"] input,
+    section[data-testid="stSidebar"] div[data-baseweb="select"] button {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    /* 输入框样式 */
+    .stTextInput input,
+    .stNumberInput input,
+    .stTextArea textarea {
+        background-color: white !important;
+        color: #111111 !important;
+        border-color: #ccc !important;
+    }
+    
+    /* 警告、信息、成功等消息框 */
+    .stAlert {
+        background-color: rgba(255, 255, 255, 0.95) !important;
+        color: #111111 !important;
+        border-color: #ddd !important;
+    }
+    
+    /* 进度条样式 */
+    .stProgress > div > div {
+        background-color: #1a73e8 !important;
+    }
+    
+    /* 通用文本颜色 - 针对Streamlit生成的内容 */
+    .stMarkdown, .stDataFrame, .stMetric, 
+    .stSelectbox, .stSlider, .stCheckbox,
+    .stRadio, .stMultiselect, .stTextInput,
+    .stNumberInput, .stTextArea, .stAlert,
+    .stProgress, .stTabs, .stExpander {
+        color: #111111 !important;
+    }
+    
+    /* 数据表格样式 - 简化修复 */
+    .stDataFrame {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    .stDataFrame table {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    .stDataFrame th,
+    .stDataFrame td {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-color: #cccccc !important;
+        border-width: 1px !important;
+        border-style: solid !important;
+    }
+    
+    .stDataFrame th {
+        background-color: #f0f0f0 !important;
+        font-weight: bold !important;
+    }
+    
+    .stDataFrame tr:hover {
+        background-color: #f8f8f8 !important;
+    }
+    
+    /* 确保表格容器可见 */
+    div[data-testid="stDataFrame"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* 强化下拉框样式 */
+    div[data-baseweb="select"],
+    div[data-baseweb="select"] *,
+    div[data-baseweb="select"] div,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="select"] button,
+    div[data-baseweb="select"] [role="listbox"],
+    div[data-baseweb="select"] [role="option"] {
+        background-color: white !important;
+        color: #111111 !important;
+    }
+    
+    /* 强化指标卡片文字可见性 */
+    .stMetric,
+    .stMetric *,
+    .stMetric label,
+    .stMetric div {
+        color: #111111 !important;
+    }
+    .stMetric {
+        background-color: white !important;
+        border-color: #e0e0e0 !important;
+    }
+    
+    /* 确保所有标题文字可见 */
+    h1, h2, h3, h4, h5, h6,
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+    .stMarkdown h4, .stMarkdown h5, .stMarkdown h6,
+    .st-emotion-cache-1kyxreq, /* Streamlit标题常见类名 */
+    .st-emotion-cache-1kyxreq * {
+        color: #111111 !important;
+    }
+    
+    /* 排除Plotly图表的坐标轴数字和标签，让Plotly自己处理 */
+    .js-plotly-plot .plotly .xtick text,
+    .js-plotly-plot .plotly .ytick text,
+    .js-plotly-plot .plotly .legendtext {
+        color: inherit !important;
+        fill: inherit !important;
     }
 </style>
 """, unsafe_allow_html=True)
