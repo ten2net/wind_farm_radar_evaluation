@@ -14,6 +14,9 @@ import itertools
 import zipfile
 import json
 import shutil
+import requests
+from pathlib import Path
+from typing import Optional, Dict, Any, List
 
 # 页面配置
 st.set_page_config(
@@ -22,6 +25,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# 设置plotly中文字体
+import plotly.io as pio
+pio.templates["plotly_white"].layout.font = dict(family="SimHei, Arial, sans-serif", size=12)
+# 设置默认模板为plotly_white，确保所有图表都使用中文字体
+pio.templates.default = "plotly_white"
+print("[页面初始化] Plotly中文字体已设置为SimHei，默认模板已设置")
 
 # 自定义CSS样式 - 优化布局
 st.markdown("""
@@ -491,7 +501,9 @@ def create_comprehensive_impact_analysis(comparison_data):
             xaxis_title="风机数量",
             yaxis_title="指标数值",
             height=500,
-            showlegend=True
+            showlegend=True,
+            template="plotly_white",
+            font=dict(family="SimHei, Arial, sans-serif", size=12)
         )
         
         st.plotly_chart(fig, width='stretch')
@@ -535,7 +547,9 @@ def create_comprehensive_impact_analysis(comparison_data):
                 )
             ),
             title=f"{num_turbines_to_compare}个风机的影响雷达图",
-            height=400
+            height=400,
+            template="plotly_white",
+            font=dict(family="SimHei, Arial, sans-serif", size=12)
         )
         
         st.plotly_chart(fig, width='stretch')
@@ -560,36 +574,64 @@ def create_individual_metric_analysis(comparison_data):
         if metric_choice == '遮挡损耗分析':
             fig = px.bar(comparison_data, x='风机数量', y='遮挡损耗_db',
                         title='遮挡损耗随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '散射影响分析':
             fig = px.bar(comparison_data, x='风机数量', y='散射损耗_db',
                         title='散射损耗随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '绕射效应分析':
             fig = px.bar(comparison_data, x='风机数量', y='绕射损耗_db',
                         title='绕射损耗随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '多普勒影响':
             fig = px.line(comparison_data, x='风机数量', y='多普勒扩展_Hz',
                          title='多普勒扩展随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '测角误差分析':
             fig = px.scatter(comparison_data, x='风机数量', y='测角误差_度',
                            title='测角误差随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '测距误差分析':
             fig = px.area(comparison_data, x='风机数量', y='测距误差_m',
                          title='测距误差随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '测速误差分析':
             fig = px.line(comparison_data, x='风机数量', y='测速误差_m/s',
                          title='测速误差随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '多径效应分析':  # 新增多径效应分析
@@ -617,7 +659,12 @@ def create_individual_metric_analysis(comparison_data):
                                    mode='lines+markers', name='ISI影响'), 
                          row=2, col=2)
             
-            fig.update_layout(height=600, showlegend=False)
+            fig.update_layout(
+                height=600,
+                showlegend=False,
+                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
             st.plotly_chart(fig, width='stretch')
     
     with col2:
@@ -737,6 +784,10 @@ def create_risk_assessment_view(comparison_data, params):
                         '低风险': '#ffd700',
                         '可接受风险': '#32cd32'
                     })
+    fig.update_layout(
+        template="plotly_white",
+        font=dict(family="SimHei, Arial, sans-serif", size=12)
+    )
     st.plotly_chart(fig, width='stretch')
     
     # 风险建议
@@ -763,7 +814,7 @@ class ReportGenerator:
     
     def __init__(self, analyzer):
         self.analyzer = analyzer
-        self.output_dir = "outputs/reports"
+        self.output_dir = "outputs"
         os.makedirs(self.output_dir, exist_ok=True)
     
     def generate_parameter_combinations(self):
@@ -973,12 +1024,16 @@ class ReportGenerator:
         zip_filename = f"radar_impact_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(self.output_dir, zip_filename)
         
+        # 确定images文件夹路径
+        images_dir = os.path.join(self.output_dir, 'images')
+        
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(self.output_dir):
                 for file in files:
-                    if file.endswith('.md'):
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, self.output_dir)
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, self.output_dir)
+                    # 包含所有.md文件和images文件夹中的文件
+                    if file.endswith('.md') or file_path.startswith(images_dir):
                         zipf.write(file_path, arcname)
         
         return zip_path, zip_filename
@@ -1127,6 +1182,912 @@ def create_report_generation_interface(analyzer):
             key="download_all_reports"
         )
 
+# Kimi API配置
+KIMI_API_CONFIG = {
+    "base_url": "https://api.moonshot.cn/v1",
+    "chat_completion_endpoint": "/chat/completions",
+    "model": "moonshot-v1-8k-vision-preview",
+    "temperature": 0.7,
+    "max_tokens": 2000,
+    "timeout": 30,
+    "retry_attempts": 3,
+    "retry_delay": 1,
+}
+
+class MetricAnalysisEngine:
+    """指标分析引擎 - 枚举所有细分指标，生成图表并调用Kimi API分析"""
+    
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        初始化指标分析引擎
+        
+        参数:
+            api_key: Kimi API密钥，可选
+        """
+        self.api_key = api_key
+        self.api_config = KIMI_API_CONFIG
+        self.color_scheme = {
+            'primary': '#1f77b4',
+            'secondary': '#ff7f0e',
+            'accent': '#2ca02c'
+        }
+        
+        # 设置Chrome路径以便Kaleido使用（必须在导入plotly之前）
+        import os
+        chrome_path = "/usr/bin/google-chrome-stable"
+        if os.path.exists(chrome_path):
+            os.environ['CHROME_BIN'] = chrome_path
+            os.environ['CHROMIUM_BIN'] = chrome_path
+            os.environ['KALEIDO_BIN'] = chrome_path
+            print(f"[MetricAnalysisEngine] Chrome路径已设置: {chrome_path}")
+        else:
+            print(f"[MetricAnalysisEngine] 警告: Chrome未找到于 {chrome_path}")
+        
+        # 创建输出目录
+        self.outputs_dir = Path("outputs")
+        self.images_dir = self.outputs_dir / "images"
+        print(f"[MetricAnalysisEngine] 输出目录: {self.outputs_dir.absolute()}")
+        print(f"[MetricAnalysisEngine] 图片目录: {self.images_dir.absolute()}")
+        self.images_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[MetricAnalysisEngine] 目录创建成功: {self.images_dir.exists()}")
+        
+        # 检查Kaleido是否可用
+        self.kaleido_available = False
+        try:
+            import plotly.io as pio
+            if hasattr(pio, 'kaleido'):
+                # 初始化Kaleido作用域（新API）
+                scope = pio.kaleido.scope
+                print(f"[MetricAnalysisEngine] Kaleido引擎可用")
+                self.kaleido_available = True
+                # 设置Chrome路径（如果之前的环境变量未生效）
+                import os
+                chrome_path = "/usr/bin/google-chrome-stable"
+                if os.path.exists(chrome_path):
+                    # 尝试通过环境变量设置
+                    os.environ['CHROME_BIN'] = chrome_path
+                    os.environ['CHROMIUM_BIN'] = chrome_path
+                    print(f"[MetricAnalysisEngine] Chrome路径已重新设置: {chrome_path}")
+            else:
+                print("[MetricAnalysisEngine] Kaleido引擎不可用（未找到）")
+        except Exception as e:
+            print(f"[MetricAnalysisEngine] Kaleido检查失败: {e}")
+            self.kaleido_available = False
+        
+        # 检查orca是否可用
+        self.orca_available = False
+        try:
+            import subprocess
+            result = subprocess.run(['which', 'orca'], capture_output=True, text=True)
+            if result.returncode == 0:
+                self.orca_available = True
+                print(f"[MetricAnalysisEngine] orca引擎可用: {result.stdout.strip()}")
+            else:
+                print("[MetricAnalysisEngine] orca引擎不可用")
+        except Exception as e:
+            print(f"[MetricAnalysisEngine] orca检查失败: {e}")
+        
+        # 设置plotly中文字体
+        try:
+            import plotly.io as pio
+            # 设置默认字体为支持中文的字体
+            pio.templates["plotly_white"].layout.font = dict(family="SimHei, Arial, sans-serif", size=12)
+            print("[MetricAnalysisEngine] Plotly中文字体已设置为SimHei")
+        except Exception as e:
+            print(f"[MetricAnalysisEngine] 设置Plotly字体失败: {e}")
+        
+        # 指标配置
+        self.metrics_config = [
+            {
+                'id': 'shadowing',
+                'name': '遮挡损耗分析',
+                'column': '遮挡损耗_db',
+                'unit': 'dB',
+                'description': '分析风机对雷达信号的遮挡效应，评估信号衰减程度',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'scattering',
+                'name': '散射影响分析',
+                'column': '散射损耗_db',
+                'unit': 'dB',
+                'description': '分析风机散射对雷达信号的影响，评估散射损耗',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'diffraction',
+                'name': '绕射效应分析',
+                'column': '绕射损耗_db',
+                'unit': 'dB',
+                'description': '分析刃形绕射效应，评估信号绕射损耗',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'doppler',
+                'name': '多普勒影响',
+                'column': '多普勒扩展_Hz',
+                'unit': 'Hz',
+                'description': '分析风机叶片旋转导致的微多普勒效应',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'angle_error',
+                'name': '测角误差分析',
+                'column': '测角误差_度',
+                'unit': '°',
+                'description': '分析多径效应导致的测角误差',
+                'chart_type': 'scatter'
+            },
+            {
+                'id': 'range_error',
+                'name': '测距误差分析',
+                'column': '测距误差_m',
+                'unit': 'm',
+                'description': '分析多径时延导致的测距误差',
+                'chart_type': 'area'
+            },
+            {
+                'id': 'velocity_error',
+                'name': '测速误差分析',
+                'column': '测速误差_m/s',
+                'unit': 'm/s',
+                'description': '分析多普勒扩展导致的测速误差',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'multipath',
+                'name': '多径效应分析',
+                'column': '多径衰落_db',
+                'unit': 'dB',
+                'description': '综合评估风机导致的多径衰落效应',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'delay_spread',
+                'name': '时延扩展分析',
+                'column': '时延扩展_μs',
+                'unit': 'μs',
+                'description': '分析多径时延扩展对雷达性能的影响',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'coherence_bandwidth',
+                'name': '相干带宽分析',
+                'column': '相干带宽_MHz',
+                'unit': 'MHz',
+                'description': '分析相干带宽变化，评估频率选择性衰落',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'isi_impact',
+                'name': 'ISI影响因子分析',
+                'column': 'ISI影响因子',
+                'unit': '',
+                'description': '分析码间干扰影响因子',
+                'chart_type': 'bar'
+            },
+            {
+                'id': 'total_impact',
+                'name': '总影响评分分析',
+                'column': '总影响评分',
+                'unit': '',
+                'description': '综合分析风机对雷达性能的总体影响',
+                'chart_type': 'line'
+            }
+        ]
+    
+    def set_api_key(self, api_key: str):
+        """设置Kimi API密钥"""
+        self.api_key = api_key
+    
+    def analyze_all_metrics(self, comparison_data: pd.DataFrame, scenario_params: dict) -> dict:
+        """
+        枚举所有细分指标并进行主题分析
+        
+        参数:
+            comparison_data: 包含所有指标数据的DataFrame
+            scenario_params: 场景参数
+            
+        返回:
+            分析结果字典，包含图表路径、数据表格和AI分析结果
+        """
+        if comparison_data.empty:
+            raise ValueError("comparison_data为空，无法进行分析")
+        
+        print(f"[MetricAnalysisEngine] comparison_data列: {list(comparison_data.columns)}")
+        print(f"[MetricAnalysisEngine] comparison_data形状: {comparison_data.shape}")
+        
+        results = {
+            'scenario_params': scenario_params,
+            'metrics_analysis': [],
+            'charts_dir': str(self.images_dir),
+            'data_tables': {}
+        }
+        
+        # 遍历所有指标
+        total_metrics = len(self.metrics_config)
+        for i, metric_config in enumerate(self.metrics_config):
+            metric_column = metric_config['column']
+            
+            # 检查列是否存在
+            if metric_column not in comparison_data.columns:
+                print(f"警告: 列 {metric_column} 不存在，跳过指标 {metric_config['name']}")
+                continue
+            
+            print(f"开始分析指标 {i+1}/{total_metrics}: {metric_config['name']}")
+            
+            # 提取指标数据
+            metric_data = comparison_data[['风机数量', metric_column]].copy()
+            
+            # 保存数据表格为CSV
+            table_filename = f"{metric_config['id']}_data.csv"
+            table_path = self.outputs_dir / table_filename
+            metric_data.to_csv(table_path, index=False, encoding='utf-8')
+            results['data_tables'][metric_config['id']] = str(table_path)
+            
+            # 生成图表并保存为PNG
+            chart_filename = f"{metric_config['id']}_chart.png"
+            chart_path = self.images_dir / chart_filename
+            
+            try:
+                # 检查数据有效性
+                if metric_data.empty or metric_data[metric_column].isna().all():
+                    print(f"[MetricAnalysisEngine] 警告: 指标 {metric_config['name']} 数据为空或全为NaN，跳过图表生成")
+                    chart_saved = False
+                    chart_path_str = ""  # 空路径
+                else:
+                    # 创建图表
+                    fig = self._create_metric_chart(metric_data, metric_config, scenario_params)
+                    
+                    # 保存为PNG
+                    print(f"[MetricAnalysisEngine] 正在保存图表到: {chart_path.absolute()}")
+                    print(f"[MetricAnalysisEngine] 父目录是否存在: {chart_path.parent.exists()}")
+                    print(f"[MetricAnalysisEngine] 父目录: {chart_path.parent}")
+                    # 多引擎尝试保存
+                    engines_to_try = []
+                    if self.kaleido_available:
+                        engines_to_try.append(('kaleido', 'Kaleido引擎'))
+                    if self.orca_available:
+                        engines_to_try.append(('orca', 'orca引擎'))
+                    engines_to_try.append((None, '默认引擎'))
+                    
+                    chart_saved = False
+                    saved_with_engine = None
+                    
+                    for engine, engine_name in engines_to_try:
+                        if chart_saved:
+                            break
+                        try:
+                            if engine:
+                                fig.write_image(str(chart_path), width=800, height=500, scale=2, engine=engine)
+                            else:
+                                fig.write_image(str(chart_path), width=800, height=500, scale=2)
+                            print(f"[MetricAnalysisEngine] 使用{engine_name}保存成功: {chart_path}")
+                            # 验证文件是否已创建
+                            if chart_path.exists():
+                                file_size = chart_path.stat().st_size
+                                print(f"[MetricAnalysisEngine] 文件已创建，大小: {file_size} 字节")
+                                chart_saved = True
+                                saved_with_engine = engine_name
+                            else:
+                                print(f"[MetricAnalysisEngine] 警告: 文件未创建！")
+                                # 继续尝试下一个引擎
+                        except Exception as write_error:
+                            print(f"[MetricAnalysisEngine] {engine_name}保存失败: {write_error}")
+                            # 继续尝试下一个引擎
+                    
+                    # 如果所有引擎都失败，尝试保存为HTML作为最后手段
+                    if not chart_saved:
+                        try:
+                            html_path = chart_path.with_suffix('.html')
+                            fig.write_html(str(html_path))
+                            print(f"[MetricAnalysisEngine] 图表保存为HTML: {html_path}")
+                            # 标记为已保存，但路径使用HTML
+                            chart_saved = True
+                            chart_path = html_path
+                            saved_with_engine = 'HTML'
+                        except Exception as html_error:
+                            print(f"[MetricAnalysisEngine] HTML保存也失败: {html_error}")
+                            chart_saved = False
+                    
+                    chart_path_str = str(chart_path) if chart_saved else ""
+                    if chart_saved:
+                        print(f"[MetricAnalysisEngine] 最终保存结果: 使用{saved_with_engine}，路径: {chart_path_str}")
+                
+                # 调用Kimi API分析图表
+                ai_analysis = ""
+                if self.api_key and chart_path_str:  # 只有API密钥有效且图表路径非空时才分析
+                    try:
+                        ai_analysis = self._analyze_chart_with_kimi(
+                            chart_path_str,
+                            f"{metric_config['name']}: {metric_config['description']}。图表显示了{metric_column}随风机数量的变化趋势。"
+                        )
+                        print(f"Kimi AI分析完成: {metric_config['name']}")
+                    except Exception as e:
+                        print(f"Kimi AI分析失败: {e}")
+                        ai_analysis = f"AI分析失败: {str(e)}"
+                else:
+                    if not self.api_key:
+                        ai_analysis = "未配置Kimi API密钥，跳过AI分析"
+                    elif not chart_path_str:
+                        ai_analysis = "图表数据无效，跳过AI分析"
+                
+                # 收集结果
+                metric_result = {
+                    'id': metric_config['id'],
+                    'name': metric_config['name'],
+                    'description': metric_config['description'],
+                    'column': metric_column,
+                    'unit': metric_config['unit'],
+                    'chart_type': metric_config['chart_type'],
+                    'chart_path': chart_path_str,
+                    'data_table_path': str(table_path),
+                    'ai_analysis': ai_analysis,
+                    'summary_stats': {
+                        'min': float(metric_data[metric_column].min()),
+                        'max': float(metric_data[metric_column].max()),
+                        'mean': float(metric_data[metric_column].mean()),
+                        'std': float(metric_data[metric_column].std())
+                    }
+                }
+                
+                results['metrics_analysis'].append(metric_result)
+                
+                # 休眠5秒（避免API调用频率限制）
+                if i < total_metrics - 1:  # 不是最后一个指标
+                    print(f"休眠5秒后开始下一个指标分析...")
+                    time.sleep(5)
+                    
+            except Exception as e:
+                print(f"指标 {metric_config['name']} 分析失败: {e}")
+                continue
+        
+        print(f"所有指标分析完成！共分析 {len(results['metrics_analysis'])} 个指标")
+        return results
+    
+    def _create_metric_chart(self, metric_data: pd.DataFrame, metric_config: dict, scenario_params: dict) -> go.Figure:
+        """
+        创建指标分析图表
+        
+        参数:
+            metric_data: 指标数据
+            metric_config: 指标配置
+            scenario_params: 场景参数
+            
+        返回:
+            Plotly图形对象
+        """
+        x_data = metric_data['风机数量']
+        y_data = metric_data[metric_config['column']]
+        
+        fig = go.Figure()
+        
+        if metric_config['chart_type'] == 'line':
+            fig.add_trace(go.Scatter(
+                x=x_data,
+                y=y_data,
+                mode='lines+markers',
+                name=metric_config['name'],
+                line=dict(color=self.color_scheme['primary'], width=3),
+                marker=dict(size=8)
+            ))
+        elif metric_config['chart_type'] == 'scatter':
+            fig.add_trace(go.Scatter(
+                x=x_data,
+                y=y_data,
+                mode='markers',
+                name=metric_config['name'],
+                marker=dict(
+                    size=10,
+                    color=y_data,
+                    colorscale='Viridis',
+                    showscale=True
+                )
+            ))
+        elif metric_config['chart_type'] == 'area':
+            fig.add_trace(go.Scatter(
+                x=x_data,
+                y=y_data,
+                mode='lines',
+                name=metric_config['name'],
+                fill='tozeroy',
+                line=dict(color=self.color_scheme['secondary'], width=2)
+            ))
+        elif metric_config['chart_type'] == 'bar':
+            fig.add_trace(go.Bar(
+                x=x_data,
+                y=y_data,
+                name=metric_config['name'],
+                marker_color=self.color_scheme['accent']
+            ))
+        
+        # 更新布局
+        fig.update_layout(
+            title=f"{metric_config['name']} - {scenario_params.get('radar_band', '')}",
+            xaxis_title="风机数量",
+            yaxis_title=f"{metric_config['name']} ({metric_config['unit']})",
+            height=500,
+            template="plotly_white",
+            font=dict(family="SimHei, Arial, sans-serif", size=12),
+            hovermode='x unified'
+        )
+        
+        # 添加网格线
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+        return fig
+    
+    def _analyze_chart_with_kimi(self, chart_path: str, description: str) -> str:
+        """
+        使用Kimi API分析图表
+        
+        参数:
+            chart_path: 图表文件路径
+            description: 图表描述
+            
+        返回:
+            AI分析结果
+        """
+        if not self.api_key:
+            return "未配置Kimi API密钥"
+        
+        try:
+            # 读取图表文件
+            with open(chart_path, 'rb') as f:
+                image_data = f.read()
+            
+            # 转换为base64
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            
+            # 准备提示
+            prompt = f"""
+请分析以下雷达性能评估图表：
+
+图表描述: {description}
+
+请从专业雷达工程师的角度分析：
+1. 图表显示了什么关键信息？
+2. 从图表中能看出哪些趋势和规律？
+3. 这些趋势说明了风电场对雷达性能的什么影响？
+4. 从工程角度，这些发现有什么实际意义？
+5. 基于这个图表，可以提出什么改进建议？
+
+请用中文回答，回答要专业、详细，并引用图表中的具体数据。
+
+输出格式示例：
+
+    上图中的数据分布和趋势分析如下：
+
+1. **信号功率随距离变化**：
+   - 左上角的图表显示了信号功率随目标距离的变化。统计摘要表明，总样本数为7，平均信号衰减为2.13 dB，平均SNR下降为3.23 dB，最大SNR下降为6.47 dB，SNR下降比例为57.1%，严重衰减比例为65.7%。这表明随着距离的增加，信号功率显著下降，导致SNR的显著降低。
+   - 柱状图显示了信号衰减的分布，平均值为2.13 dB，表明大多数样本的信号衰减接近这个值。
+
+2. **信噪比随距离变化**：
+   右上角的图表显示了信噪比随目标距离的变化。实线和虚线分别代表不同条件下的信噪比变化。可以看到，随着距离的增加，信噪比逐渐下降，尤其是在1000米之后，下降趋势更加明显。
+
+3. **信号衰减分布**：
+   中间左侧的柱状图显示了信号衰减的分布情况，平均值为2.13 dB，表明大多数样本的信号衰减接近这个值。
+
+    综合以上分析，我们从图中可以得出以下结论：
+1. 随着目标距离的增加，信号功率和信噪比显著下降，导致雷达性能下降。
+2. 信号衰减和信噪比下降的分布情况表明，大多数样本的信号衰减和信噪比下降接近平均值。
+3. 不同目标距离和风机距离对SNR下降的影响显著，尤其是在远距离和特定位置时，SNR下降更为明显。
+4. 雷达在不同位置的性能表现有所不同，后方和左侧的SNR下降幅度较大，需要特别关注这些位置的雷达性能优化。
+
+
+"""
+            
+            # 调用Kimi API（支持图片）
+            return self._call_kimi_api_with_image(prompt, image_base64, chart_path)
+            
+        except Exception as e:
+            return f"图表AI分析失败: {str(e)}"
+    
+    def _call_kimi_api_with_image(self, prompt: str, image_base64: str, image_description: str) -> str:
+        """
+        调用Kimi API进行图片分析
+        
+        参数:
+            prompt: 分析提示
+            image_base64: 图片base64编码
+            image_description: 图片描述
+            
+        返回:
+            API响应文本
+        """
+        if not self.api_key:
+            raise ValueError("未设置Kimi API密钥")
+        
+        url = f"{self.api_config['base_url']}{self.api_config['chat_completion_endpoint']}"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        # 构造包含图片的消息
+        messages = [
+            {
+                "role": "system",
+                "content": "你是一名专业的雷达系统和数据分析专家，擅长从图表中提取关键信息并提供专业分析。请用中文回答。"
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image_base64}"
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        payload = {
+            "model": self.api_config['model'],
+            "messages": messages,
+            "temperature": self.api_config['temperature'],
+            "max_tokens": self.api_config['max_tokens']
+        }
+        
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=self.api_config['timeout'] * 2  # 图片分析需要更长时间
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                return f"图片分析API请求失败: {response.status_code} - {response.text}"
+                
+        except requests.exceptions.RequestException as e:
+            return f"图片分析API调用异常: {str(e)}"
+    
+    def generate_markdown_report(self, analysis_results: dict, report_title: str = "风电场雷达影响细分指标分析报告") -> str:
+        """
+        生成指标分析Markdown报告
+        
+        参数:
+            analysis_results: analyze_all_metrics返回的结果
+            report_title: 报告标题
+            
+        返回:
+            Markdown报告内容
+        """
+        scenario_params = analysis_results['scenario_params']
+        metrics_analysis = analysis_results['metrics_analysis']
+        
+        markdown_content = f"""# {report_title}
+
+## 报告信息
+- **生成时间**: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}
+- **分析指标数量**: {len(metrics_analysis)}
+- **图表目录**: {analysis_results['charts_dir']}
+
+## 场景配置参数
+| 参数 | 值 |
+|------|-----|
+"""
+        
+        # 添加场景参数
+        for key, value in scenario_params.items():
+            markdown_content += f"| {key} | {value} |\n"
+        
+        markdown_content += "\n## 细分指标分析\n\n"
+        
+        # 为每个指标添加分析部分
+        for i, metric in enumerate(metrics_analysis):
+            markdown_content += f"""### {i+1}. {metric['name']}
+
+**指标描述**: {metric['description']}
+
+**单位**: {metric['unit']}
+
+**统计摘要**:
+- 最小值: {metric['summary_stats']['min']:.4f} {metric['unit']}
+- 最大值: {metric['summary_stats']['max']:.4f} {metric['unit']}
+- 平均值: {metric['summary_stats']['mean']:.4f} {metric['unit']}
+- 标准差: {metric['summary_stats']['std']:.4f} {metric['unit']}
+
+**分析图表**:
+![{metric['name']}]({metric['chart_path'].replace('outputs/', './')})
+
+**数据表格**:
+- 数据文件: [{metric['id']}_data.csv]({metric['data_table_path'].replace('outputs/', './')})
+- 数据预览:
+  | 风机数量 | {metric['column']} |
+  |----------|--------------------|
+"""
+            
+            # 添加数据预览（前5行）
+            try:
+                df = pd.read_csv(metric['data_table_path'])
+                for _, row in df.head(5).iterrows():
+                    markdown_content += f"  | {row['风机数量']} | {row[metric['column']]:.4f} |\n"
+            except Exception as e:
+                markdown_content += f"  | 数据加载失败 | {str(e)} |\n"
+            
+            markdown_content += f"""
+**Kimi AI专业分析**:
+{metric['ai_analysis']}
+
+---
+"""
+        
+        # 添加总结部分
+        markdown_content += f"""
+## 综合分析总结
+
+共完成了 **{len(metrics_analysis)}** 个细分指标的深入分析，涵盖了遮挡效应、散射影响、多径效应、测角测距误差等多个维度。
+
+### 主要发现:
+1. **关键影响因素**: {self._identify_key_factors(metrics_analysis)}
+2. **风险等级评估**: {self._assess_risk_level(metrics_analysis)}
+3. **改进建议**: {self._generate_recommendations_summary(metrics_analysis)}
+
+### 报告说明:
+- 本报告由风电雷达影响评估系统自动生成
+- 图表保存在: {analysis_results['charts_dir']}
+- 原始数据文件可在相应路径找到
+- AI分析基于Kimi API，提供专业解读
+"""
+        
+        return markdown_content
+    
+    def _identify_key_factors(self, metrics_analysis: list) -> str:
+        """识别关键影响因素"""
+        if not metrics_analysis:
+            return "无可用数据"
+        
+        # 找出变化幅度最大的指标
+        max_variation = 0
+        key_factor = ""
+        
+        for metric in metrics_analysis:
+            variation = metric['summary_stats']['max'] - metric['summary_stats']['min']
+            if variation > max_variation:
+                max_variation = variation
+                key_factor = metric['name']
+        
+        return f"{key_factor}（变化范围: {max_variation:.2f}）"
+    
+    def _assess_risk_level(self, metrics_analysis: list) -> str:
+        """评估风险等级"""
+        if not metrics_analysis:
+            return "无法评估"
+        
+        # 查找总影响评分指标
+        total_impact_metrics = [m for m in metrics_analysis if m['id'] == 'total_impact']
+        if not total_impact_metrics:
+            return "未找到总影响评分数据"
+        
+        total_impact = total_impact_metrics[0]['summary_stats']['max']
+        
+        if total_impact > 15:
+            return "极高风险（需立即采取措施）"
+        elif total_impact > 10:
+            return "高风险（需要重点关注）"
+        elif total_impact > 5:
+            return "中等风险（建议优化）"
+        elif total_impact > 2:
+            return "低风险（可接受范围）"
+        else:
+            return "可接受风险（影响轻微）"
+    
+    def _generate_recommendations_summary(self, metrics_analysis: list) -> str:
+        """生成改进建议摘要"""
+        recommendations = []
+        
+        # 分析各指标，给出针对性建议
+        for metric in metrics_analysis:
+            if metric['summary_stats']['max'] > metric['summary_stats']['min'] * 1.5:
+                if '遮挡' in metric['name']:
+                    recommendations.append("优化风机布局，减少遮挡区域")
+                elif '散射' in metric['name']:
+                    recommendations.append("采用低RCS风机设计或表面处理")
+                elif '多径' in metric['name']:
+                    recommendations.append("实施多径抑制算法和均衡技术")
+                elif '误差' in metric['name']:
+                    recommendations.append("加强信号处理和误差校正")
+        
+        if not recommendations:
+            recommendations.append("当前配置相对合理，建议定期监测")
+        
+        return "；".join(recommendations[:3])  # 返回前3条建议
+
+
+def create_advanced_analysis_interface(analyzer, base_params):
+    """
+    创建高级分析界面，包含对比分析和指标分析
+    
+    参数:
+        analyzer: AdvancedRadarImpactAnalyzer实例
+        base_params: 基础参数配置
+    """
+    # 创建子标签页
+    subtab1, subtab2 = st.tabs(["🔬 单风机vs多风机对比分析", "📊 细分指标主题分析"])
+    
+    with subtab1:
+        create_turbine_comparison_interface(analyzer, base_params)
+    
+    with subtab2:
+        st.markdown('<div class="section-header">📊 细分指标主题分析系统</div>', unsafe_allow_html=True)
+        
+        # 检查是否有对比分析数据
+        if 'comparison_data' not in st.session_state:
+            st.warning("⚠️ 请先进行单风机vs多风机对比分析以生成指标数据。")
+            return
+        
+        comparison_data = st.session_state.comparison_data
+        
+        # 初始化指标分析引擎
+        api_key = st.session_state.get('kimi_api_key', 'sk-y2fL6muUqPQbGphXV9ccUTd8S44XBYQ4IuSj3oIj14l8YZYl')
+        metric_analyzer = MetricAnalysisEngine(api_key)
+        
+        # 如果已有分析结果，启用报告按钮
+        if st.session_state.get('metric_analysis_complete', False):
+            st.session_state.show_report_enabled = True
+        
+        st.markdown("### 🎯 指标分析控制面板")
+        
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            run_analysis = st.button(
+                "🚀 开始细分指标分析",
+                type="primary",
+                width='stretch',
+                help="开始枚举所有细分指标，生成图表并调用Kimi API分析"
+            )
+        
+        with col2:
+            show_report = st.button(
+                "📄 生成分析报告",
+                type="secondary",
+                width='stretch',
+                disabled=not st.session_state.get('show_report_enabled', False),
+                help="先运行指标分析以生成报告"
+            )
+        
+        with col3:
+            clear_analysis = st.button(
+                "🗑️ 清空分析结果",
+                type="secondary",
+                width='stretch',
+                help="清空当前的指标分析结果"
+            )
+        
+        # 显示分析报告
+        if show_report and st.session_state.get('metric_report_path'):
+            report_path = st.session_state.metric_report_path
+            st.markdown(f"### 📄 分析报告预览")
+            st.markdown(f"**报告文件**: `{report_path}`")
+            
+            try:
+                with open(report_path, 'r', encoding='utf-8') as f:
+                    report_content = f.read()
+                
+                # 显示报告内容（可折叠）
+                with st.expander("点击展开完整报告内容", expanded=False):
+                    st.markdown(report_content)
+                
+                # 提供下载
+                with open(report_path, 'rb') as f:
+                    report_data = f.read()
+                
+                st.download_button(
+                    label="📥 下载报告 (Markdown)",
+                    data=report_data,
+                    file_name=Path(report_path).name,
+                    mime="text/markdown",
+                    type="primary"
+                )
+                
+            except Exception as e:
+                st.error(f"读取报告失败: {str(e)}")
+        
+        if run_analysis:
+            # 检查API密钥
+            if not api_key:
+                st.warning("⚠️ 未设置Kimi API密钥。AI分析功能将不可用。")
+                if not st.checkbox("继续进行分析（无AI功能）"):
+                    return
+            
+            with st.spinner("正在进行细分指标分析，这可能需要几分钟..."):
+                try:
+                    # 运行指标分析
+                    analysis_results = metric_analyzer.analyze_all_metrics(
+                        comparison_data=comparison_data,
+                        scenario_params=base_params
+                    )
+                    
+                    # 保存结果到session_state
+                    st.session_state.metric_analysis_results = analysis_results
+                    st.session_state.metric_analysis_complete = True
+                    
+                    # 生成报告
+                    report_content = metric_analyzer.generate_markdown_report(
+                        analysis_results,
+                        "风电场雷达影响细分指标分析报告"
+                    )
+                    
+                    # 保存报告文件
+                    report_filename = f"细分指标分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+                    report_path = Path("outputs") / report_filename
+                    report_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    with open(report_path, 'w', encoding='utf-8') as f:
+                        f.write(report_content)
+                    
+                    st.session_state.metric_report_path = str(report_path)
+                    st.success("✅ 细分指标分析完成！")
+                    
+                    # 显示摘要
+                    st.info(f"分析完成: {len(analysis_results['metrics_analysis'])} 个指标")
+                    st.info(f"图表保存到: {analysis_results['charts_dir']}")
+                    st.info(f"报告文件: {report_path}")
+                    
+                    # 启用报告生成按钮
+                    st.session_state.show_report_enabled = True
+                    
+                except Exception as e:
+                    st.error(f"指标分析失败: {str(e)}")
+                    import traceback
+                    st.error(traceback.format_exc())
+        
+        # 显示分析结果（如果已存在）
+        if st.session_state.get('metric_analysis_complete', False):
+            st.markdown("### 📊 分析结果摘要")
+            
+            analysis_results = st.session_state.metric_analysis_results
+            metrics_analysis = analysis_results['metrics_analysis']
+            
+            # 创建结果表格
+            summary_data = []
+            for metric in metrics_analysis:
+                summary_data.append({
+                    '指标名称': metric['name'],
+                    '单位': metric['unit'],
+                    '最小值': f"{metric['summary_stats']['min']:.4f}",
+                    '最大值': f"{metric['summary_stats']['max']:.4f}",
+                    '平均值': f"{metric['summary_stats']['mean']:.4f}",
+                    '标准差': f"{metric['summary_stats']['std']:.4f}"
+                })
+            
+            summary_df = pd.DataFrame(summary_data)
+            st.dataframe(summary_df, width='stretch')
+            
+            # 提供报告下载
+            if st.session_state.get('metric_report_path'):
+                report_path = st.session_state.metric_report_path
+                with open(report_path, 'rb') as f:
+                    report_data = f.read()
+                
+                st.download_button(
+                    label="📥 下载完整分析报告 (Markdown)",
+                    data=report_data,
+                    file_name=Path(report_path).name,
+                    mime="text/markdown",
+                    type="primary"
+                )
+        
+        if clear_analysis:
+            if 'metric_analysis_results' in st.session_state:
+                del st.session_state.metric_analysis_results
+            st.session_state.metric_analysis_complete = False
+            st.success("✅ 分析结果已清空")
+            st.rerun()
+
 
 def main():
     """主函数"""
@@ -1157,6 +2118,17 @@ def main():
         incidence_angle = st.slider("照射角度 (°)", 0, 180, 45)
         max_turbines = st.slider("最大风机数量", 1, 50, 30)
     
+    with st.sidebar.expander("Kimi API设置"):
+        api_key = st.text_input(
+            "Kimi API密钥",
+            value=st.session_state.get('kimi_api_key', ''),
+            type="password",
+            help="输入Kimi API密钥以启用AI分析功能"
+        )
+        if api_key:
+            st.session_state.kimi_api_key = api_key
+            st.success("✅ Kimi API密钥已保存")
+    
     base_params = {
         'radar_band': radar_band,
         'target_distance': target_distance,
@@ -1172,7 +2144,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["🔬 单风机vs多风机分析", "📊 综合影响评估", "📄 综合分析报告生成器"])
     
     with tab1:
-        create_turbine_comparison_interface(analyzer, base_params)
+        create_advanced_analysis_interface(analyzer, base_params)
     
     with tab2:
         st.markdown('<div class="section-header">📊 综合影响评估报告</div>', unsafe_allow_html=True)
