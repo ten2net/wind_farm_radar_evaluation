@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from io import BytesIO
 import base64
 from datetime import datetime
@@ -928,9 +929,9 @@ class ReportGenerator:
             f.write(f"| 目标参数 | 目标高度 | {params['target_height']} m |\n")
             f.write(f"| 目标参数 | 目标速度 | {params['target_speed']} m/s |\n")
             f.write(f"| 风机参数 | 风机高度 | {params['turbine_height']} m |\n")
-            f.write(f"| 风机参数 | 目标-风机距离 | {params['turbine_distance']} km |\n")
-            f.write(f"| 风机参数 | 照射角度 | {params['incidence_angle']}° |\n")
-            f.write(f"| 风机参数 | 最大风机数量 | {params['max_turbines']} |\n")
+            f.write(f"| 风机参数 | 目标与风机间距 | {params['turbine_distance']} km |\n")
+            f.write(f"| 风机参数 | 入射角 | {params['incidence_angle']}° |\n")
+            f.write(f"| 风机参数 | 最大风机数 | {params['max_turbines']} |\n")
             f.write("\n")
             
             # 影响指标概览
@@ -1551,7 +1552,7 @@ class MetricAnalysisEngine:
         print(f"所有指标分析完成！共分析 {len(results['metrics_analysis'])} 个指标")
         return results
     
-    def _create_metric_chart(self, metric_data: pd.DataFrame, metric_config: dict, scenario_params: dict) -> plt.Figure:
+    def _create_metric_chart(self, metric_data: pd.DataFrame, metric_config: dict, scenario_params: dict) -> Figure:
         """
         创建指标分析图表 - 使用matplotlib解决中文字体问题
         
