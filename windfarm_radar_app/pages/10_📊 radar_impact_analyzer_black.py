@@ -2137,20 +2137,12 @@ def main():
     }
     
     # 主界面标签页
-    tab1, tab2, tab3 = st.tabs(["🔬 单风机vs多风机分析", "📊 综合影响评估", "📄 综合分析报告生成器"])
+    tab1, tab2 = st.tabs(["🔬 单风机vs多风机分析", "📄 综合分析报告生成器"])
     
     with tab1:
         create_advanced_analysis_interface(analyzer, base_params)
-    
+
     with tab2:
-        st.markdown('<div class="section-header">📊 综合影响评估报告</div>', unsafe_allow_html=True)
-        st.info("综合影响评估功能开发中...")
-        
-        # 这里可以添加更多的综合评估功能
-        if 'comparison_data' in st.session_state:
-            st.dataframe(st.session_state.comparison_data, width='stretch')
-    
-    with tab3:
         create_report_generation_interface(analyzer)
 
 if __name__ == "__main__":
