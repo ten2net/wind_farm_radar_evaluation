@@ -28,10 +28,10 @@ st.set_page_config(
 
 # 设置plotly中文字体
 import plotly.io as pio
-pio.templates["plotly_white"].layout.font = dict(family="SimHei, Arial, sans-serif", size=12)
+pio.templates["plotly_white"].layout.font = dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12)
 # 设置默认模板为plotly_white，确保所有图表都使用中文字体
 pio.templates.default = "plotly_white"
-print("[页面初始化] Plotly中文字体已设置为SimHei，默认模板已设置")
+print("[页面初始化] Plotly中文字体已设置为Noto Sans CJK SC，默认模板已设置")
 
 # 自定义CSS样式 - 优化布局
 st.markdown("""
@@ -575,7 +575,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.bar(comparison_data, x='风机数量', y='遮挡损耗_db',
                         title='遮挡损耗随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -584,7 +584,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.bar(comparison_data, x='风机数量', y='散射损耗_db',
                         title='散射损耗随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -593,7 +593,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.bar(comparison_data, x='风机数量', y='绕射损耗_db',
                         title='绕射损耗随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -602,7 +602,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.line(comparison_data, x='风机数量', y='多普勒扩展_Hz',
                          title='多普勒扩展随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -611,7 +611,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.scatter(comparison_data, x='风机数量', y='测角误差_度',
                            title='测角误差随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -620,7 +620,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.area(comparison_data, x='风机数量', y='测距误差_m',
                          title='测距误差随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -629,7 +629,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.line(comparison_data, x='风机数量', y='测速误差_m/s',
                          title='测速误差随风机数量变化')
             fig.update_layout(
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -662,7 +662,7 @@ def create_individual_metric_analysis(comparison_data):
             fig.update_layout(
                 height=600,
                 showlegend=False,
-                font=dict(family="SimHei, Arial, sans-serif", size=12),
+                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -816,6 +816,11 @@ class ReportGenerator:
         self.analyzer = analyzer
         self.output_dir = "outputs"
         os.makedirs(self.output_dir, exist_ok=True)
+        # 创建子目录
+        self.images_dir = os.path.join(self.output_dir, 'images')
+        self.data_dir = os.path.join(self.output_dir, 'data')
+        os.makedirs(self.images_dir, exist_ok=True)
+        os.makedirs(self.data_dir, exist_ok=True)
     
     def generate_parameter_combinations(self):
         """生成参数组合"""
@@ -1024,16 +1029,15 @@ class ReportGenerator:
         zip_filename = f"radar_impact_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         zip_path = os.path.join(self.output_dir, zip_filename)
         
-        # 确定images文件夹路径
-        images_dir = os.path.join(self.output_dir, 'images')
-        
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(self.output_dir):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, self.output_dir)
-                    # 包含所有.md文件和images文件夹中的文件
-                    if file.endswith('.md') or file_path.startswith(images_dir):
+                    # 包含所有.md文件、images文件夹中的文件、data文件夹中的.csv文件
+                    if (file.endswith('.md') or 
+                        file_path.startswith(self.images_dir) or 
+                        file_path.startswith(self.data_dir)):
                         zipf.write(file_path, arcname)
         
         return zip_path, zip_filename
@@ -1226,10 +1230,13 @@ class MetricAnalysisEngine:
         # 创建输出目录
         self.outputs_dir = Path("outputs")
         self.images_dir = self.outputs_dir / "images"
+        self.data_dir = self.outputs_dir / "data"
         print(f"[MetricAnalysisEngine] 输出目录: {self.outputs_dir.absolute()}")
         print(f"[MetricAnalysisEngine] 图片目录: {self.images_dir.absolute()}")
+        print(f"[MetricAnalysisEngine] 数据目录: {self.data_dir.absolute()}")
         self.images_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[MetricAnalysisEngine] 目录创建成功: {self.images_dir.exists()}")
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[MetricAnalysisEngine] 目录创建成功: 图片目录={self.images_dir.exists()}, 数据目录={self.data_dir.exists()}")
         
         # 检查Kaleido是否可用
         self.kaleido_available = False
@@ -1271,8 +1278,8 @@ class MetricAnalysisEngine:
         try:
             import plotly.io as pio
             # 设置默认字体为支持中文的字体
-            pio.templates["plotly_white"].layout.font = dict(family="SimHei, Arial, sans-serif", size=12)
-            print("[MetricAnalysisEngine] Plotly中文字体已设置为SimHei")
+            pio.templates["plotly_white"].layout.font = dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12)
+            print("[MetricAnalysisEngine] Plotly中文字体已设置为Noto Sans CJK SC")
         except Exception as e:
             print(f"[MetricAnalysisEngine] 设置Plotly字体失败: {e}")
         
@@ -1421,7 +1428,7 @@ class MetricAnalysisEngine:
             
             # 保存数据表格为CSV
             table_filename = f"{metric_config['id']}_data.csv"
-            table_path = self.outputs_dir / table_filename
+            table_path = self.data_dir / table_filename
             metric_data.to_csv(table_path, index=False, encoding='utf-8')
             results['data_tables'][metric_config['id']] = str(table_path)
             
@@ -1608,7 +1615,7 @@ class MetricAnalysisEngine:
             yaxis_title=f"{metric_config['name']} ({metric_config['unit']})",
             height=500,
             template="plotly_white",
-            font=dict(family="SimHei, Arial, sans-serif", size=12),
+            font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
             hovermode='x unified'
         )
         
@@ -1818,7 +1825,6 @@ class MetricAnalysisEngine:
                 markdown_content += f"  | 数据加载失败 | {str(e)} |\n"
             
             markdown_content += f"""
-**Kimi AI专业分析**:
 {metric['ai_analysis']}
 
 ---
@@ -1839,7 +1845,6 @@ class MetricAnalysisEngine:
 - 本报告由风电雷达影响评估系统自动生成
 - 图表保存在: {analysis_results['charts_dir']}
 - 原始数据文件可在相应路径找到
-- AI分析基于Kimi API，提供专业解读
 """
         
         return markdown_content
