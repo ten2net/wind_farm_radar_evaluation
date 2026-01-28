@@ -18,6 +18,7 @@ import shutil
 import requests
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+import streamlit.components.v1 as components
 
 # 页面配置
 st.set_page_config(
@@ -450,7 +451,7 @@ def create_turbine_comparison_interface(analyzer, params):
                 st.metric(label, value)
         
         # 详细分析标签页
-        tab1, tab2, tab3, tab4 = st.tabs(["📈 综合影响趋势", "🔧 单项指标分析", "📊 数据对比", "🎯 风险评估"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 综合影响趋势", "🔧 单项指标分析", "📊 数据对比", "🎯 风险评估", "📚 指标计算方法与原理"])
         
         with tab1:
             create_comprehensive_impact_analysis(comparison_data)
@@ -463,6 +464,9 @@ def create_turbine_comparison_interface(analyzer, params):
         
         with tab4:
             create_risk_assessment_view(comparison_data, params)
+        
+        with tab5:
+            create_metric_methods_tab(comparison_data, params)
         
         if show_details:
             st.markdown("### 📋 详细数据")
@@ -817,6 +821,257 @@ def create_risk_assessment_view(comparison_data, params):
         st.markdown(f"- 风险等级: {min_risk_row['风险等级']}")
         st.markdown(f"- 建议: 标准雷达参数调整即可")
         st.markdown(f"- 措施: 灵敏度优化、滤波增强")
+
+def create_metric_methods_tab(comparison_data, params):
+    """创建指标计算方法与原理标签页"""
+    st.markdown("### 📚 指标计算方法与原理")
+    
+    # 显示当前参数配置（使用传入的参数）
+    if params:
+        st.markdown("#### 📝 当前参数配置")
+        # 将参数转换为DataFrame显示
+        param_df = pd.DataFrame([params])
+        st.dataframe(param_df, hide_index=True, use_container_width=True)
+    
+    # 生成详细的指标计算方法说明
+    methods_markdown = """
+# 海上风电雷达影响分析指标计算方法与原理
+
+## 1. 遮挡损耗 (Shadowing Loss)
+
+### 计算公式
+```
+shadow_loss_db = 20 × shadow_factor × height_factor
+shadow_factor = min(1.0, 0.3 + 0.2 × log10(num_turbines))
+height_factor = max(0.1, 1 - |target_height - turbine_height| / (2 × turbine_height))
+```
+
+### 物理原理
+遮挡效应基于几何光学理论，当风机位于雷达与目标之间时，会形成雷达阴影区。阴影区的深度与风机高度、目标高度、距离以及风机数量相关。
+
+### 参数说明
+- **turbine_height**: 风机高度（米）
+- **target_height**: 目标高度（米）
+- **distance**: 雷达与目标距离（千米）
+- **num_turbines**: 风机数量
+
+## 2. 散射损耗 (Scattering Loss)
+
+### 计算公式
+```
+effective_rcs = base_rcs × incidence_factor × distance_factor × freq_factor
+scattering_power = effective_rcs × min(num_turbines, 10)
+scattering_loss_db = 10 × log10(1 + scattering_power / 1000)
+```
+
+### 物理原理
+散射效应基于雷达截面积（RCS）模型，风机作为散射体会将雷达信号向各个方向散射，造成信号能量损失。散射强度与入射角、距离、频率相关。
+
+### 参数说明
+- **radar_band**: 雷达波段（L、S、C、X、Ku）
+- **turbine_distance**: 风机与目标距离（千米）
+- **incidence_angle**: 入射角（度）
+- **num_turbines**: 风机数量
+
+## 3. 绕射损耗 (Diffraction Loss)
+
+### 计算公式
+```
+v_parameter = turbine_height × sqrt(2 / (wavelength × turbine_distance × 1000))
+if v_parameter > -0.8:
+    diffraction_loss_db = 6.9 + 20 × log10(sqrt((v_parameter - 0.1)² + 1) + v_parameter - 0.1)
+else:
+    diffraction_loss_db = 0
+```
+
+### 物理原理
+绕射效应基于刃形绕射模型，当雷达信号遇到风机边缘时会发生绕射，信号能量会绕过障碍物传播，但会产生额外的损耗。
+
+### 参数说明
+- **radar_band**: 雷达波段
+- **turbine_distance**: 风机距离（千米）
+- **turbine_height**: 风机高度（米）
+- **num_turbines**: 风机数量
+
+## 4. 多普勒扩展 (Doppler Spread)
+
+### 计算公式
+```
+wavelength = 3e8 / freq
+target_doppler = 2 × target_speed / wavelength
+blade_doppler_max = 2 × blade_tip_speed / wavelength
+doppler_spread = blade_doppler_max × sqrt(num_turbines)
+```
+
+### 物理原理
+多普勒效应由目标运动和风机叶片旋转引起，会导致雷达回波频率发生偏移。多风机环境下，不同风机的叶片旋转会产生多普勒扩展。
+
+### 参数说明
+- **freq**: 雷达频率（Hz）
+- **target_speed**: 目标速度（m/s）
+- **blade_speed**: 叶片尖端速度（m/s）
+- **num_turbines**: 风机数量
+
+## 5. 测角误差 (Angle Measurement Error)
+
+### 计算公式
+```
+multipath_phase_shift = 2 × π × turbine_distance × 1000 / wavelength × sin(incidence_angle)
+angle_error_deg = degrees(wavelength / (4 × π × turbine_distance × 1000)) × 10
+multi_turbine_error = angle_error_deg × sqrt(min(num_turbines, 5))
+```
+
+### 物理原理
+测角误差主要由多径效应引起，雷达信号经过风机反射后与直达信号叠加，导致相位畸变，从而影响角度测量精度。
+
+### 参数说明
+- **radar_band**: 雷达波段
+- **turbine_distance**: 风机距离（千米）
+- **incidence_angle**: 入射角（度）
+- **num_turbines**: 风机数量
+
+## 6. 测距误差 (Range Measurement Error)
+
+### 计算公式
+```
+range_error = wavelength × 0.01 × log(1 + turbine_distance) × sqrt(num_turbines)
+```
+
+### 物理原理
+测距误差由多径时延引起，反射路径比直达路径更长，导致时间延迟，影响距离测量精度。多风机环境下时延扩展更显著。
+
+### 参数说明
+- **radar_band**: 雷达波段
+- **turbine_distance**: 风机距离（千米）
+- **num_turbines**: 风机数量
+
+## 7. 测速误差 (Velocity Measurement Error)
+
+### 计算公式
+```
+velocity_error = doppler_spread × 0.1 × sqrt(num_turbines)
+measurement_accuracy_loss = min(0.3, 0.05 × num_turbines)
+```
+
+### 物理原理
+测速误差由多普勒扩展引起，频域扩展导致速度测量不确定性增加。风机数量越多，多普勒扩展越宽，测速精度越低。
+
+### 参数说明
+- **doppler_spread**: 多普勒扩展（Hz）
+- **target_velocity**: 目标速度（m/s）
+- **num_turbines**: 风机数量
+
+## 8. 多径衰落 (Multipath Fading)
+
+### 计算公式
+```
+multipath_fading_depth_db = 20 × log10(1 + 0.5 × sqrt(num_turbines))
+delay_spread = time_delay × sqrt(num_turbines) × 1e6
+coherence_bandwidth = 1 / (2 × π × delay_spread × 1e-6) / 1e6
+```
+
+### 物理原理
+多径衰落由多条传播路径信号干涉引起，当路径差为半波长奇数倍时产生相消干涉，导致深度衰落。多风机环境增加了多径复杂性。
+
+### 参数说明
+- **radar_band**: 雷达波段
+- **turbine_distance**: 风机距离（千米）
+- **incidence_angle**: 入射角（度）
+- **num_turbines**: 风机数量
+
+## 9. 总影响评分 (Total Impact Score)
+
+### 计算公式
+```
+total_impact_score = 
+  遮挡损耗_db × 0.15 +
+  散射损耗_db × 0.2 +
+  绕射损耗_db × 0.1 +
+  abs(速度测量误差) × 0.1 +
+  测角误差_度 × 0.1 +
+  测距误差_m × 0.1 +
+  测速误差_m/s × 0.05 +
+  多径衰落_db × 0.2
+```
+
+### 物理原理
+总影响评分是各项指标的加权综合，反映了风机对雷达性能的总体影响程度。权重分配基于各项指标的相对重要性和影响程度。
+
+### 风险等级划分
+- **极高风险**: 总影响评分 > 15
+- **高风险**: 总影响评分 > 10
+- **中等风险**: 总影响评分 > 5
+- **低风险**: 总影响评分 > 2
+- **可接受风险**: 总影响评分 ≤ 2
+"""
+    
+    # 显示方法说明
+    st.markdown(methods_markdown)
+    
+    # 复制Markdown源码功能
+    st.markdown("---")
+    st.markdown("### 📋 Markdown源码")
+    
+    # 显示源码（可复制）
+    st.code(methods_markdown, language="markdown")
+    
+    # 创建复制按钮（使用HTML/JavaScript） - 改进版
+    copy_html = f'''
+    <div style="margin: 10px 0;">
+        <button id="copyButton" style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        ">
+            📋 复制Markdown源码
+        </button>
+        <span id="copyStatus" style="margin-left: 10px; font-weight: bold;"></span>
+        <div id="markdownContent" style="display: none;">{methods_markdown}</div>
+    </div>
+    
+    <script>
+    document.getElementById('copyButton').addEventListener('click', function() {{
+        const markdownContent = document.getElementById('markdownContent').textContent;
+        const textArea = document.createElement('textarea');
+        textArea.value = markdownContent;
+        document.body.appendChild(textArea);
+        textArea.select();
+        
+        try {{
+            const successful = document.execCommand('copy');
+            if (successful) {{
+                document.getElementById('copyStatus').innerHTML = '<span style="color: green;">✅ 已复制到剪贴板！</span>';
+                setTimeout(() => {{
+                    document.getElementById('copyStatus').textContent = '';
+                }}, 3000);
+            }} else {{
+                document.getElementById('copyStatus').innerHTML = '<span style="color: red;">❌ 复制失败</span>';
+            }}
+        }} catch (err) {{
+            document.getElementById('copyStatus').innerHTML = '<span style="color: red;">❌ 复制错误：' + err + '</span>';
+        }}
+        
+        document.body.removeChild(textArea);
+    }});
+    </script>
+    '''
+    
+    components.html(copy_html, height=120)
+    
+    # 下载按钮（备选方案）
+    st.download_button(
+        label="📥 下载Markdown文件",
+        data=methods_markdown,
+        file_name="指标计算方法与原理.md",
+        mime="text/markdown",
+        type="secondary"
+    )
+
 class ReportGenerator:
     """报告生成器 - 自动生成多种参数组合的分析报告"""
     
