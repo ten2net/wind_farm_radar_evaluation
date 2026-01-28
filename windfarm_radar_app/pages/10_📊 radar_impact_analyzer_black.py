@@ -28,10 +28,17 @@ st.set_page_config(
 
 # 设置plotly中文字体
 import plotly.io as pio
-pio.templates["plotly_white"].layout.font = dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12)
+# 更新plotly_white模板的字体设置
+pio.templates["plotly_white"].update(
+    layout=dict(font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12))
+)
 # 设置默认模板为plotly_white，确保所有图表都使用中文字体
 pio.templates.default = "plotly_white"
-print("[页面初始化] Plotly中文字体已设置为Noto Sans CJK SC，默认模板已设置")
+print("[页面初始化] Plotly中文字体已设置为SimHei，默认模板已设置")
+
+# 设置matplotlib中文字体（确保中文正常显示）
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 # 自定义CSS样式 - 优化布局
 st.markdown("""
@@ -503,7 +510,7 @@ def create_comprehensive_impact_analysis(comparison_data):
             height=500,
             showlegend=True,
             template="plotly_white",
-            font=dict(family="SimHei, Arial, sans-serif", size=12)
+            font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12)
         )
         
         st.plotly_chart(fig, width='stretch')
@@ -549,7 +556,7 @@ def create_comprehensive_impact_analysis(comparison_data):
             title=f"{num_turbines_to_compare}个风机的影响雷达图",
             height=400,
             template="plotly_white",
-            font=dict(family="SimHei, Arial, sans-serif", size=12)
+            font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12)
         )
         
         st.plotly_chart(fig, width='stretch')
@@ -575,7 +582,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.bar(comparison_data, x='风机数量', y='遮挡损耗_db',
                         title='遮挡损耗随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -584,7 +591,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.bar(comparison_data, x='风机数量', y='散射损耗_db',
                         title='散射损耗随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -593,7 +600,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.bar(comparison_data, x='风机数量', y='绕射损耗_db',
                         title='绕射损耗随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -602,7 +609,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.line(comparison_data, x='风机数量', y='多普勒扩展_Hz',
                          title='多普勒扩展随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -611,7 +618,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.scatter(comparison_data, x='风机数量', y='测角误差_度',
                            title='测角误差随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -620,7 +627,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.area(comparison_data, x='风机数量', y='测距误差_m',
                          title='测距误差随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -629,7 +636,7 @@ def create_individual_metric_analysis(comparison_data):
             fig = px.line(comparison_data, x='风机数量', y='测速误差_m/s',
                          title='测速误差随风机数量变化')
             fig.update_layout(
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -662,7 +669,7 @@ def create_individual_metric_analysis(comparison_data):
             fig.update_layout(
                 height=600,
                 showlegend=False,
-                font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
@@ -786,7 +793,7 @@ def create_risk_assessment_view(comparison_data, params):
                     })
     fig.update_layout(
         template="plotly_white",
-        font=dict(family="SimHei, Arial, sans-serif", size=12)
+        font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12)
     )
     st.plotly_chart(fig, width='stretch')
     
@@ -1077,17 +1084,24 @@ def create_report_generation_interface(analyzer):
     
     with col2:
         if existing_reports:
-            zip_path, zip_filename = report_generator.create_zip_archive()
-            with open(zip_path, 'rb') as f:
-                zip_data = f.read()
+            # 生成ZIP按钮
+            if st.button("🛠️ 生成ZIP文件", width='stretch'):
+                with st.spinner("正在生成ZIP文件..."):
+                    zip_path, zip_filename = report_generator.create_zip_archive()
+                    with open(zip_path, 'rb') as f:
+                        st.session_state.zip_data = f.read()
+                    st.session_state.zip_filename = zip_filename
+                    st.success("ZIP文件生成完成！")
             
-            st.download_button(
-                label="📦 下载全部报告 (ZIP)",
-                data=zip_data,
-                file_name=zip_filename,
-                mime="application/zip",
-                width='stretch'
-            )
+            # 如果已有ZIP数据，显示下载按钮
+            if 'zip_data' in st.session_state and 'zip_filename' in st.session_state:
+                st.download_button(
+                    label="📦 下载全部报告 (ZIP)",
+                    data=st.session_state.zip_data,
+                    file_name=st.session_state.zip_filename,
+                    mime="application/zip",
+                    width='stretch'
+                )
     
     with col3:
         clear_reports = st.button("🗑️ 清空报告缓存", type="secondary", width='stretch')
@@ -1096,6 +1110,11 @@ def create_report_generation_interface(analyzer):
             if os.path.exists(report_generator.output_dir):
                 shutil.rmtree(report_generator.output_dir)
                 os.makedirs(report_generator.output_dir, exist_ok=True)
+                # 清除ZIP数据
+                if 'zip_data' in st.session_state:
+                    del st.session_state.zip_data
+                if 'zip_filename' in st.session_state:
+                    del st.session_state.zip_filename
                 st.success("报告缓存已清空！")
                 st.rerun()
     
@@ -1174,17 +1193,23 @@ def create_report_generation_interface(analyzer):
         st.dataframe(summary_df, width='stretch')
         
         # 提供ZIP下载
-        zip_path, zip_filename = report_generator.create_zip_archive()
-        with open(zip_path, 'rb') as f:
-            zip_data = f.read()
+        if st.button("🛠️ 生成ZIP文件（新报告）", width='stretch'):
+            with st.spinner("正在生成ZIP文件..."):
+                zip_path, zip_filename = report_generator.create_zip_archive()
+                with open(zip_path, 'rb') as f:
+                    st.session_state.zip_data = f.read()
+                st.session_state.zip_filename = zip_filename
+                st.success("ZIP文件生成完成！")
         
-        st.download_button(
-            label="📦 立即下载全部报告 (ZIP)",
-            data=zip_data,
-            file_name=zip_filename,
-            mime="application/zip",
-            key="download_all_reports"
-        )
+        # 如果已有ZIP数据，显示下载按钮
+        if 'zip_data' in st.session_state and 'zip_filename' in st.session_state:
+            st.download_button(
+                label="📦 立即下载全部报告 (ZIP)",
+                data=st.session_state.zip_data,
+                file_name=st.session_state.zip_filename,
+                mime="application/zip",
+                key="download_all_reports"
+            )
 
 # Kimi API配置
 KIMI_API_CONFIG = {
@@ -1277,9 +1302,11 @@ class MetricAnalysisEngine:
         # 设置plotly中文字体
         try:
             import plotly.io as pio
-            # 设置默认字体为支持中文的字体
-            pio.templates["plotly_white"].layout.font = dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12)
-            print("[MetricAnalysisEngine] Plotly中文字体已设置为Noto Sans CJK SC")
+            # 更新plotly_white模板的字体设置
+            pio.templates["plotly_white"].update(
+                layout=dict(font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12))
+            )
+            print("[MetricAnalysisEngine] Plotly中文字体已设置为SimHei")
         except Exception as e:
             print(f"[MetricAnalysisEngine] 设置Plotly字体失败: {e}")
         
@@ -1450,53 +1477,25 @@ class MetricAnalysisEngine:
                     print(f"[MetricAnalysisEngine] 正在保存图表到: {chart_path.absolute()}")
                     print(f"[MetricAnalysisEngine] 父目录是否存在: {chart_path.parent.exists()}")
                     print(f"[MetricAnalysisEngine] 父目录: {chart_path.parent}")
-                    # 多引擎尝试保存
-                    engines_to_try = []
-                    if self.kaleido_available:
-                        engines_to_try.append(('kaleido', 'Kaleido引擎'))
-                    if self.orca_available:
-                        engines_to_try.append(('orca', 'orca引擎'))
-                    engines_to_try.append((None, '默认引擎'))
-                    
+                    # 使用matplotlib保存图表
                     chart_saved = False
-                    saved_with_engine = None
+                    saved_with_engine = "matplotlib"
                     
-                    for engine, engine_name in engines_to_try:
-                        if chart_saved:
-                            break
-                        try:
-                            if engine:
-                                fig.write_image(str(chart_path), width=800, height=500, scale=2, engine=engine)
-                            else:
-                                fig.write_image(str(chart_path), width=800, height=500, scale=2)
-                            print(f"[MetricAnalysisEngine] 使用{engine_name}保存成功: {chart_path}")
-                            # 验证文件是否已创建
-                            if chart_path.exists():
-                                file_size = chart_path.stat().st_size
-                                print(f"[MetricAnalysisEngine] 文件已创建，大小: {file_size} 字节")
-                                chart_saved = True
-                                saved_with_engine = engine_name
-                            else:
-                                print(f"[MetricAnalysisEngine] 警告: 文件未创建！")
-                                # 继续尝试下一个引擎
-                        except Exception as write_error:
-                            print(f"[MetricAnalysisEngine] {engine_name}保存失败: {write_error}")
-                            # 继续尝试下一个引擎
-                    
-                    # 如果所有引擎都失败，尝试保存为HTML作为最后手段
-                    if not chart_saved:
-                        try:
-                            html_path = chart_path.with_suffix('.html')
-                            fig.write_html(str(html_path))
-                            print(f"[MetricAnalysisEngine] 图表保存为HTML: {html_path}")
-                            # 标记为已保存，但路径使用HTML
+                    try:
+                        # 保存为PNG，dpi=200确保高清
+                        fig.savefig(str(chart_path), dpi=200, bbox_inches='tight')
+                        print(f"[MetricAnalysisEngine] 使用matplotlib保存成功: {chart_path}")
+                        # 验证文件是否已创建
+                        if chart_path.exists():
+                            file_size = chart_path.stat().st_size
+                            print(f"[MetricAnalysisEngine] 文件已创建，大小: {file_size} 字节")
                             chart_saved = True
-                            chart_path = html_path
-                            saved_with_engine = 'HTML'
-                        except Exception as html_error:
-                            print(f"[MetricAnalysisEngine] HTML保存也失败: {html_error}")
-                            chart_saved = False
+                        else:
+                            print(f"[MetricAnalysisEngine] 警告: 文件未创建！")
+                    except Exception as write_error:
+                        print(f"[MetricAnalysisEngine] matplotlib保存失败: {write_error}")
                     
+
                     chart_path_str = str(chart_path) if chart_saved else ""
                     if chart_saved:
                         print(f"[MetricAnalysisEngine] 最终保存结果: 使用{saved_with_engine}，路径: {chart_path_str}")
@@ -1540,10 +1539,10 @@ class MetricAnalysisEngine:
                 
                 results['metrics_analysis'].append(metric_result)
                 
-                # 休眠5秒（避免API调用频率限制）
+                # 休眠2秒（避免API调用频率限制）
                 if i < total_metrics - 1:  # 不是最后一个指标
-                    print(f"休眠5秒后开始下一个指标分析...")
-                    time.sleep(5)
+                    print(f"休眠2秒后开始下一个指标分析...")
+                    time.sleep(2)
                     
             except Exception as e:
                 print(f"指标 {metric_config['name']} 分析失败: {e}")
@@ -1552,9 +1551,9 @@ class MetricAnalysisEngine:
         print(f"所有指标分析完成！共分析 {len(results['metrics_analysis'])} 个指标")
         return results
     
-    def _create_metric_chart(self, metric_data: pd.DataFrame, metric_config: dict, scenario_params: dict) -> go.Figure:
+    def _create_metric_chart(self, metric_data: pd.DataFrame, metric_config: dict, scenario_params: dict) -> plt.Figure:
         """
-        创建指标分析图表
+        创建指标分析图表 - 使用matplotlib解决中文字体问题
         
         参数:
             metric_data: 指标数据
@@ -1562,66 +1561,57 @@ class MetricAnalysisEngine:
             scenario_params: 场景参数
             
         返回:
-            Plotly图形对象
+            Matplotlib图形对象
         """
         x_data = metric_data['风机数量']
         y_data = metric_data[metric_config['column']]
         
-        fig = go.Figure()
+        # 创建图形和坐标轴，尺寸对应800x500像素（8x5英寸，dpi=100）
+        fig, ax = plt.subplots(figsize=(8, 5), dpi=100)
         
         if metric_config['chart_type'] == 'line':
-            fig.add_trace(go.Scatter(
-                x=x_data,
-                y=y_data,
-                mode='lines+markers',
-                name=metric_config['name'],
-                line=dict(color=self.color_scheme['primary'], width=3),
-                marker=dict(size=8)
-            ))
+            ax.plot(x_data, y_data, 
+                   marker='o', 
+                   linestyle='-', 
+                   linewidth=3,
+                   markersize=8,
+                   color=self.color_scheme['primary'],
+                   label=metric_config['name'])
         elif metric_config['chart_type'] == 'scatter':
-            fig.add_trace(go.Scatter(
-                x=x_data,
-                y=y_data,
-                mode='markers',
-                name=metric_config['name'],
-                marker=dict(
-                    size=10,
-                    color=y_data,
-                    colorscale='Viridis',
-                    showscale=True
-                )
-            ))
+            scatter = ax.scatter(x_data, y_data,
+                               c=y_data,
+                               s=100,  # 点大小
+                               cmap='viridis',
+                               label=metric_config['name'])
+            # 添加颜色条
+            plt.colorbar(scatter, ax=ax)
         elif metric_config['chart_type'] == 'area':
-            fig.add_trace(go.Scatter(
-                x=x_data,
-                y=y_data,
-                mode='lines',
-                name=metric_config['name'],
-                fill='tozeroy',
-                line=dict(color=self.color_scheme['secondary'], width=2)
-            ))
+            ax.fill_between(x_data, y_data,
+                           color=self.color_scheme['secondary'],
+                           alpha=0.3,
+                           label=metric_config['name'])
+            ax.plot(x_data, y_data,
+                   color=self.color_scheme['secondary'],
+                   linewidth=2)
         elif metric_config['chart_type'] == 'bar':
-            fig.add_trace(go.Bar(
-                x=x_data,
-                y=y_data,
-                name=metric_config['name'],
-                marker_color=self.color_scheme['accent']
-            ))
+            ax.bar(x_data, y_data,
+                  color=self.color_scheme['accent'],
+                  label=metric_config['name'])
         
-        # 更新布局
-        fig.update_layout(
-            title=f"{metric_config['name']} - {scenario_params.get('radar_band', '')}",
-            xaxis_title="风机数量",
-            yaxis_title=f"{metric_config['name']} ({metric_config['unit']})",
-            height=500,
-            template="plotly_white",
-            font=dict(family="Noto Sans CJK SC, Arial, sans-serif", size=12),
-            hovermode='x unified'
-        )
+        # 设置标题和标签
+        ax.set_title(f"{metric_config['name']} - {scenario_params.get('radar_band', '')}",
+                    fontsize=14, fontweight='bold')
+        ax.set_xlabel("风机数量", fontsize=12)
+        ax.set_ylabel(f"{metric_config['name']} ({metric_config['unit']})", fontsize=12)
         
         # 添加网格线
-        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
-        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        ax.grid(True, linestyle='--', alpha=0.7, color='lightgray')
+        
+        # 添加图例
+        ax.legend(fontsize=10)
+        
+        # 自动调整布局
+        plt.tight_layout()
         
         return fig
     
