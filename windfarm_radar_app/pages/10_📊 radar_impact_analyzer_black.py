@@ -1489,6 +1489,255 @@ def create_report_generation_interface(analyzer):
                 key="download_all_reports"
             )
 
+def create_distance_based_analysis_interface(analyzer, base_params):
+    """创建不同距离目标下细分指标对比分析界面"""
+    st.markdown('<div class="section-header">📏 不同距离目标下细分指标对比分析</div>', unsafe_allow_html=True)
+    
+    # 仿真配置面板
+    st.markdown("### 🎛️ 仿真配置")
+    config_col1, config_col2, config_col3 = st.columns([1, 1, 1])
+    
+    with config_col1:
+        max_turbines = st.slider("最大风机数量", 1, 50, base_params.get('max_turbines', 30), 
+                                help="设置分析中考虑的最大风机数量")
+        curve_count = st.slider("曲线条数", 1, 10, 6, 
+                               help="选择在图表中显示的风机数量曲线条数")
+    
+    with config_col2:
+        # 距离范围配置
+        distance_min = st.number_input("最小距离 (km)", -50.0, 50.0, -50.0, 1.0,
+                                      help="目标距风机的最小距离，负值表示目标在风机另一侧")
+        distance_max = st.number_input("最大距离 (km)", -50.0, 50.0, 50.0, 1.0,
+                                      help="目标距风机的最大距离")
+        distance_points = st.slider("距离点数", 10, 200, 101,
+                                   help="距离轴上的采样点数")
+    
+    with config_col3:
+        # 指标选择
+        st.markdown("**选择分析指标**")
+        metrics_options = {
+            '遮挡损耗': True,
+            '散射损耗': True,
+            '绕射损耗': True,
+            '多普勒扩展': True,
+            '测角误差': True,
+            '测距误差': True,
+            '测速误差': True,
+            '多径衰落': True,
+            '总影响评分': True
+        }
+        
+        # 创建多选框
+        selected_metrics = []
+        for metric in metrics_options:
+            if st.checkbox(metric, value=metrics_options[metric], key=f"metric_{metric}"):
+                selected_metrics.append(metric)
+    
+    # 如果未选择任何指标，提示用户
+    if not selected_metrics:
+        st.warning("请至少选择一个分析指标")
+        return
+    
+    # 生成距离数组
+    distances = np.linspace(distance_min, distance_max, distance_points)
+    
+    # 生成风机数量列表（均匀分布）
+    if curve_count == 1:
+        num_turbines_list = [1]
+    else:
+        step = max(1, (max_turbines - 1) // (curve_count - 1))
+        num_turbines_list = [1 + i * step for i in range(curve_count)]
+        # 确保最后一个元素不超过max_turbines
+        num_turbines_list = [n for n in num_turbines_list if n <= max_turbines]
+        if num_turbines_list[-1] != max_turbines:
+            num_turbines_list.append(max_turbines)
+    
+    # 运行分析按钮
+    if st.button("🚀 运行距离影响分析", type="primary"):
+        with st.spinner("正在计算不同距离下的指标影响..."):
+            # 存储结果
+            results = {}
+            
+            # 为每个指标预分配结果数组
+            for metric in selected_metrics:
+                results[metric] = {}
+                for num_turbines in num_turbines_list:
+                    results[metric][num_turbines] = []
+            
+            # 为每个距离点计算指标
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i, turbine_distance in enumerate(distances):
+                status_text.text(f"计算距离点 {i+1}/{len(distances)}: {turbine_distance:.1f} km")
+                
+                # 更新参数：使用传入的base_params，但替换turbine_distance
+                current_params = base_params.copy()
+                current_params['turbine_distance'] = turbine_distance
+                
+                for num_turbines in num_turbines_list:
+                    # 计算各项指标
+                    shadowing = analyzer.calculate_shadowing_effect(
+                        current_params['turbine_height'],
+                        current_params['target_height'],
+                        turbine_distance,
+                        num_turbines
+                    )
+                    
+                    scattering = analyzer.calculate_scattering_effect(
+                        current_params['radar_band'],
+                        turbine_distance,
+                        current_params['incidence_angle'],
+                        num_turbines
+                    )
+                    
+                    diffraction = analyzer.calculate_diffraction_effect(
+                        current_params['radar_band'],
+                        turbine_distance,
+                        current_params['turbine_height'],
+                        num_turbines
+                    )
+                    
+                    doppler = analyzer.calculate_doppler_effects(
+                        analyzer.radar_bands[current_params['radar_band']]["freq"],
+                        current_params['target_speed'],
+                        num_turbines=num_turbines
+                    )
+                    
+                    angle_error = analyzer.calculate_angle_measurement_error(
+                        current_params['radar_band'],
+                        turbine_distance,
+                        current_params['incidence_angle'],
+                        num_turbines
+                    )
+                    
+                    range_error = analyzer.calculate_range_measurement_error(
+                        current_params['radar_band'],
+                        turbine_distance,
+                        num_turbines
+                    )
+                    
+                    velocity_error = analyzer.calculate_velocity_measurement_error(
+                        doppler['doppler_spread_hz'],
+                        current_params['target_speed'],
+                        num_turbines
+                    )
+                    
+                    multipath = analyzer.calculate_multipath_effects(
+                        current_params['radar_band'],
+                        turbine_distance,
+                        current_params['turbine_height'],
+                        current_params['incidence_angle'],
+                        num_turbines
+                    )
+                    
+                    # 综合影响评分
+                    total_impact_score = (
+                        shadowing['shadow_loss_db'] * 0.15 +
+                        scattering['scattering_loss_db'] * 0.2 +
+                        diffraction['diffraction_loss_db'] * 0.1 +
+                        abs(doppler['velocity_measurement_error']) * 0.1 +
+                        angle_error['angle_error_deg'] * 0.1 +
+                        range_error['range_error_m'] * 0.1 +
+                        velocity_error['velocity_error_ms'] * 0.05 +
+                        multipath['multipath_fading_depth_db'] * 0.2
+                    )
+                    
+                    # 存储结果
+                    if '遮挡损耗' in selected_metrics:
+                        results['遮挡损耗'][num_turbines].append(shadowing['shadow_loss_db'])
+                    if '散射损耗' in selected_metrics:
+                        results['散射损耗'][num_turbines].append(scattering['scattering_loss_db'])
+                    if '绕射损耗' in selected_metrics:
+                        results['绕射损耗'][num_turbines].append(diffraction['diffraction_loss_db'])
+                    if '多普勒扩展' in selected_metrics:
+                        results['多普勒扩展'][num_turbines].append(doppler['doppler_spread_hz'])
+                    if '测角误差' in selected_metrics:
+                        results['测角误差'][num_turbines].append(angle_error['angle_error_deg'])
+                    if '测距误差' in selected_metrics:
+                        results['测距误差'][num_turbines].append(range_error['range_error_m'])
+                    if '测速误差' in selected_metrics:
+                        results['测速误差'][num_turbines].append(velocity_error['velocity_error_ms'])
+                    if '多径衰落' in selected_metrics:
+                        results['多径衰落'][num_turbines].append(multipath['multipath_fading_depth_db'])
+                    if '总影响评分' in selected_metrics:
+                        results['总影响评分'][num_turbines].append(total_impact_score)
+                
+                # 更新进度条
+                progress_bar.progress((i + 1) / len(distances))
+            
+            status_text.text("✅ 分析完成！")
+            
+            # 将结果存储到session_state
+            st.session_state.distance_analysis_results = results
+            st.session_state.distance_analysis_distances = distances
+            st.session_state.distance_analysis_turbines = num_turbines_list
+    
+    # 如果已有分析结果，显示图表
+    if 'distance_analysis_results' in st.session_state:
+        results = st.session_state.distance_analysis_results
+        distances = st.session_state.distance_analysis_distances
+        num_turbines_list = st.session_state.distance_analysis_turbines
+        
+        # 为每个选中的指标创建图表
+        for metric in selected_metrics:
+            st.markdown(f"### 📈 {metric} vs 距离")
+            
+            fig = go.Figure()
+            
+            # 为每个风机数量添加曲线
+            for num_turbines in num_turbines_list:
+                if num_turbines in results[metric]:
+                    fig.add_trace(go.Scatter(
+                        x=distances,
+                        y=results[metric][num_turbines],
+                        mode='lines',
+                        name=f'{num_turbines}个风机',
+                        line=dict(width=2)
+                    ))
+            
+            # 更新图表布局
+            fig.update_layout(
+                title=f"{metric}随目标距风机距离的变化",
+                xaxis_title="目标距风机距离 (km)",
+                yaxis_title=f"{metric}值",
+                height=500,
+                template="plotly_white",
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
+                legend=dict(
+                    yanchor="top",
+                    y=0.99,
+                    xanchor="left",
+                    x=0.01
+                )
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # 提供数据下载
+        st.markdown("### 📥 数据下载")
+        
+        # 创建DataFrame格式的数据
+        download_data = []
+        for i, distance in enumerate(distances):
+            row = {'距离_km': distance}
+            for metric in selected_metrics:
+                for num_turbines in num_turbines_list:
+                    if num_turbines in results[metric] and i < len(results[metric][num_turbines]):
+                        row[f'{metric}_{num_turbines}风机'] = results[metric][num_turbines][i]
+            download_data.append(row)
+        
+        download_df = pd.DataFrame(download_data)
+        csv_data = download_df.to_csv(index=False)
+        
+        st.download_button(
+            label="📋 下载分析数据 (CSV)",
+            data=csv_data,
+            file_name=f"距离影响分析_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            type="secondary"
+        )
+
 # Kimi API配置
 KIMI_API_CONFIG = {
     "base_url": "https://api.moonshot.cn/v1",
@@ -2418,12 +2667,15 @@ def main():
     }
     
     # 主界面标签页
-    tab1, tab2 = st.tabs(["🔬 单风机vs多风机分析", "📄 综合分析报告生成器"])
+    tab1, tab2, tab3 = st.tabs(["🔬 单风机vs多风机分析", "📏 不同距离目标下细分指标对比分析", "📄 综合分析报告生成器"])
     
     with tab1:
         create_advanced_analysis_interface(analyzer, base_params)
 
     with tab2:
+        create_distance_based_analysis_interface(analyzer, base_params)
+
+    with tab3:
         create_report_generation_interface(analyzer)
 
 if __name__ == "__main__":
