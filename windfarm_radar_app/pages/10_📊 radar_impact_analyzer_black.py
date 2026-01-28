@@ -451,7 +451,7 @@ def create_turbine_comparison_interface(analyzer, params):
                 st.metric(label, value)
         
         # 详细分析标签页
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 综合影响趋势", "🔧 单项指标分析", "📊 数据对比", "🎯 风险评估", "📚 指标计算方法与原理"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📈 综合影响趋势", "🔧 单项指标分析", "📊 数据对比", "🎯 风险评估"])
         
         with tab1:
             create_comprehensive_impact_analysis(comparison_data)
@@ -464,9 +464,6 @@ def create_turbine_comparison_interface(analyzer, params):
         
         with tab4:
             create_risk_assessment_view(comparison_data, params)
-        
-        with tab5:
-            create_metric_methods_tab(comparison_data, params)
         
         if show_details:
             st.markdown("### 📋 详细数据")
@@ -822,7 +819,7 @@ def create_risk_assessment_view(comparison_data, params):
         st.markdown(f"- 建议: 标准雷达参数调整即可")
         st.markdown(f"- 措施: 灵敏度优化、滤波增强")
 
-def create_metric_methods_tab(comparison_data, params):
+def create_metric_methods_tab(params):
     """创建指标计算方法与原理标签页"""
     st.markdown("### 📚 指标计算方法与原理")
     
@@ -1742,6 +1739,7 @@ def create_distance_based_analysis_interface(analyzer, base_params):
 KIMI_API_CONFIG = {
     "base_url": "https://api.moonshot.cn/v1",
     "chat_completion_endpoint": "/chat/completions",
+    # "model": "kimi-k2.5",
     "model": "moonshot-v1-8k-vision-preview",
     "temperature": 0.7,
     "max_tokens": 2000,
@@ -2615,6 +2613,566 @@ def create_advanced_analysis_interface(analyzer, base_params):
             st.rerun()
 
 
+def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
+    """
+    创建交互式参数敏感性分析界面
+    
+    参数:
+        analyzer: AdvancedRadarImpactAnalyzer实例
+        base_params: 基础参数配置
+    """
+    st.markdown('<div class="section-header">🔍 交互式参数敏感性分析</div>', unsafe_allow_html=True)
+    
+    # 参数选择面板
+    st.markdown("### 🎯 选择分析参数")
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # 定义可分析的参数
+        parameter_options = {
+            'radar_band': '雷达波段',
+            'target_distance': '目标距离 (km)',
+            'target_height': '目标高度 (m)',
+            'target_speed': '目标速度 (m/s)',
+            'turbine_height': '风机高度 (m)',
+            'turbine_distance': '目标-风机距离 (km)',
+            'incidence_angle': '照射角度 (°)',
+            'max_turbines': '最大风机数量'
+        }
+        
+        selected_param_key = st.selectbox(
+            "选择要分析的参数",
+            list(parameter_options.keys()),
+            format_func=lambda x: parameter_options[x]
+        )
+        
+        selected_param_name = parameter_options[selected_param_key]
+    
+    with col2:
+        # 分析点数
+        num_points = st.slider("分析点数", 5, 50, 20, help="参数范围内采样点数")
+    
+    # 参数范围配置
+    st.markdown("### 📏 参数范围设置")
+    
+    # 根据参数类型设置不同的范围控件
+    if selected_param_key == 'radar_band':
+        # 雷达波段是分类变量，显示所有选项
+        band_options = ["L波段", "S波段", "C波段", "X波段", "Ku波段"]
+        st.info(f"雷达波段为分类变量，将分析所有可能选项：{', '.join(band_options)}")
+        param_values = band_options
+        param_display = band_options
+    else:
+        # 数值参数，设置范围
+        col_range1, col_range2, col_range3 = st.columns([1, 1, 1])
+        
+        # 获取当前值作为默认中心
+        current_value = base_params.get(selected_param_key, 0)
+        
+        with col_range1:
+            # 根据参数类型设置合理的默认范围
+            if selected_param_key == 'target_distance':
+                min_val = st.number_input("最小值 (km)", 0.1, 100.0, max(0.1, current_value * 0.5), 0.1)
+            elif selected_param_key == 'target_height':
+                min_val = st.number_input("最小值 (m)", 10, 10000, max(10, int(current_value * 0.5)), 10)
+            elif selected_param_key == 'target_speed':
+                min_val = st.number_input("最小值 (m/s)", 1, 200, max(1, int(current_value * 0.5)), 1)
+            elif selected_param_key == 'turbine_height':
+                min_val = st.number_input("最小值 (m)", 50, 500, max(50, int(current_value * 0.5)), 10)
+            elif selected_param_key == 'turbine_distance':
+                min_val = st.number_input("最小值 (km)", 0.1, 50.0, max(0.1, current_value * 0.5), 0.1)
+            elif selected_param_key == 'incidence_angle':
+                min_val = st.number_input("最小值 (°)", 0, 180, max(0, int(current_value * 0.5)), 1)
+            elif selected_param_key == 'max_turbines':
+                min_val = st.number_input("最小值", 1, 100, max(1, int(current_value * 0.5)), 1)
+            else:
+                min_val = st.number_input("最小值", 0.0, 1000.0, max(0.0, current_value * 0.5), 0.1)
+        
+        with col_range2:
+            if selected_param_key == 'target_distance':
+                max_val = st.number_input("最大值 (km)", 0.1, 100.0, min(100.0, current_value * 2.0), 0.1)
+            elif selected_param_key == 'target_height':
+                max_val = st.number_input("最大值 (m)", 10, 10000, min(10000, int(current_value * 2.0)), 10)
+            elif selected_param_key == 'target_speed':
+                max_val = st.number_input("最大值 (m/s)", 1, 200, min(200, int(current_value * 2.0)), 1)
+            elif selected_param_key == 'turbine_height':
+                max_val = st.number_input("最大值 (m)", 50, 500, min(500, int(current_value * 2.0)), 10)
+            elif selected_param_key == 'turbine_distance':
+                max_val = st.number_input("最大值 (km)", 0.1, 50.0, min(50.0, current_value * 2.0), 0.1)
+            elif selected_param_key == 'incidence_angle':
+                max_val = st.number_input("最大值 (°)", 0, 180, min(180, int(current_value * 2.0)), 1)
+            elif selected_param_key == 'max_turbines':
+                max_val = st.number_input("最大值", 1, 100, min(100, int(current_value * 2.0)), 1)
+            else:
+                max_val = st.number_input("最大值", 0.0, 1000.0, min(1000.0, current_value * 2.0), 0.1)
+        
+        with col_range3:
+            st.metric("当前值", current_value)
+        
+        # 生成参数值序列
+        param_values = np.linspace(min_val, max_val, num_points)
+        param_display = param_values
+    
+    # 分析按钮
+    st.markdown("### 🚀 运行敏感性分析")
+    run_analysis = st.button("开始分析", type="primary", help="运行参数敏感性分析")
+    
+    if run_analysis:
+        with st.spinner(f"正在分析 {selected_param_name} 的敏感性..."):
+            # 初始化结果存储
+            results = []
+            
+            # 对每个参数值进行计算
+            for i, param_value in enumerate(param_values):
+                # 复制基础参数
+                modified_params = base_params.copy()
+                
+                # 更新选定的参数
+                if selected_param_key == 'radar_band':
+                    modified_params[selected_param_key] = param_value
+                else:
+                    # 数值参数转换为适当类型
+                    if selected_param_key in ['target_distance', 'turbine_distance']:
+                        modified_params[selected_param_key] = float(param_value)
+                    elif selected_param_key in ['target_height', 'target_speed', 'turbine_height', 'incidence_angle', 'max_turbines']:
+                        modified_params[selected_param_key] = int(param_value)
+                    else:
+                        modified_params[selected_param_key] = param_value
+                
+                # 计算单风机场景（固定风机数量为1）
+                modified_params['max_turbines'] = 1
+                
+                # 使用分析器计算影响
+                try:
+                    # 调用现有的对比分析函数，但只计算单风机
+                    comparison_df = analyzer.evaluate_single_vs_multiple_turbines(modified_params)
+                    
+                    # 提取单风机结果（第一个行）
+                    if not comparison_df.empty:
+                        single_result = comparison_df.iloc[0]
+                        
+                        result = {
+                            '参数值': param_value,
+                            '总影响评分': single_result['总影响评分'],
+                            '遮挡损耗_db': single_result['遮挡损耗_db'],
+                            '散射损耗_db': single_result['散射损耗_db'],
+                            '多径衰落_db': single_result['多径衰落_db'],
+                            '测角误差_度': single_result['测角误差_度'],
+                            '测距误差_m': single_result['测距误差_m']
+                        }
+                        results.append(result)
+                    
+                except Exception as e:
+                    st.warning(f"参数值 {param_value} 计算失败: {str(e)}")
+                    continue
+            
+            if results:
+                # 转换为DataFrame
+                results_df = pd.DataFrame(results)
+                
+                # 保存到session state
+                st.session_state.sensitivity_results = results_df
+                st.session_state.sensitivity_param = selected_param_key
+                st.session_state.sensitivity_param_name = selected_param_name
+                st.session_state.sensitivity_param_values = param_display
+                
+                st.success(f"✅ 敏感性分析完成！共分析 {len(results)} 个参数点。")
+                
+                # 显示结果
+                display_sensitivity_results(results_df, selected_param_key, selected_param_name, param_display)
+            else:
+                st.error("❌ 无法计算任何结果，请检查参数设置。")
+
+
+def display_sensitivity_results(results_df, param_key, param_name, param_values):
+    """
+    显示敏感性分析结果
+    
+    参数:
+        results_df: 包含结果的DataFrame
+        param_key: 参数键名
+        param_name: 参数显示名称
+        param_values: 参数值数组
+    """
+    # 判断是否为分类变量（目前只有雷达波段）
+    is_categorical = param_key == 'radar_band'
+    
+    # 创建子标签页
+    subtab1, subtab2, subtab3 = st.tabs(["📈 动态响应曲线", "🔥 敏感性热力图", "💡 参数优化建议"])
+    
+    with subtab1:
+        st.markdown(f"### 📈 {param_name} 对总影响评分的动态响应")
+        
+        # 创建响应曲线图
+        fig = go.Figure()
+        
+        if is_categorical:
+            # 分类变量使用条形图
+            fig.add_trace(go.Bar(
+                x=results_df['参数值'],
+                y=results_df['总影响评分'],
+                name='总影响评分',
+                marker_color='#1f77b4',
+                hovertemplate=(
+                    f'{param_name}: %{{x}}<br>'
+                    '总影响评分: %{y:.2f}<br>'
+                    '<extra></extra>'
+                )
+            ))
+            
+            # 添加其他指标曲线（可选）
+            metrics_to_plot = st.multiselect(
+                "选择要显示的指标",
+                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m'],
+                default=['遮挡损耗_db', '散射损耗_db'],
+                key="metrics_selector_categorical"
+            )
+            
+            # 颜色映射
+            colors = ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+            
+            for i, metric in enumerate(metrics_to_plot):
+                if i < len(colors):
+                    fig.add_trace(go.Bar(
+                        x=results_df['参数值'],
+                        y=results_df[metric],
+                        name=metric,
+                        marker_color=colors[i],
+                        yaxis='y2',
+                        hovertemplate=(
+                            f'{param_name}: %{{x}}<br>'
+                            f'{metric}: %{{y:.2f}}<br>'
+                            '<extra></extra>'
+                        )
+                    ))
+            
+            # 布局配置
+            fig.update_layout(
+                title=f'{param_name} 敏感性分析 - 条形图',
+                xaxis_title=param_name,
+                yaxis_title='总影响评分',
+                yaxis2=dict(
+                    title='指标值',
+                    overlaying='y',
+                    side='right'
+                ),
+                barmode='group',
+                hovermode='x unified',
+                height=500,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+        else:
+            # 数值变量使用折线图
+            fig.add_trace(go.Scatter(
+                x=results_df['参数值'],
+                y=results_df['总影响评分'],
+                mode='lines+markers',
+                name='总影响评分',
+                line=dict(color='#1f77b4', width=3),
+                marker=dict(size=8),
+                hovertemplate=(
+                    f'{param_name}: %{{x}}<br>'
+                    '总影响评分: %{y:.2f}<br>'
+                    '<extra></extra>'
+                )
+            ))
+            
+            # 添加其他指标曲线（可选）
+            metrics_to_plot = st.multiselect(
+                "选择要显示的指标",
+                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m'],
+                default=['遮挡损耗_db', '散射损耗_db'],
+                key="metrics_selector_numeric"
+            )
+            
+            # 颜色映射
+            colors = ['#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+            
+            for i, metric in enumerate(metrics_to_plot):
+                if i < len(colors):
+                    fig.add_trace(go.Scatter(
+                        x=results_df['参数值'],
+                        y=results_df[metric],
+                        mode='lines',
+                        name=metric,
+                        line=dict(color=colors[i], width=2, dash='dash'),
+                        yaxis='y2',
+                        hovertemplate=(
+                            f'{param_name}: %{{x}}<br>'
+                            f'{metric}: %{{y:.2f}}<br>'
+                            '<extra></extra>'
+                        )
+                    ))
+            
+            # 布局配置
+            fig.update_layout(
+                title=f'{param_name} 敏感性分析 - 动态响应曲线',
+                xaxis_title=param_name,
+                yaxis_title='总影响评分',
+                yaxis2=dict(
+                    title='指标值',
+                    overlaying='y',
+                    side='right'
+                ),
+                hovermode='x unified',
+                height=500,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 显示关键点
+        st.markdown("#### 📊 关键分析点")
+        col_k1, col_k2, col_k3 = st.columns(3)
+        
+        with col_k1:
+            max_impact_idx = results_df['总影响评分'].idxmax()
+            max_impact_value = results_df.loc[max_impact_idx, '参数值']
+            max_impact_score = results_df.loc[max_impact_idx, '总影响评分']
+            st.metric("最大影响点", f"{max_impact_value}", f"评分: {max_impact_score:.1f}")
+        
+        with col_k2:
+            min_impact_idx = results_df['总影响评分'].idxmin()
+            min_impact_value = results_df.loc[min_impact_idx, '参数值']
+            min_impact_score = results_df.loc[min_impact_idx, '总影响评分']
+            st.metric("最小影响点", f"{min_impact_value}", f"评分: {min_impact_score:.1f}")
+        
+        with col_k3:
+            if not is_categorical and len(results_df) > 1:
+                # 计算敏感性指数（导数近似）仅用于数值变量
+                try:
+                    sensitivity = np.gradient(results_df['总影响评分'], results_df['参数值'].astype(float))
+                    max_sensitivity_idx = np.argmax(np.abs(sensitivity))
+                    max_sensitivity_value = results_df.loc[max_sensitivity_idx, '参数值']
+                    max_sensitivity = sensitivity[max_sensitivity_idx]
+                    st.metric("最敏感点", f"{max_sensitivity_value}", f"斜率: {max_sensitivity:.3f}")
+                except Exception as e:
+                    st.info("无法计算敏感性指数")
+            else:
+                st.info("分类变量不计算敏感性指数")
+    
+    with subtab2:
+        st.markdown(f"### 🔥 {param_name} 对各指标的敏感性热力图")
+        
+        if is_categorical:
+            # 分类变量显示分组条形图
+            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m']
+            available_metrics = [m for m in metrics if m in results_df.columns]
+            
+            if len(available_metrics) > 0:
+                # 创建分组条形图
+                fig = go.Figure()
+                
+                # 颜色映射
+                colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+                
+                for i, metric in enumerate(available_metrics):
+                    if i < len(colors):
+                        fig.add_trace(go.Bar(
+                            x=results_df['参数值'],
+                            y=results_df[metric],
+                            name=metric,
+                            marker_color=colors[i],
+                            hovertemplate=(
+                                f'{param_name}: %{{x}}<br>'
+                                f'{metric}: %{{y:.2f}}<br>'
+                                '<extra></extra>'
+                            )
+                        ))
+                
+                fig.update_layout(
+                    title=f'{param_name} 对各指标的影响 - 分组条形图',
+                    xaxis_title=param_name,
+                    yaxis_title='指标值',
+                    barmode='group',
+                    height=400,
+                    showlegend=True,
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    )
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # 显示指标排名（按平均值）
+                st.markdown("#### 🏆 指标影响排名")
+                avg_values = []
+                for metric in available_metrics:
+                    avg_values.append(results_df[metric].mean())
+                
+                ranking_df = pd.DataFrame({
+                    '指标': available_metrics,
+                    '平均值': avg_values
+                }).sort_values('平均值', ascending=False)
+                
+                st.dataframe(ranking_df, width='stretch')
+            else:
+                st.info("没有可用的指标数据")
+        else:
+            # 数值变量使用热力图
+            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m']
+            
+            # 只选择存在的指标
+            available_metrics = [m for m in metrics if m in results_df.columns]
+            
+            if len(available_metrics) > 1:
+                # 确保参数值为数值类型
+                param_array = results_df['参数值'].astype(float).values
+                
+                # 计算每个指标的敏感性（梯度绝对值）
+                sensitivity_matrix = []
+                
+                for metric in available_metrics:
+                    metric_values = results_df[metric].values
+                    if len(metric_values) > 1:
+                        # 计算梯度并取绝对值
+                        try:
+                            gradient = np.abs(np.gradient(metric_values, param_array))
+                            sensitivity_matrix.append(gradient)
+                        except:
+                            sensitivity_matrix.append(np.zeros_like(param_array))
+                    else:
+                        sensitivity_matrix.append(np.zeros_like(param_array))
+                
+                sensitivity_matrix = np.array(sensitivity_matrix)
+                
+                # 创建热力图
+                fig = go.Figure(data=go.Heatmap(
+                    z=sensitivity_matrix,
+                    x=param_array,
+                    y=available_metrics,
+                    colorscale='RdYlBu_r',  # 红色表示高敏感性
+                    colorbar=dict(title="敏感性强度"),
+                    hovertemplate=(
+                        f'{param_name}: %{{x}}<br>'
+                        '指标: %{y}<br>'
+                        '敏感性: %{z:.4f}<br>'
+                        '<extra></extra>'
+                    )
+                ))
+                
+                fig.update_layout(
+                    title=f'{param_name} 对各指标的敏感性热力图',
+                    xaxis_title=param_name,
+                    yaxis_title='指标',
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # 显示敏感性排名
+                st.markdown("#### 🏆 敏感性排名")
+                
+                # 计算平均敏感性
+                avg_sensitivity = sensitivity_matrix.mean(axis=1)
+                ranking_df = pd.DataFrame({
+                    '指标': available_metrics,
+                    '平均敏感性': avg_sensitivity
+                }).sort_values('平均敏感性', ascending=False)
+                
+                st.dataframe(ranking_df, width='stretch')
+            else:
+                st.info("需要至少2个指标来计算敏感性热力图")
+    
+    with subtab3:
+        st.markdown(f"### 💡 {param_name} 优化建议")
+        
+        # 分析结果并提供建议
+        if len(results_df) > 1:
+            # 提取关键数据
+            param_vals = results_df['参数值'].values
+            impact_scores = results_df['总影响评分'].values
+            
+            if not is_categorical:
+                # 寻找最优参数范围（影响评分最低）仅用于数值变量
+                optimal_range_threshold = impact_scores.min() * 1.2  # 允许20%的容忍度
+                optimal_indices = np.where(impact_scores <= optimal_range_threshold)[0]
+                
+                if len(optimal_indices) > 0:
+                    optimal_min = param_vals[optimal_indices[0]]
+                    optimal_max = param_vals[optimal_indices[-1]]
+                    
+                    st.success(f"✅ **推荐参数范围**: {optimal_min:.2f} ~ {optimal_max:.2f}")
+                    st.markdown(f"在此范围内，总影响评分保持在 {optimal_range_threshold:.2f} 以下")
+            
+            # 提供具体建议
+            st.markdown("#### 📋 具体优化建议")
+            
+            if param_key == 'radar_band':
+                # 雷达波段建议
+                best_band_idx = impact_scores.argmin()
+                best_band = param_vals[best_band_idx]
+                worst_band_idx = impact_scores.argmax()
+                worst_band = param_vals[worst_band_idx]
+                
+                st.markdown(f"""
+                1. **最佳波段**: **{best_band}** (总影响评分: {impact_scores[best_band_idx]:.1f})
+                2. **最差波段**: {worst_band} (总影响评分: {impact_scores[worst_band_idx]:.1f})
+                3. **建议**: 优先选择 {best_band}，避免使用 {worst_band}
+                """)
+            
+            elif param_key == 'turbine_distance':
+                # 目标-风机距离建议
+                st.markdown("""
+                1. **安全距离**: 保持至少 2-3 km 的距离可显著降低影响
+                2. **临界点**: 距离小于 1 km 时影响急剧增加
+                3. **建议**: 规划风电场时，确保雷达视线与风机保持足够距离
+                """)
+            
+            elif param_key == 'incidence_angle':
+                # 照射角度建议
+                st.markdown("""
+                1. **最佳角度**: 0-30° 或 150-180° (侧向照射) 影响较小
+                2. **最差角度**: 90° (正面照射) 影响最大
+                3. **建议**: 调整雷达部署位置，避免正对风机叶片
+                """)
+            
+            else:
+                # 通用建议
+                if is_categorical:
+                    st.markdown(f"""
+                    1. **类别分析**: 不同{param_name}对总影响评分的差异已在上方图表中展示
+                    2. **操作建议**: 选择影响评分最低的类别
+                    3. **监控建议**: 在实际应用中持续监控不同类别对系统性能的影响
+                    """)
+                else:
+                    st.markdown(f"""
+                    1. **趋势分析**: 参数变化与总影响评分的关系已在上方曲线中展示
+                    2. **操作建议**: 根据曲线趋势，调整参数至低影响区域
+                    3. **监控建议**: 在实际应用中持续监控该参数对系统性能的影响
+                    """)
+            
+            # 提供数据下载
+            st.markdown("#### 📥 结果下载")
+            csv_data = results_df.to_csv(index=False)
+            st.download_button(
+                label="下载敏感性分析数据 (CSV)",
+                data=csv_data,
+                file_name=f"sensitivity_analysis_{param_key}.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("需要足够的数据点来生成优化建议")
+
+
 def main():
     """主函数"""
     # 初始化高级分析器
@@ -2667,16 +3225,22 @@ def main():
     }
     
     # 主界面标签页
-    tab1, tab2, tab3 = st.tabs(["🔬 单风机vs多风机分析", "📏 不同距离目标下细分指标对比分析", "📄 综合分析报告生成器"])
+    tab1, tab2, tab3, tab4, tab5= st.tabs(["🔬 单风机vs多风机分析", "📄 综合分析报告生成器", "📏 不同距离目标下细分指标对比分析", "🔍 交互式参数敏感性分析", "📚 指标计算方法与原理" ])
     
     with tab1:
         create_advanced_analysis_interface(analyzer, base_params)
-
+        
     with tab2:
-        create_distance_based_analysis_interface(analyzer, base_params)
+        create_report_generation_interface(analyzer)        
 
     with tab3:
-        create_report_generation_interface(analyzer)
+        create_distance_based_analysis_interface(analyzer, base_params)
+        
+    with tab4:
+        create_parameter_sensitivity_analysis_interface(analyzer, base_params)
+    
+    with tab5:
+        create_metric_methods_tab(base_params)
 
 if __name__ == "__main__":
     main()
