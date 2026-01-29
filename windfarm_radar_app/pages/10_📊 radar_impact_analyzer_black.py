@@ -2702,14 +2702,15 @@ def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
         selected_param_key = st.selectbox(
             "选择要分析的参数",
             list(parameter_options.keys()),
-            format_func=lambda x: parameter_options[x]
+            format_func=lambda x: parameter_options[x],
+            key="sensitivity_param_select"
         )
         
         selected_param_name = parameter_options[selected_param_key]
     
     with col2:
         # 分析点数
-        num_points = st.slider("分析点数", 5, 50, 20, help="参数范围内采样点数")
+        num_points = st.slider("分析点数", 5, 50, 20, help="参数范围内采样点数", key="sensitivity_num_points")
     
     # 参数范围配置
     st.markdown("### 📏 参数范围设置")
@@ -2731,39 +2732,39 @@ def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
         with col_range1:
             # 根据参数类型设置合理的默认范围
             if selected_param_key == 'target_distance':
-                min_val = st.number_input("最小值 (km)", 0.1, 100.0, max(0.1, current_value * 0.5), 0.1)
+                min_val = st.number_input("最小值 (km)", 0.1, 100.0, max(0.1, current_value * 0.5), 0.1, key=f"sensitivity_{selected_param_key}_min")
             elif selected_param_key == 'target_height':
-                min_val = st.number_input("最小值 (m)", 10, 10000, max(10, int(current_value * 0.5)), 10)
+                min_val = st.number_input("最小值 (m)", 10, 10000, max(10, int(current_value * 0.5)), 10, key=f"sensitivity_{selected_param_key}_min")
             elif selected_param_key == 'target_speed':
-                min_val = st.number_input("最小值 (m/s)", 1, 200, max(1, int(current_value * 0.5)), 1)
+                min_val = st.number_input("最小值 (m/s)", 1, 200, max(1, int(current_value * 0.5)), 1, key=f"sensitivity_{selected_param_key}_min")
             elif selected_param_key == 'turbine_height':
-                min_val = st.number_input("最小值 (m)", 50, 500, max(50, int(current_value * 0.5)), 10)
+                min_val = st.number_input("最小值 (m)", 50, 500, max(50, int(current_value * 0.5)), 10, key=f"sensitivity_{selected_param_key}_min")
             elif selected_param_key == 'turbine_distance':
-                min_val = st.number_input("最小值 (km)", 0.1, 50.0, max(0.1, current_value * 0.5), 0.1)
+                min_val = st.number_input("最小值 (km)", 0.1, 50.0, max(0.1, current_value * 0.5), 0.1, key=f"sensitivity_{selected_param_key}_min")
             elif selected_param_key == 'incidence_angle':
-                min_val = st.number_input("最小值 (°)", 0, 180, max(0, int(current_value * 0.5)), 1)
+                min_val = st.number_input("最小值 (°)", 0, 180, max(0, int(current_value * 0.5)), 1, key=f"sensitivity_{selected_param_key}_min")
             elif selected_param_key == 'max_turbines':
-                min_val = st.number_input("最小值", 1, 100, max(1, int(current_value * 0.5)), 1)
+                min_val = st.number_input("最小值", 1, 100, max(1, int(current_value * 0.5)), 1, key=f"sensitivity_{selected_param_key}_min")
             else:
-                min_val = st.number_input("最小值", 0.0, 1000.0, max(0.0, current_value * 0.5), 0.1)
+                min_val = st.number_input("最小值", 0.0, 1000.0, max(0.0, current_value * 0.5), 0.1, key=f"sensitivity_{selected_param_key}_min")
         
         with col_range2:
             if selected_param_key == 'target_distance':
-                max_val = st.number_input("最大值 (km)", 0.1, 100.0, min(100.0, current_value * 2.0), 0.1)
+                max_val = st.number_input("最大值 (km)", 0.1, 100.0, min(100.0, current_value * 2.0), 0.1, key=f"sensitivity_{selected_param_key}_max")
             elif selected_param_key == 'target_height':
-                max_val = st.number_input("最大值 (m)", 10, 10000, min(10000, int(current_value * 2.0)), 10)
+                max_val = st.number_input("最大值 (m)", 10, 10000, min(10000, int(current_value * 2.0)), 10, key=f"sensitivity_{selected_param_key}_max")
             elif selected_param_key == 'target_speed':
-                max_val = st.number_input("最大值 (m/s)", 1, 200, min(200, int(current_value * 2.0)), 1)
+                max_val = st.number_input("最大值 (m/s)", 1, 200, min(200, int(current_value * 2.0)), 1, key=f"sensitivity_{selected_param_key}_max")
             elif selected_param_key == 'turbine_height':
-                max_val = st.number_input("最大值 (m)", 50, 500, min(500, int(current_value * 2.0)), 10)
+                max_val = st.number_input("最大值 (m)", 50, 500, min(500, int(current_value * 2.0)), 10, key=f"sensitivity_{selected_param_key}_max")
             elif selected_param_key == 'turbine_distance':
-                max_val = st.number_input("最大值 (km)", 0.1, 50.0, min(50.0, current_value * 2.0), 0.1)
+                max_val = st.number_input("最大值 (km)", 0.1, 50.0, min(50.0, current_value * 2.0), 0.1, key=f"sensitivity_{selected_param_key}_max")
             elif selected_param_key == 'incidence_angle':
-                max_val = st.number_input("最大值 (°)", 0, 180, min(180, int(current_value * 2.0)), 1)
+                max_val = st.number_input("最大值 (°)", 0, 180, min(180, int(current_value * 2.0)), 1, key=f"sensitivity_{selected_param_key}_max")
             elif selected_param_key == 'max_turbines':
-                max_val = st.number_input("最大值", 1, 100, min(100, int(current_value * 2.0)), 1)
+                max_val = st.number_input("最大值", 1, 100, min(100, int(current_value * 2.0)), 1, key=f"sensitivity_{selected_param_key}_max")
             else:
-                max_val = st.number_input("最大值", 0.0, 1000.0, min(1000.0, current_value * 2.0), 0.1)
+                max_val = st.number_input("最大值", 0.0, 1000.0, min(1000.0, current_value * 2.0), 0.1, key=f"sensitivity_{selected_param_key}_max")
         
         with col_range3:
             st.metric("当前值", current_value)
@@ -2841,6 +2842,14 @@ def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
                 display_sensitivity_results(results_df, selected_param_key, selected_param_name, param_display)
             else:
                 st.error("❌ 无法计算任何结果，请检查参数设置。")
+    elif 'sensitivity_results' in st.session_state and st.session_state.sensitivity_param == selected_param_key:
+        # 从session state中读取保存的结果
+        results_df = st.session_state.sensitivity_results
+        param_key = st.session_state.sensitivity_param
+        param_name = st.session_state.sensitivity_param_name
+        param_display = st.session_state.sensitivity_param_values
+        # 显示结果
+        display_sensitivity_results(results_df, param_key, param_name, param_display)
 
 
 def display_sensitivity_results(results_df, param_key, param_name, param_values):
@@ -2884,7 +2893,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
                 "选择要显示的指标",
                 ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m'],
                 default=['遮挡损耗_db', '散射损耗_db'],
-                key="metrics_selector_categorical"
+                key=f"metrics_selector_categorical_{param_key}"
             )
             
             # 颜色映射
@@ -2948,7 +2957,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
                 "选择要显示的指标",
                 ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m'],
                 default=['遮挡损耗_db', '散射损耗_db'],
-                key="metrics_selector_numeric"
+                key=f"metrics_selector_numeric_{param_key}"
             )
             
             # 颜色映射
