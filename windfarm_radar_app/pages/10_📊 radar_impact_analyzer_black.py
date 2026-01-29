@@ -1234,7 +1234,8 @@ class ReportGenerator:
         try:
             analysis_results = metric_analyzer.analyze_all_metrics(
                 comparison_data=comparison_data,
-                scenario_params=params
+                scenario_params=params,
+                enable_ai_analysis=False  # 批量报告生成时不启用AI分析，节省token
             )
         except Exception as e:
             # 如果指标分析失败，使用原始报告生成方式（无图表和AI分析）
@@ -1998,13 +1999,14 @@ class MetricAnalysisEngine:
         """设置Kimi API密钥"""
         self.api_key = api_key
     
-    def analyze_all_metrics(self, comparison_data: pd.DataFrame, scenario_params: dict) -> dict:
+    def analyze_all_metrics(self, comparison_data: pd.DataFrame, scenario_params: dict, enable_ai_analysis: bool = False) -> dict:
         """
         枚举所有细分指标并进行主题分析
         
         参数:
             comparison_data: 包含所有指标数据的DataFrame
             scenario_params: 场景参数
+            enable_ai_analysis: 是否启用AI分析，默认为False
             
         返回:
             分析结果字典，包含图表路径、数据表格和AI分析结果
@@ -2090,21 +2092,24 @@ class MetricAnalysisEngine:
                 
                 # 调用Kimi API分析图表
                 ai_analysis = ""
-                if self.api_key and chart_path_str:  # 只有API密钥有效且图表路径非空时才分析
-                    try:
-                        ai_analysis = self._analyze_chart_with_kimi(
-                            chart_path_str,
-                            f"{metric_config['name']}: {metric_config['description']}。图表显示了{metric_column}随风机数量的变化趋势。"
-                        )
-                        print(f"Kimi AI分析完成: {metric_config['name']}")
-                    except Exception as e:
-                        print(f"Kimi AI分析失败: {e}")
-                        ai_analysis = f"AI分析失败: {str(e)}"
+                if enable_ai_analysis:
+                    if self.api_key and chart_path_str:  # 只有API密钥有效且图表路径非空时才分析
+                        try:
+                            ai_analysis = self._analyze_chart_with_kimi(
+                                chart_path_str,
+                                f"{metric_config['name']}: {metric_config['description']}。图表显示了{metric_column}随风机数量变化趋势。"
+                            )
+                            print(f"Kimi AI分析完成: {metric_config['name']}")
+                        except Exception as e:
+                            print(f"Kimi AI分析失败: {e}")
+                            ai_analysis = f"AI分析失败: {str(e)}"
+                    else:
+                        if not self.api_key:
+                            ai_analysis = "未配置Kimi API密钥，跳过AI分析"
+                        elif not chart_path_str:
+                            ai_analysis = "图表数据无效，跳过AI分析"
                 else:
-                    if not self.api_key:
-                        ai_analysis = "未配置Kimi API密钥，跳过AI分析"
-                    elif not chart_path_str:
-                        ai_analysis = "图表数据无效，跳过AI分析"
+                    ai_analysis = "AI分析未启用（用户选择跳过）"
                 
                 # 收集结果
                 metric_result = {
@@ -2523,6 +2528,13 @@ def create_advanced_analysis_interface(analyzer, base_params):
         
         st.markdown("### 🎯 指标分析控制面板")
         
+        enable_expert_analysis = st.checkbox(
+            "启用专家分析（调用Kimi AI进行智能分析）", 
+            value=False,
+            help="启用后将对每个细分指标图表调用Kimi API进行智能分析，会增加token消耗和分析时间",
+            key="enable_expert_analysis_checkbox"
+        )
+        
         col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
@@ -2591,7 +2603,8 @@ def create_advanced_analysis_interface(analyzer, base_params):
                     # 运行指标分析
                     analysis_results = metric_analyzer.analyze_all_metrics(
                         comparison_data=comparison_data,
-                        scenario_params=base_params
+                        scenario_params=base_params,
+                        enable_ai_analysis=enable_expert_analysis
                     )
                     
                     # 保存结果到session_state
