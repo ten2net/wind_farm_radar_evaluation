@@ -1259,7 +1259,7 @@ class ReportGenerator:
             f.write(f"| 风机参数 | 风机高度 | {params['turbine_height']} m |\n")
             f.write(f"| 风机参数 | 目标与风机间距 | {params['turbine_distance']} km |\n")
             f.write(f"| 风机参数 | 入射角 | {params['incidence_angle']}° |\n")
-            f.write(f"| 风机参数 | 最大风机数 | {params['max_turbines']} |\n")
+            f.write(f"| 风机参数 | 最大风机数 | {params['max_turbines']} 个 |\n")
             f.write("\n")
             
             if analysis_results:
@@ -2369,9 +2369,31 @@ class MetricAnalysisEngine:
 |------|-----|
 """
         
+        # 参数显示映射：英文键 -> (中文显示名, 单位)
+        param_display_map = {
+            'radar_band': ('雷达波段', ''),
+            'target_distance': ('目标距离', ' km'),
+            'target_height': ('目标高度', ' m'),
+            'target_speed': ('目标速度', ' m/s'),
+            'turbine_height': ('风机高度', ' m'),
+            'turbine_distance': ('目标-风机距离', ' km'),
+            'incidence_angle': ('照射角度', '°'),
+            'max_turbines': ('最大风机数量', ' 个'),
+            'scenario_id': ('场景ID', '')
+        }
+        
         # 添加场景参数
         for key, value in scenario_params.items():
-            markdown_content += f"| {key} | {value} |\n"
+            if key in param_display_map:
+                display_name, unit = param_display_map[key]
+                # 格式化值：如果值是数值且单位不为空，添加单位
+                if isinstance(value, (int, float)) and unit:
+                    formatted_value = f"{value}{unit}"
+                else:
+                    formatted_value = f"{value}{unit}" if unit else str(value)
+                markdown_content += f"| {display_name} | {formatted_value} |\n"
+            else:
+                markdown_content += f"| {key} | {value} |\n"
         
         markdown_content += "\n## 细分指标分析\n\n"
         
