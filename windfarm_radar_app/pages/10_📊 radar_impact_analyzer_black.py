@@ -1134,7 +1134,7 @@ $$
 
 def create_distance_based_analysis_interface(analyzer, base_params):
     """创建不同距离目标下细分指标对比分析界面"""
-    st.markdown('<div class="section-header">📏 不同距离目标下细分指标对比分析</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📏 不同距离目标的细分指标对比分析</div>', unsafe_allow_html=True)
     
     # 仿真配置面板
     st.markdown("### 🎛️ 仿真配置")
@@ -1380,6 +1380,7 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             mime="text/csv",
             type="secondary"
         )
+
 
 # Kimi API配置
 KIMI_API_CONFIG = {
@@ -2285,6 +2286,73 @@ def create_advanced_analysis_interface(analyzer, base_params):
                     type="primary"
                 )
         
+        # 报告打包下载
+        st.markdown("### 📦 报告打包")
+        
+        # 检查outputs目录是否存在
+        outputs_dir = "outputs"
+        if os.path.exists(outputs_dir):
+            # 查找所有.md文件
+            md_files = []
+            for root, dirs, files in os.walk(outputs_dir):
+                for file in files:
+                    if file.endswith('.md'):
+                        md_files.append(os.path.join(root, file))
+            
+            # 检查是否有.md文件
+            if md_files:
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if st.button("🛠️ 生成报告ZIP文件", type="primary"):
+                        with st.spinner("正在打包报告文件..."):
+                            # 创建ZIP文件
+                            zip_filename = f"radar_impact_reports_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                            zip_buffer = BytesIO()
+                            
+                            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                                # 添加所有.md文件
+                                for md_file in md_files:
+                                    arcname = os.path.relpath(md_file, outputs_dir)
+                                    zipf.write(md_file, arcname)
+                                
+                                # 添加images目录（如果存在）
+                                images_dir = os.path.join(outputs_dir, 'images')
+                                if os.path.exists(images_dir):
+                                    for root, dirs, files in os.walk(images_dir):
+                                        for file in files:
+                                            file_path = os.path.join(root, file)
+                                            arcname = os.path.relpath(file_path, outputs_dir)
+                                            zipf.write(file_path, arcname)
+                                
+                                # 添加data目录（如果存在）
+                                data_dir = os.path.join(outputs_dir, 'data')
+                                if os.path.exists(data_dir):
+                                    for root, dirs, files in os.walk(data_dir):
+                                        for file in files:
+                                            file_path = os.path.join(root, file)
+                                            arcname = os.path.relpath(file_path, outputs_dir)
+                                            zipf.write(file_path, arcname)
+                            
+                            zip_buffer.seek(0)
+                            st.session_state.zip_data = zip_buffer.read()
+                            st.session_state.zip_filename = zip_filename
+                            st.success("ZIP文件生成完成！")
+                
+                with col2:
+                    # 如果已有ZIP数据，显示下载按钮
+                    if 'zip_data' in st.session_state and 'zip_filename' in st.session_state:
+                        st.download_button(
+                            label="📦 下载全部报告 (ZIP)",
+                            data=st.session_state.zip_data,
+                            file_name=st.session_state.zip_filename,
+                            mime="application/zip",
+                            width='stretch'
+                        )
+            else:
+                st.warning("outputs目录中没有找到.md报告文件。请先运行分析生成报告。")
+        else:
+            st.warning("outputs目录不存在。请先运行分析生成报告。")
+        
         if clear_analysis:
             if 'metric_analysis_results' in st.session_state:
                 del st.session_state.metric_analysis_results
@@ -2881,13 +2949,13 @@ def main():
         )
     
     with st.sidebar.expander("目标参数"):
-        target_distance = st.slider("目标距离 (km)", 1.0, 50.0, 12.0, 0.1)
+        target_distance = st.slider("目标距离 (km)", 1.0, 150.0, 12.0, 1.0)
         target_height = st.slider("目标高度 (m)", 10, 5000, 300)
         target_speed = st.slider("目标速度 (m/s)", 1, 100, 20)
     
     with st.sidebar.expander("风机参数"):
         turbine_height = st.slider("风机高度 (m)", 50, 300, 185)
-        turbine_distance = st.slider("目标-风机距离 (km)", 0.1, 20.0, 1.0, 0.1)
+        turbine_distance = st.slider("目标-风机距离 (km)", 0.1, 50.0, 1.0, 0.5)
         incidence_angle = st.slider("照射角度 (°)", 0, 180, 45)
         max_turbines = st.slider("最大风机数量", 1, 50, 30)
     
@@ -2914,7 +2982,7 @@ def main():
     }
     
     # 主界面标签页
-    tab1, tab2, tab3, tab4 = st.tabs(["🔬 单风机vs多风机分析", "📏 不同距离目标下细分指标对比分析", "🔍 交互式参数敏感性分析", "📚 指标计算方法与原理"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🔬 单风机vs多风机分析", "📏 不同距离目标的细分指标对比分析", "🔍 交互式参数敏感性分析", "📚 指标计算方法与原理"])
     
     with tab1:
         create_advanced_analysis_interface(analyzer, base_params)
