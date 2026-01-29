@@ -837,13 +837,21 @@ def create_metric_methods_tab(params):
 ## 1. 遮挡损耗 (Shadowing Loss)
 
 ### 计算公式
-```
-shadow_loss_db = 20 × shadow_factor × height_factor
-shadow_factor = min(1.0, 0.3 + 0.2 × log10(num_turbines))
-height_factor = max(0.1, 1 - |target_height - turbine_height| / (2 × turbine_height))
-```
+
+$$
+\text{shadow\_loss\_db} = 20 \times \text{shadow\_factor} \times \text{height\_factor}
+$$
+
+$$
+\text{shadow\_factor} = \min(1.0,\ 0.3 + 0.2 \times \log_{10}(\text{num\_turbines}))
+$$
+
+$$
+\text{height\_factor} = \max\left(0.1, 1 - \frac{|\text{target\_height} - \text{turbine\_height}|}{2 \times \text{turbine\_height}}\right)
+$$
 
 ### 物理原理
+
 遮挡效应基于几何光学理论，当风机位于雷达与目标之间时，会形成雷达阴影区。阴影区的深度与风机高度、目标高度、距离以及风机数量相关。
 
 ### 参数说明
@@ -855,13 +863,21 @@ height_factor = max(0.1, 1 - |target_height - turbine_height| / (2 × turbine_he
 ## 2. 散射损耗 (Scattering Loss)
 
 ### 计算公式
-```
-effective_rcs = base_rcs × incidence_factor × distance_factor × freq_factor
-scattering_power = effective_rcs × min(num_turbines, 10)
-scattering_loss_db = 10 × log10(1 + scattering_power / 1000)
-```
+
+$$
+\text{effective\_rcs} = \text{base\_rcs} \times \text{incidence\_factor} \times \text{distance\_factor} \times \text{freq\_factor}
+$$
+
+$$
+\text{scattering\_power} = \text{effective\_rcs} \times \min(\text{num\_turbines},\ 10)
+$$
+
+$$
+\text{scattering\_loss\_db} = 10 \times \log_{10}\left(1 + \frac{\text{scattering\_power}}{1000}\right)
+$$
 
 ### 物理原理
+
 散射效应基于雷达截面积（RCS）模型，风机作为散射体会将雷达信号向各个方向散射，造成信号能量损失。散射强度与入射角、距离、频率相关。
 
 ### 参数说明
@@ -873,15 +889,21 @@ scattering_loss_db = 10 × log10(1 + scattering_power / 1000)
 ## 3. 绕射损耗 (Diffraction Loss)
 
 ### 计算公式
-```
-v_parameter = turbine_height × sqrt(2 / (wavelength × turbine_distance × 1000))
-if v_parameter > -0.8:
-    diffraction_loss_db = 6.9 + 20 × log10(sqrt((v_parameter - 0.1)² + 1) + v_parameter - 0.1)
-else:
-    diffraction_loss_db = 0
-```
+
+$$
+v_{\text{parameter}} = \text{turbine\_height} \times \sqrt{\frac{2}{\text{wavelength} \times \text{turbine\_distance} \times 1000}}
+$$
+
+$$
+\text{diffraction\_loss\_db} = 
+\begin{cases}
+6.9 + 20 \times \log_{10}\left(\sqrt{(v_{\text{parameter}} - 0.1)^2 + 1} + v_{\text{parameter}} - 0.1\right), & \text{if } v_{\text{parameter}} > -0.8 \\
+0, & \text{otherwise}
+\end{cases}
+$$
 
 ### 物理原理
+
 绕射效应基于刃形绕射模型，当雷达信号遇到风机边缘时会发生绕射，信号能量会绕过障碍物传播，但会产生额外的损耗。
 
 ### 参数说明
@@ -893,14 +915,25 @@ else:
 ## 4. 多普勒扩展 (Doppler Spread)
 
 ### 计算公式
-```
-wavelength = 3e8 / freq
-target_doppler = 2 × target_speed / wavelength
-blade_doppler_max = 2 × blade_tip_speed / wavelength
-doppler_spread = blade_doppler_max × sqrt(num_turbines)
-```
+
+$$
+\text{wavelength} = \frac{3 \times 10^8}{\text{freq}}
+$$
+
+$$
+\text{target\_doppler} = \frac{2 \times \text{target\_speed}}{\text{wavelength}}
+$$
+
+$$
+\text{blade\_doppler\_max} = \frac{2 \times \text{blade\_tip\_speed}}{\text{wavelength}}
+$$
+
+$$
+\text{doppler\_spread} = \text{blade\_doppler\_max} \times \sqrt{\text{num\_turbines}}
+$$
 
 ### 物理原理
+
 多普勒效应由目标运动和风机叶片旋转引起，会导致雷达回波频率发生偏移。多风机环境下，不同风机的叶片旋转会产生多普勒扩展。
 
 ### 参数说明
@@ -912,13 +945,21 @@ doppler_spread = blade_doppler_max × sqrt(num_turbines)
 ## 5. 测角误差 (Angle Measurement Error)
 
 ### 计算公式
-```
-multipath_phase_shift = 2 × π × turbine_distance × 1000 / wavelength × sin(incidence_angle)
-angle_error_deg = degrees(wavelength / (4 × π × turbine_distance × 1000)) × 10
-multi_turbine_error = angle_error_deg × sqrt(min(num_turbines, 5))
-```
+
+$$
+\text{multipath\_phase\_shift} = \frac{2 \times \pi \times \text{turbine\_distance} \times 1000}{\text{wavelength}} \times \sin(\text{incidence\_angle})
+$$
+
+$$
+\text{angle\_error\_deg} = \text{degrees}\left(\frac{\text{wavelength}}{4 \times \pi \times \text{turbine\_distance} \times 1000}\right) \times 10
+$$
+
+$$
+\text{multi\_turbine\_error} = \text{angle\_error\_deg} \times \sqrt{\min(\text{num\_turbines},\ 5)}
+$$
 
 ### 物理原理
+
 测角误差主要由多径效应引起，雷达信号经过风机反射后与直达信号叠加，导致相位畸变，从而影响角度测量精度。
 
 ### 参数说明
@@ -930,11 +971,13 @@ multi_turbine_error = angle_error_deg × sqrt(min(num_turbines, 5))
 ## 6. 测距误差 (Range Measurement Error)
 
 ### 计算公式
-```
-range_error = wavelength × 0.01 × log(1 + turbine_distance) × sqrt(num_turbines)
-```
+
+$$
+\text{range\_error} = \text{wavelength} \times 0.01 \times \log(1 + \text{turbine\_distance}) \times \sqrt{\text{num\_turbines}}
+$$
 
 ### 物理原理
+
 测距误差由多径时延引起，反射路径比直达路径更长，导致时间延迟，影响距离测量精度。多风机环境下时延扩展更显著。
 
 ### 参数说明
@@ -945,12 +988,17 @@ range_error = wavelength × 0.01 × log(1 + turbine_distance) × sqrt(num_turbin
 ## 7. 测速误差 (Velocity Measurement Error)
 
 ### 计算公式
-```
-velocity_error = doppler_spread × 0.1 × sqrt(num_turbines)
-measurement_accuracy_loss = min(0.3, 0.05 × num_turbines)
-```
+
+$$
+\text{velocity\_error} = \text{doppler\_spread} \times 0.1 \times \sqrt{\text{num\_turbines}}
+$$
+
+$$
+\text{measurement\_accuracy\_loss} = \min(0.3,\ 0.05 \times \text{num\_turbines})
+$$
 
 ### 物理原理
+
 测速误差由多普勒扩展引起，频域扩展导致速度测量不确定性增加。风机数量越多，多普勒扩展越宽，测速精度越低。
 
 ### 参数说明
@@ -961,13 +1009,21 @@ measurement_accuracy_loss = min(0.3, 0.05 × num_turbines)
 ## 8. 多径衰落 (Multipath Fading)
 
 ### 计算公式
-```
-multipath_fading_depth_db = 20 × log10(1 + 0.5 × sqrt(num_turbines))
-delay_spread = time_delay × sqrt(num_turbines) × 1e6
-coherence_bandwidth = 1 / (2 × π × delay_spread × 1e-6) / 1e6
-```
+
+$$
+\text{multipath\_fading\_depth\_db} = 20 \times \log_{10}\left(1 + 0.5 \times \sqrt{\text{num\_turbines}}\right)
+$$
+
+$$
+\text{delay\_spread} = \text{time\_delay} \times \sqrt{\text{num\_turbines}} \times 10^6
+$$
+
+$$
+\text{coherence\_bandwidth} = \frac{1}{2 \times \pi \times \text{delay\_spread} \times 10^{-6}} \div 10^6
+$$
 
 ### 物理原理
+
 多径衰落由多条传播路径信号干涉引起，当路径差为半波长奇数倍时产生相消干涉，导致深度衰落。多风机环境增加了多径复杂性。
 
 ### 参数说明
@@ -979,19 +1035,22 @@ coherence_bandwidth = 1 / (2 × π × delay_spread × 1e-6) / 1e6
 ## 9. 总影响评分 (Total Impact Score)
 
 ### 计算公式
-```
-total_impact_score = 
-  遮挡损耗_db × 0.15 +
-  散射损耗_db × 0.2 +
-  绕射损耗_db × 0.1 +
-  abs(速度测量误差) × 0.1 +
-  测角误差_度 × 0.1 +
-  测距误差_m × 0.1 +
-  测速误差_m/s × 0.05 +
-  多径衰落_db × 0.2
-```
+
+$$
+\begin{aligned}
+\text{total\_impact\_score} = & \ \text{遮挡损耗\_db} \times 0.15 \\
+& + \ \text{散射损耗\_db} \times 0.2 \\
+& + \ \text{绕射损耗\_db} \times 0.1 \\
+& + \ |\text{速度测量误差}| \times 0.1 \\
+& + \ \text{测角误差\_度} \times 0.1 \\
+& + \ \text{测距误差\_m} \times 0.1 \\
+& + \ \text{测速误差\_m/s} \times 0.05 \\
+& + \ \text{多径衰落\_db} \times 0.2
+\end{aligned}
+$$
 
 ### 物理原理
+
 总影响评分是各项指标的加权综合，反映了风机对雷达性能的总体影响程度。权重分配基于各项指标的相对重要性和影响程度。
 
 ### 风险等级划分
