@@ -145,6 +145,15 @@ class AdvancedRadarImpactAnalyzer:
             "导弹": {"rcs_dbsm": -15, "rcs_m2": 0.03, "description": "巡航导弹 (0.03 m²)"},
             "隐身战机": {"rcs_dbsm": -25, "rcs_m2": 0.003, "description": "F-22/F-35类 (0.003 m²)"},
         }
+        
+        # 风机塔筒默认参数
+        self.tower_params = {
+            "height": 100,           # 塔筒高度 (m)
+            "base_diameter": 6,      # 底部直径 (m)
+            "top_diameter": 3,       # 顶部直径 (m)
+            "material": "steel",     # 材料
+            "surface_roughness": 0.001  # 表面粗糙度 (m)
+        }
     
     def calculate_echo_power(self, radar_band, target_distance, target_rcs_dbsm=None, 
                             num_turbines=1, shadow_loss_db=0, scattering_loss_db=0,
@@ -194,6 +203,107 @@ class AdvancedRadarImpactAnalyzer:
             'snr_db': snr_db,
             'detection_prob': detection_prob,
             'power_degradation_db': total_turbine_loss_db + multi_turbine_factor_db
+        }
+    
+    def calculate_tower_rcs(self, radar_band, incidence_angle=0, tower_height=None, 
+                           base_diameter=None, top_diameter=None):
+        """
+        估算风机塔筒的RCS - 基于圆柱体散射模型
+        
+        参数:
+            radar_band: 雷达波段
+            incidence_angle: 入射角 (度), 0表示垂直照射
+            tower_height: 塔筒高度 (m), 默认使用self.tower_params
+            base_diameter: 底部直径 (m)
+            top_diameter: 顶部直径 (m)
+        
+        返回:
+            塔筒RCS估算值 (dBsm)
+        """
+        wavelength = self.radar_bands[radar_band]["wavelength"]
+        freq = self.radar_bands[radar_band]["freq"]
+        
+        # 使用默认参数或传入参数
+        h = tower_height if tower_height is not None else self.tower_params["height"]
+        d_base = base_diameter if base_diameter is not None else self.tower_params["base_diameter"]
+        d_top = top_diameter if top_diameter is not None else self.tower_params["top_diameter"]
+        
+        # 平均直径
+        d_avg = (d_base + d_top) / 2
+        
+        # 入射角转换为弧度
+        theta = np.radians(incidence_angle)
+        
+        # 1. 圆柱体RCS计算 (光学区)
+        # 对于圆柱体，垂直入射时RCS = 2π * a * h² / λ
+        # 其中a是半径，h是高度
+        a = d_avg / 2  # 半径
+        
+        # 垂直入射RCS (m²)
+        rcs_vertical_m2 = 2 * np.pi * a * (h ** 2) / wavelength
+        
+        # 2. 考虑入射角影响 (使用sin函数近似方向性)
+        # 偏离垂直方向时RCS迅速下降
+        angle_factor = np.cos(theta) ** 2  # 入射角影响因子
+        
+        # 3. 表面粗糙度修正
+        roughness_factor = 0.8  # 粗糙表面降低RCS
+        
+        # 4. 频率修正 (高频时表面细节影响)
+        freq_factor = min(1.5, (freq / 1e9) ** 0.2)  # 频率越高RCS略增
+        
+        # 综合RCS (m²)
+        rcs_m2 = rcs_vertical_m2 * angle_factor * roughness_factor * freq_factor
+        
+        # 转换为dBsm
+        rcs_dbsm = 10 * np.log10(rcs_m2 + 0.001)  # 加小值避免log(0)
+        
+        return {
+            'rcs_dbsm': rcs_dbsm,
+            'rcs_m2': rcs_m2,
+            'tower_height': h,
+            'avg_diameter': d_avg,
+            'vertical_rcs_m2': rcs_vertical_m2,
+            'angle_factor': angle_factor,
+            'wavelength': wavelength
+        }
+    
+    def calculate_tower_echo_power(self, radar_band, tower_distance, num_turbines=1,
+                                   incidence_angle=0, tower_height=None):
+        """
+        计算塔筒回波功率
+        
+        参数:
+            radar_band: 雷达波段
+            tower_distance: 塔筒距离 (km)
+            num_turbines: 风机数量
+            incidence_angle: 入射角 (度)
+            tower_height: 塔筒高度 (m)
+        
+        返回:
+            塔筒回波功率相关指标
+        """
+        # 计算塔筒RCS
+        tower_rcs = self.calculate_tower_rcs(radar_band, incidence_angle, tower_height)
+        
+        # 使用目标回波功率计算方法，传入塔筒RCS
+        tower_echo = self.calculate_echo_power(
+            radar_band,
+            tower_distance,
+            target_rcs_dbsm=tower_rcs['rcs_dbsm'],
+            num_turbines=num_turbines,
+            shadow_loss_db=0,  # 塔筒自身不受遮挡
+            scattering_loss_db=0,
+            diffraction_loss_db=0,
+            multipath_fading_db=0
+        )
+        
+        return {
+            **tower_echo,
+            'tower_rcs_dbsm': tower_rcs['rcs_dbsm'],
+            'tower_rcs_m2': tower_rcs['rcs_m2'],
+            'tower_height': tower_rcs['tower_height'],
+            'avg_diameter': tower_rcs['avg_diameter']
         }
         
     def calculate_shadowing_effect(self, turbine_height, target_height, distance, num_turbines=1):
@@ -451,6 +561,15 @@ class AdvancedRadarImpactAnalyzer:
                 multipath['multipath_fading_depth_db'] * 0.2
             )
             
+            # 计算塔筒回波功率
+            tower_echo = self.calculate_tower_echo_power(
+                base_params['radar_band'],
+                base_params['turbine_distance'],
+                num_turbines=num_turbines,
+                incidence_angle=base_params['incidence_angle'],
+                tower_height=base_params.get('tower_height', 100)
+            )
+            
             result = {
                 '风机数量': num_turbines,
                 '遮挡损耗_db': shadowing['shadow_loss_db'],
@@ -464,15 +583,24 @@ class AdvancedRadarImpactAnalyzer:
                 '时延扩展_μs': multipath['delay_spread_us'],
                 '相干带宽_MHz': multipath['coherence_bandwidth_mhz'],
                 'ISI影响因子': multipath['isi_impact_factor'],
-                # 新增回波功率指标
-                '回波功率_dBm': echo_power['echo_power_dbm'],
-                '接收功率_dBm': echo_power['received_power_dbm'],
-                '接收功率_mW': echo_power['received_power_mw'],
+                # 目标回波功率指标
+                '目标回波功率_dBm': echo_power['echo_power_dbm'],
+                '目标接收功率_dBm': echo_power['received_power_dbm'],
+                '目标接收功率_mW': echo_power['received_power_mw'],
                 '功率损耗_dB': echo_power['total_turbine_loss_db'],
                 '噪声功率_dBm': echo_power['noise_power_dbm'],
-                'SNR_dB': echo_power['snr_db'],
-                '检测概率': echo_power['detection_prob'],
+                '目标SNR_dB': echo_power['snr_db'],
+                '目标检测概率': echo_power['detection_prob'],
                 '功率衰减_dB': echo_power['power_degradation_db'],
+                # 塔筒回波功率指标
+                '塔筒RCS_dBsm': tower_echo['tower_rcs_dbsm'],
+                '塔筒RCS_m2': tower_echo['tower_rcs_m2'],
+                '塔筒回波功率_dBm': tower_echo['echo_power_dbm'],
+                '塔筒接收功率_dBm': tower_echo['received_power_dbm'],
+                '塔筒SNR_dB': tower_echo['snr_db'],
+                '塔筒检测概率': tower_echo['detection_prob'],
+                # 功率对比
+                '功率差值_dB': tower_echo['echo_power_dbm'] - echo_power['echo_power_dbm'],
                 '总影响评分': total_impact_score,
                 '探测概率降低': min(0.8, total_impact_score * 0.1)
             }
@@ -539,9 +667,9 @@ def create_turbine_comparison_interface(analyzer, params):
         metrics = [
             ('风机数量范围', f"{comparison_data['风机数量'].min()}-{comparison_data['风机数量'].max()}"),
             ('最大遮挡损耗', f"{comparison_data['遮挡损耗_db'].max():.1f} dB"),
-            ('最大散射损耗', f"{comparison_data['散射损耗_db'].max():.1f} dB"),
-            ('接收功率', f"{comparison_data['接收功率_dBm'].min():.1f} dBm"),
-            ('最小SNR', f"{comparison_data['SNR_dB'].min():.1f} dB"),
+            ('塔筒RCS', f"{comparison_data['塔筒RCS_dBsm'].iloc[0]:.1f} dBsm"),
+            ('目标接收功率', f"{comparison_data['目标接收功率_dBm'].min():.1f} dBm"),
+            ('塔筒接收功率', f"{comparison_data['塔筒接收功率_dBm'].iloc[0]:.1f} dBm"),
             ('总影响评分', f"{comparison_data['总影响评分'].max():.1f}")
         ]
         
@@ -550,7 +678,7 @@ def create_turbine_comparison_interface(analyzer, params):
                 st.metric(label, value)
         
         # 详细分析标签页
-        tab1, tab2, tab3, tab4 = st.tabs(["📈 综合影响趋势", "🔧 单项指标分析", "📊 数据对比", "🎯 风险评估"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 综合影响趋势", "🔧 单项指标分析", "📊 数据对比", "🎯 风险评估", "🏗️ 塔筒回波功率分析"])
         
         with tab1:
             create_comprehensive_impact_analysis(comparison_data)
@@ -563,6 +691,9 @@ def create_turbine_comparison_interface(analyzer, params):
         
         with tab4:
             create_risk_assessment_view(comparison_data, params)
+        
+        with tab5:
+            create_tower_echo_analysis(comparison_data, params)
         
         if show_details:
             st.markdown("### 📋 详细数据")
@@ -582,10 +713,14 @@ def create_comprehensive_impact_analysis(comparison_data):
             '测距误差 (m)': '测距误差_m',
             '测速误差 (m/s)': '测速误差_m/s',
             '多径衰落 (dB)': '多径衰落_db',
-            '回波功率 (dBm)': '回波功率_dBm',
-            '接收功率 (dBm)': '接收功率_dBm',
-            'SNR (dB)': 'SNR_dB',
-            '检测概率': '检测概率',
+            '目标回波功率 (dBm)': '目标回波功率_dBm',
+            '目标接收功率 (dBm)': '目标接收功率_dBm',
+            '目标SNR (dB)': '目标SNR_dB',
+            '目标检测概率': '目标检测概率',
+            '塔筒RCS (dBsm)': '塔筒RCS_dBsm',
+            '塔筒回波功率 (dBm)': '塔筒回波功率_dBm',
+            '塔筒接收功率 (dBm)': '塔筒接收功率_dBm',
+            '功率差值 (dB)': '功率差值_dB',
             '功率衰减 (dB)': '功率衰减_dB',
             '总影响评分': '总影响评分'
         }
@@ -593,7 +728,7 @@ def create_comprehensive_impact_analysis(comparison_data):
     selected_metrics = st.multiselect(
             "选择分析指标",
             list(metrics_options.keys()),
-            default=['遮挡损耗 (dB)', '散射损耗 (dB)', '多径衰落 (dB)', '接收功率 (dBm)', 'SNR (dB)', '总影响评分'],
+            default=['遮挡损耗 (dB)', '散射损耗 (dB)', '多径衰落 (dB)', '目标接收功率 (dBm)', '目标SNR (dB)', '总影响评分'],
             key="impact_metrics"
         )
     
@@ -640,7 +775,7 @@ def create_comprehensive_impact_analysis(comparison_data):
             selected_data['绕射损耗_db'] / 15,
             selected_data['多径衰落_db'] / 20,
             selected_data['功率衰减_dB'] / 50,
-            max(0, 1 - selected_data['SNR_dB'] / 30),  # SNR越低值越大
+            max(0, 1 - selected_data['目标SNR_dB'] / 30),  # SNR越低值越大
             selected_data['测角误差_度'] / 2,
             selected_data['测距误差_m'] / 10,
             selected_data['测速误差_m/s'] / 2
@@ -783,9 +918,9 @@ def create_individual_metric_analysis(comparison_data):
             )
             st.plotly_chart(fig, width='stretch')
             
-        elif metric_choice == '回波功率分析':
-            fig = px.line(comparison_data, x='风机数量', y='回波功率_dBm',
-                         title='回波功率随风机数量变化')
+        elif metric_choice == '目标回波功率分析':
+            fig = px.line(comparison_data, x='风机数量', y='目标回波功率_dBm',
+                         title='目标回波功率随风机数量变化')
             fig.update_layout(
                 font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
@@ -793,17 +928,17 @@ def create_individual_metric_analysis(comparison_data):
             st.plotly_chart(fig, width='stretch')
             
         elif metric_choice == '接收功率分析':
-            fig = px.area(comparison_data, x='风机数量', y='接收功率_dBm',
-                         title='接收功率随风机数量变化')
+            fig = px.area(comparison_data, x='风机数量', y='目标接收功率_dBm',
+                         title='目标接收功率随风机数量变化')
             fig.update_layout(
                 font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
             
-        elif metric_choice == 'SNR分析':
-            fig = px.line(comparison_data, x='风机数量', y='SNR_dB',
-                         title='SNR随风机数量变化')
+        elif metric_choice == '目标SNR分析':
+            fig = px.line(comparison_data, x='风机数量', y='目标SNR_dB',
+                         title='目标SNR随风机数量变化')
             fig.add_hline(y=13, line_dash="dash", line_color="red", annotation_text="检测阈值(13dB)")
             fig.update_layout(
                 font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
@@ -811,9 +946,9 @@ def create_individual_metric_analysis(comparison_data):
             )
             st.plotly_chart(fig, width='stretch')
             
-        elif metric_choice == '检测概率分析':
-            fig = px.scatter(comparison_data, x='风机数量', y='检测概率',
-                           title='检测概率随风机数量变化')
+        elif metric_choice == '目标检测概率分析':
+            fig = px.scatter(comparison_data, x='风机数量', y='目标检测概率',
+                           title='目标检测概率随风机数量变化')
             fig.add_hline(y=0.9, line_dash="dash", line_color="green", annotation_text="目标检测率(90%)")
             fig.update_layout(
                 font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
@@ -833,10 +968,12 @@ def create_individual_metric_analysis(comparison_data):
                 '测距误差分析': '测距误差_m',
                 '测速误差分析': '测速误差_m/s',
                 '多径效应分析': '多径衰落_db',
-                '回波功率分析': '回波功率_dBm',
-                '接收功率分析': '接收功率_dBm',
-                'SNR分析': 'SNR_dB',
-                '检测概率分析': '检测概率'
+                '目标回波功率分析': '目标回波功率_dBm',
+                '目标接收功率分析': '目标接收功率_dBm',
+                '目标SNR分析': '目标SNR_dB',
+                '目标检测概率分析': '目标检测概率',
+                '塔筒回波功率分析': '塔筒回波功率_dBm',
+                '功率差值分析': '功率差值_dB'
             }[metric_choice]
             
             stats = comparison_data[selected_metric].describe()
@@ -876,9 +1013,9 @@ def create_data_comparison_view(comparison_data):
             ('散射损耗 (dB)', f"{single_data['散射损耗_db']:.2f}", f"{multi_data['散射损耗_db']:.2f}"),
             ('多径衰落 (dB)', f"{single_data['多径衰落_db']:.2f}", f"{multi_data['多径衰落_db']:.2f}"),
             ('功率衰减 (dB)', f"{single_data['功率衰减_dB']:.2f}", f"{multi_data['功率衰减_dB']:.2f}"),
-            ('接收功率 (dBm)', f"{single_data['接收功率_dBm']:.2f}", f"{multi_data['接收功率_dBm']:.2f}"),
-            ('SNR (dB)', f"{single_data['SNR_dB']:.2f}", f"{multi_data['SNR_dB']:.2f}"),
-            ('检测概率', f"{single_data['检测概率']:.2%}", f"{multi_data['检测概率']:.2%}"),
+            ('目标接收功率 (dBm)', f"{single_data['目标接收功率_dBm']:.2f}", f"{multi_data['目标接收功率_dBm']:.2f}"),
+            ('目标SNR (dB)', f"{single_data['目标SNR_dB']:.2f}", f"{multi_data['目标SNR_dB']:.2f}"),
+            ('目标检测概率', f"{single_data['目标检测概率']:.2%}", f"{multi_data['目标检测概率']:.2%}"),
             ('测角误差 (°)', f"{single_data['测角误差_度']:.3f}", f"{multi_data['测角误差_度']:.3f}"),
             ('测距误差 (m)', f"{single_data['测距误差_m']:.2f}", f"{multi_data['测距误差_m']:.2f}"),
             ('总影响评分', f"{single_data['总影响评分']:.1f}", f"{multi_data['总影响评分']:.1f}")
@@ -891,7 +1028,7 @@ def create_data_comparison_view(comparison_data):
         st.markdown("##### 📈 影响增长分析")
         increase_data = []
         for metric in ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB',
-                      '接收功率_dBm', 'SNR_dB', '检测概率',
+                      '目标接收功率_dBm', '目标SNR_dB', '目标检测概率',
                       '测角误差_度', '测距误差_m', '总影响评分']:
             single_val = single_data[metric]
             multi_val = multi_data[metric]
@@ -902,9 +1039,9 @@ def create_data_comparison_view(comparison_data):
                 '散射损耗_db': '散射损耗',
                 '多径衰落_db': '多径衰落',
                 '功率衰减_dB': '功率衰减',
-                '接收功率_dBm': '接收功率',
-                'SNR_dB': 'SNR',
-                '检测概率': '检测概率',
+                '目标接收功率_dBm': '目标接收功率',
+                '目标SNR_dB': '目标SNR',
+                '目标检测概率': '目标检测概率',
                 '测角误差_度': '测角误差',
                 '测距误差_m': '测距误差',
                 '总影响评分': '总影响评分'
@@ -918,6 +1055,189 @@ def create_data_comparison_view(comparison_data):
         
         increase_df = pd.DataFrame(increase_data)
         st.dataframe(increase_df, width='stretch')
+
+def create_tower_echo_analysis(comparison_data, params):
+    """创建塔筒回波功率分析视图"""
+    st.markdown("#### 🏗️ 塔筒回波功率与目标对比分析")
+    
+    # 塔筒RCS信息
+    st.markdown("##### 📊 塔筒RCS估算信息")
+    tower_rcs_dbsm = comparison_data['塔筒RCS_dBsm'].iloc[0]
+    tower_rcs_m2 = comparison_data['塔筒RCS_m2'].iloc[0]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("塔筒RCS", f"{tower_rcs_dbsm:.1f} dBsm")
+    with col2:
+        st.metric("塔筒RCS(线性)", f"{tower_rcs_m2:.1f} m²")
+    with col3:
+        st.metric("塔筒高度", f"{params.get('tower_height', 100)} m")
+    with col4:
+        avg_diameter = (params.get('tower_base_diameter', 6) + params.get('tower_top_diameter', 3)) / 2
+        st.metric("平均直径", f"{avg_diameter:.1f} m")
+    
+    # 回波功率对比图
+    st.markdown("##### 📈 回波功率对比")
+    
+    fig = go.Figure()
+    
+    # 目标回波功率
+    fig.add_trace(go.Scatter(
+        x=comparison_data['风机数量'],
+        y=comparison_data['目标回波功率_dBm'],
+        name='目标回波功率',
+        mode='lines+markers',
+        line=dict(color='#1f77b4', width=3),
+        marker=dict(size=8)
+    ))
+    
+    # 目标接收功率
+    fig.add_trace(go.Scatter(
+        x=comparison_data['风机数量'],
+        y=comparison_data['目标接收功率_dBm'],
+        name='目标接收功率(含损耗)',
+        mode='lines+markers',
+        line=dict(color='#ff7f0e', width=2, dash='dash'),
+        marker=dict(size=6)
+    ))
+    
+    # 塔筒回波功率
+    fig.add_trace(go.Scatter(
+        x=comparison_data['风机数量'],
+        y=comparison_data['塔筒回波功率_dBm'],
+        name='塔筒回波功率',
+        mode='lines+markers',
+        line=dict(color='#2ca02c', width=3),
+        marker=dict(size=8, symbol='square')
+    ))
+    
+    # 塔筒接收功率
+    fig.add_trace(go.Scatter(
+        x=comparison_data['风机数量'],
+        y=comparison_data['塔筒接收功率_dBm'],
+        name='塔筒接收功率',
+        mode='lines+markers',
+        line=dict(color='#d62728', width=2, dash='dash'),
+        marker=dict(size=6, symbol='square')
+    ))
+    
+    fig.update_layout(
+        title="目标与塔筒回波功率对比",
+        xaxis_title="风机数量",
+        yaxis_title="功率 (dBm)",
+        height=500,
+        template="plotly_white",
+        font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # SNR对比
+    st.markdown("##### 📈 SNR与检测概率对比")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        fig_snr = go.Figure()
+        
+        fig_snr.add_trace(go.Scatter(
+            x=comparison_data['风机数量'],
+            y=comparison_data['目标SNR_dB'],
+            name='目标SNR',
+            mode='lines+markers',
+            line=dict(color='#1f77b4', width=2)
+        ))
+        
+        fig_snr.add_trace(go.Scatter(
+            x=comparison_data['风机数量'],
+            y=comparison_data['塔筒SNR_dB'],
+            name='塔筒SNR',
+            mode='lines+markers',
+            line=dict(color='#2ca02c', width=2)
+        ))
+        
+        fig_snr.add_hline(y=13, line_dash="dash", line_color="red", 
+                         annotation_text="检测阈值(13dB)")
+        
+        fig_snr.update_layout(
+            title="SNR对比",
+            xaxis_title="风机数量",
+            yaxis_title="SNR (dB)",
+            height=400,
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig_snr, use_container_width=True)
+    
+    with col2:
+        fig_prob = go.Figure()
+        
+        fig_prob.add_trace(go.Scatter(
+            x=comparison_data['风机数量'],
+            y=comparison_data['目标检测概率'],
+            name='目标检测概率',
+            mode='lines+markers',
+            line=dict(color='#1f77b4', width=2)
+        ))
+        
+        fig_prob.add_trace(go.Scatter(
+            x=comparison_data['风机数量'],
+            y=comparison_data['塔筒检测概率'],
+            name='塔筒检测概率',
+            mode='lines+markers',
+            line=dict(color='#2ca02c', width=2)
+        ))
+        
+        fig_prob.add_hline(y=0.9, line_dash="dash", line_color="green",
+                          annotation_text="目标检测率(90%)")
+        
+        fig_prob.update_layout(
+            title="检测概率对比",
+            xaxis_title="风机数量",
+            yaxis_title="检测概率",
+            height=400,
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig_prob, use_container_width=True)
+    
+    # 功率差值分析
+    st.markdown("##### 📊 功率差值分析")
+    
+    fig_diff = go.Figure()
+    
+    fig_diff.add_trace(go.Bar(
+        x=comparison_data['风机数量'],
+        y=comparison_data['功率差值_dB'],
+        name='塔筒-目标回波功率差值',
+        marker_color='#9467bd'
+    ))
+    
+    fig_diff.update_layout(
+        title="塔筒与目标回波功率差值 (塔筒 - 目标)",
+        xaxis_title="风机数量",
+        yaxis_title="功率差值 (dB)",
+        height=400,
+        template="plotly_white"
+    )
+    
+    st.plotly_chart(fig_diff, use_container_width=True)
+    
+    # 说明
+    st.info("""
+    **说明**:
+    - 塔筒RCS基于圆柱体散射模型估算，考虑了塔筒尺寸、入射角和雷达波长
+    - 塔筒回波功率通常远大于目标回波功率，这会形成强烈的杂波干扰
+    - 当目标SNR低于塔筒SNR时，目标可能被塔筒杂波掩盖（Target Masking）
+    """)
+
 
 def create_risk_assessment_view(comparison_data, params):
     """创建风险评估视图"""
@@ -1380,10 +1700,15 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             '测距误差': True,
             '测速误差': True,
             '多径衰落': True,
-            '回波功率': True,
-            '接收功率': True,
-            'SNR': True,
-            '检测概率': True,
+            '目标回波功率': True,
+            '目标接收功率': True,
+            '目标SNR': True,
+            '目标检测概率': True,
+            '塔筒RCS': True,
+            '塔筒回波功率': True,
+            '塔筒接收功率': True,
+            '塔筒SNR': True,
+            '功率差值': True,
             '总影响评分': True
         }
         
@@ -1490,7 +1815,7 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         current_params['incidence_angle'],
                         num_turbines
                     )
-                    
+
                     # 计算回波功率
                     echo_power = analyzer.calculate_echo_power(
                         current_params['radar_band'],
@@ -1502,7 +1827,16 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         diffraction_loss_db=diffraction['diffraction_loss_db'],
                         multipath_fading_db=multipath['multipath_fading_depth_db']
                     )
-                    
+
+                    # 计算塔筒回波功率
+                    tower_echo = analyzer.calculate_tower_echo_power(
+                        current_params['radar_band'],
+                        turbine_distance,
+                        num_turbines=num_turbines,
+                        incidence_angle=current_params['incidence_angle'],
+                        tower_height=current_params.get('tower_height', 100)
+                    )
+
                     # 综合影响评分
                     total_impact_score = (
                         shadowing['shadow_loss_db'] * 0.15 +
@@ -1532,14 +1866,24 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         results['测速误差'][num_turbines].append(velocity_error['velocity_error_ms'])
                     if '多径衰落' in selected_metrics:
                         results['多径衰落'][num_turbines].append(multipath['multipath_fading_depth_db'])
-                    if '回波功率' in selected_metrics:
-                        results['回波功率'][num_turbines].append(echo_power['echo_power_dbm'])
-                    if '接收功率' in selected_metrics:
-                        results['接收功率'][num_turbines].append(echo_power['received_power_dbm'])
-                    if 'SNR' in selected_metrics:
-                        results['SNR'][num_turbines].append(echo_power['snr_db'])
-                    if '检测概率' in selected_metrics:
-                        results['检测概率'][num_turbines].append(echo_power['detection_prob'])
+                    if '目标回波功率' in selected_metrics:
+                        results['目标回波功率'][num_turbines].append(echo_power['echo_power_dbm'])
+                    if '目标接收功率' in selected_metrics:
+                        results['目标接收功率'][num_turbines].append(echo_power['received_power_dbm'])
+                    if '目标SNR' in selected_metrics:
+                        results['目标SNR'][num_turbines].append(echo_power['snr_db'])
+                    if '目标检测概率' in selected_metrics:
+                        results['目标检测概率'][num_turbines].append(echo_power['detection_prob'])
+                    if '塔筒RCS' in selected_metrics:
+                        results['塔筒RCS'][num_turbines].append(tower_echo['tower_rcs_dbsm'])
+                    if '塔筒回波功率' in selected_metrics:
+                        results['塔筒回波功率'][num_turbines].append(tower_echo['echo_power_dbm'])
+                    if '塔筒接收功率' in selected_metrics:
+                        results['塔筒接收功率'][num_turbines].append(tower_echo['received_power_dbm'])
+                    if '塔筒SNR' in selected_metrics:
+                        results['塔筒SNR'][num_turbines].append(tower_echo['snr_db'])
+                    if '功率差值' in selected_metrics:
+                        results['功率差值'][num_turbines].append(tower_echo['echo_power_dbm'] - echo_power['echo_power_dbm'])
                     if '总影响评分' in selected_metrics:
                         results['总影响评分'][num_turbines].append(total_impact_score)
                 
@@ -1811,35 +2155,67 @@ class MetricAnalysisEngine:
             },
             {
                 'id': 'echo_power',
-                'name': '回波功率分析',
-                'column': '回波功率_dBm',
+                'name': '目标回波功率分析',
+                'column': '目标回波功率_dBm',
                 'unit': 'dBm',
-                'description': '分析雷达回波功率随风机数量变化',
+                'description': '分析目标雷达回波功率随风机数量变化',
                 'chart_type': 'line'
             },
             {
                 'id': 'received_power',
-                'name': '接收功率分析',
-                'column': '接收功率_dBm',
+                'name': '目标接收功率分析',
+                'column': '目标接收功率_dBm',
                 'unit': 'dBm',
-                'description': '分析实际接收功率受风机影响程度',
+                'description': '分析目标实际接收功率受风机影响程度',
                 'chart_type': 'area'
             },
             {
                 'id': 'snr',
-                'name': 'SNR分析',
-                'column': 'SNR_dB',
+                'name': '目标SNR分析',
+                'column': '目标SNR_dB',
                 'unit': 'dB',
-                'description': '分析信噪比变化及对检测性能的影响',
+                'description': '分析目标信噪比变化及对检测性能的影响',
                 'chart_type': 'line'
             },
             {
                 'id': 'detection_prob',
                 'name': '检测概率分析',
-                'column': '检测概率',
+                'column': '目标检测概率',
                 'unit': '',
                 'description': '分析目标检测概率变化',
                 'chart_type': 'scatter'
+            },
+            {
+                'id': 'tower_rcs',
+                'name': '塔筒RCS分析',
+                'column': '塔筒RCS_dBsm',
+                'unit': 'dBsm',
+                'description': '分析塔筒雷达截面积',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'tower_echo',
+                'name': '塔筒回波功率分析',
+                'column': '塔筒回波功率_dBm',
+                'unit': 'dBm',
+                'description': '分析塔筒回波功率特性',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'tower_snr',
+                'name': '塔筒SNR分析',
+                'column': '塔筒SNR_dB',
+                'unit': 'dB',
+                'description': '分析塔筒信噪比',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'power_diff',
+                'name': '功率差值分析',
+                'column': '功率差值_dB',
+                'unit': 'dB',
+                'description': '分析塔筒与目标回波功率差值',
+                'chart_type': 'bar'
             },
             {
                 'id': 'total_impact',
@@ -2777,9 +3153,9 @@ def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
                 '散射损耗_db': single_result['散射损耗_db'],
                 '多径衰落_db': single_result['多径衰落_db'],
                 '功率衰减_dB': single_result['功率衰减_dB'],
-                '接收功率_dBm': single_result['接收功率_dBm'],
-                'SNR_dB': single_result['SNR_dB'],
-                '检测概率': single_result['检测概率'],
+                '目标接收功率_dBm': single_result['目标接收功率_dBm'],
+                '目标SNR_dB': single_result['目标SNR_dB'],
+                '目标检测概率': single_result['目标检测概率'],
                 '测角误差_度': single_result['测角误差_度'],
                 '测距误差_m': single_result['测距误差_m'],
                 '目标RCS_dBsm': modified_params.get('target_rcs_dbsm', 10)
@@ -2855,7 +3231,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
             # 添加其他指标曲线（可选）
             metrics_to_plot = st.multiselect(
                 "选择要显示的指标",
-                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m'],
+                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '目标接收功率_dBm', '目标SNR_dB', '目标检测概率', '测角误差_度', '测距误差_m'],
                 default=['遮挡损耗_db', '散射损耗_db'],
                 key=f"metrics_selector_categorical_{param_key}"
             )
@@ -2919,7 +3295,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
             # 添加其他指标曲线（可选）
             metrics_to_plot = st.multiselect(
                 "选择要显示的指标",
-                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m'],
+                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '目标接收功率_dBm', '目标SNR_dB', '目标检测概率', '测角误差_度', '测距误差_m'],
                 default=['遮挡损耗_db', '散射损耗_db'],
                 key=f"metrics_selector_numeric_{param_key}"
             )
@@ -3002,7 +3378,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
         
         if is_categorical:
             # 分类变量显示分组条形图
-            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m']
+            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '目标接收功率_dBm', '目标SNR_dB', '目标检测概率', '测角误差_度', '测距误差_m']
             available_metrics = [m for m in metrics if m in results_df.columns]
             
             if len(available_metrics) > 0:
@@ -3060,7 +3436,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
                 st.info("没有可用的指标数据")
         else:
             # 数值变量使用热力图
-            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m']
+            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '目标接收功率_dBm', '目标SNR_dB', '目标检测概率', '测角误差_度', '测距误差_m']
             
             # 只选择存在的指标
             available_metrics = [m for m in metrics if m in results_df.columns]
@@ -3282,6 +3658,12 @@ def main():
         turbine_distance = st.slider("目标-风机距离 (km)", 0.1, 50.0, 1.0, 0.5)
         incidence_angle = st.slider("照射角度 (°)", 0, 180, 45)
         max_turbines = st.slider("最大风机数量", 1, 50, 30)
+        
+        # 塔筒参数设置
+        st.markdown("**塔筒参数**")
+        tower_height = st.slider("塔筒高度 (m)", 50, 150, 100, help="风机塔筒高度")
+        tower_base_diameter = st.slider("塔筒底部直径 (m)", 3.0, 10.0, 6.0, 0.5)
+        tower_top_diameter = st.slider("塔筒顶部直径 (m)", 2.0, 5.0, 3.0, 0.5)
     
     with st.sidebar.expander("Kimi API设置"):
         api_key = st.text_input(
@@ -3297,13 +3679,16 @@ def main():
     base_params = {
         'radar_band': radar_band,
         'target_distance': target_distance,
-        'target_height': target_height, 
+        'target_height': target_height,
         'target_speed': target_speed,
         'target_rcs_dbsm': target_rcs_dbsm,
         'turbine_height': turbine_height,
         'turbine_distance': turbine_distance,
         'incidence_angle': incidence_angle,
-        'max_turbines': max_turbines
+        'max_turbines': max_turbines,
+        'tower_height': tower_height,
+        'tower_base_diameter': tower_base_diameter,
+        'tower_top_diameter': tower_top_diameter
     }
     
     # 主界面标签页
