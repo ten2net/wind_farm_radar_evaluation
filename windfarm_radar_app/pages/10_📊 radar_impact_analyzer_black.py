@@ -127,6 +127,24 @@ class AdvancedRadarImpactAnalyzer:
             "bandwidth_hz": 1e6,            # 接收机带宽 (Hz)
             "temperature_k": 290            # 系统温度 (K)
         }
+        
+        # 常见目标RCS参考值 (dBsm)
+        self.target_rcs_presets = {
+            "小型无人机": {"rcs_dbsm": -20, "rcs_m2": 0.01, "description": "消费级无人机 (0.01 m²)"},
+            "中型无人机": {"rcs_dbsm": -10, "rcs_m2": 0.1, "description": "军用小型无人机 (0.1 m²)"},
+            "大型无人机": {"rcs_dbsm": 0, "rcs_m2": 1, "description": "捕食者类无人机 (1 m²)"},
+            "小型飞机": {"rcs_dbsm": 5, "rcs_m2": 3.16, "description": "轻型飞机/直升机 (3 m²)"},
+            "战斗机": {"rcs_dbsm": 10, "rcs_m2": 10, "description": "常规战斗机 (10 m²)"},
+            "大型客机": {"rcs_dbsm": 20, "rcs_m2": 100, "description": "波音/空客客机 (100 m²)"},
+            "舰船(小型)": {"rcs_dbsm": 25, "rcs_m2": 316, "description": "巡逻艇 (300 m²)"},
+            "舰船(中型)": {"rcs_dbsm": 35, "rcs_m2": 3162, "description": "驱逐舰 (3000 m²)"},
+            "舰船(大型)": {"rcs_dbsm": 45, "rcs_m2": 31623, "description": "航母 (30000 m²)"},
+            "车辆": {"rcs_dbsm": 10, "rcs_m2": 10, "description": "汽车/卡车 (10 m²)"},
+            "行人": {"rcs_dbsm": -5, "rcs_m2": 0.3, "description": "人体 (0.3 m²)"},
+            "鸟类": {"rcs_dbsm": -30, "rcs_m2": 0.001, "description": "大型鸟类 (0.001 m²)"},
+            "导弹": {"rcs_dbsm": -15, "rcs_m2": 0.03, "description": "巡航导弹 (0.03 m²)"},
+            "隐身战机": {"rcs_dbsm": -25, "rcs_m2": 0.003, "description": "F-22/F-35类 (0.003 m²)"},
+        }
     
     def calculate_echo_power(self, radar_band, target_distance, target_rcs_dbsm=None, 
                             num_turbines=1, shadow_loss_db=0, scattering_loss_db=0,
@@ -413,6 +431,7 @@ class AdvancedRadarImpactAnalyzer:
             echo_power = self.calculate_echo_power(
                 base_params['radar_band'],
                 base_params['target_distance'],
+                target_rcs_dbsm=base_params.get('target_rcs_dbsm', 10),
                 num_turbines=num_turbines,
                 shadow_loss_db=shadowing['shadow_loss_db'],
                 scattering_loss_db=scattering['scattering_loss_db'],
@@ -1476,6 +1495,7 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     echo_power = analyzer.calculate_echo_power(
                         current_params['radar_band'],
                         current_params['target_distance'],
+                        target_rcs_dbsm=current_params.get('target_rcs_dbsm', 10),
                         num_turbines=num_turbines,
                         shadow_loss_db=shadowing['shadow_loss_db'],
                         scattering_loss_db=scattering['scattering_loss_db'],
@@ -2211,6 +2231,7 @@ class MetricAnalysisEngine:
             'target_distance': ('目标距离', ' km'),
             'target_height': ('目标高度', ' m'),
             'target_speed': ('目标速度', ' m/s'),
+            'target_rcs_dbsm': ('目标RCS', ' dBsm'),
             'turbine_height': ('风机高度', ' m'),
             'turbine_distance': ('目标-风机距离', ' km'),
             'incidence_angle': ('照射角度', '°'),
@@ -2760,7 +2781,8 @@ def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
                 'SNR_dB': single_result['SNR_dB'],
                 '检测概率': single_result['检测概率'],
                 '测角误差_度': single_result['测角误差_度'],
-                '测距误差_m': single_result['测距误差_m']
+                '测距误差_m': single_result['测距误差_m'],
+                '目标RCS_dBsm': modified_params.get('target_rcs_dbsm', 10)
             }
                         results.append(result)
                     
@@ -3205,6 +3227,55 @@ def main():
         target_distance = st.slider("目标距离 (km)", 1.0, 150.0, 12.0, 1.0)
         target_height = st.slider("目标高度 (m)", 10, 5000, 300)
         target_speed = st.slider("目标速度 (m/s)", 1, 100, 20)
+        
+        # 目标RCS选择
+        st.markdown("**目标RCS设置**")
+        rcs_selection_mode = st.radio(
+            "RCS选择方式",
+            ["预设目标类型", "自定义RCS值"],
+            key="rcs_selection_mode"
+        )
+        
+        if rcs_selection_mode == "预设目标类型":
+            target_type = st.selectbox(
+                "选择目标类型",
+                list(analyzer.target_rcs_presets.keys()),
+                index=4,  # 默认选择战斗机
+                key="target_type_select"
+            )
+            target_rcs_dbsm = analyzer.target_rcs_presets[target_type]["rcs_dbsm"]
+            target_rcs_m2 = analyzer.target_rcs_presets[target_type]["rcs_m2"]
+            st.info(f"📋 {analyzer.target_rcs_presets[target_type]['description']}")
+            st.metric("RCS值", f"{target_rcs_dbsm} dBsm ({target_rcs_m2} m²)")
+        else:
+            target_rcs_dbsm = st.slider(
+                "自定义RCS (dBsm)",
+                -40.0, 50.0, 10.0, 1.0,
+                help="RCS值范围: -40 dBsm (隐身目标) 到 50 dBsm (大型舰船)"
+            )
+            target_rcs_m2 = 10 ** (target_rcs_dbsm / 10)
+            st.metric("RCS线性值", f"{target_rcs_m2:.4f} m²")
+            
+            # 显示RCS参考范围
+            with st.expander("📊 RCS参考范围"):
+                st.markdown("""
+                | 目标类型 | RCS (dBsm) | RCS (m²) |
+                |---------|-----------|---------|
+                | 鸟类 | -30 | 0.001 |
+                | 小型无人机 | -20 | 0.01 |
+                | 隐身战机 | -25 | 0.003 |
+                | 导弹 | -15 | 0.03 |
+                | 中型无人机 | -10 | 0.1 |
+                | 行人 | -5 | 0.3 |
+                | 大型无人机 | 0 | 1 |
+                | 小型飞机 | 5 | 3.16 |
+                | 战斗机 | 10 | 10 |
+                | 车辆 | 10 | 10 |
+                | 大型客机 | 20 | 100 |
+                | 小型舰船 | 25 | 316 |
+                | 中型舰船 | 35 | 3162 |
+                | 大型舰船 | 45 | 31623 |
+                """)
     
     with st.sidebar.expander("风机参数"):
         turbine_height = st.slider("风机高度 (m)", 50, 300, 185)
@@ -3228,6 +3299,7 @@ def main():
         'target_distance': target_distance,
         'target_height': target_height, 
         'target_speed': target_speed,
+        'target_rcs_dbsm': target_rcs_dbsm,
         'turbine_height': turbine_height,
         'turbine_distance': turbine_distance,
         'incidence_angle': incidence_angle,
