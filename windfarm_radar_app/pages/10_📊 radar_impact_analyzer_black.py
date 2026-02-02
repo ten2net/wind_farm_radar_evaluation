@@ -106,7 +106,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 class AdvancedRadarImpactAnalyzer:
-    """高级雷达影响分析器 - 包含多径效应评估"""
+    """高级雷达影响分析器 - 包含多径效应评估和回波功率计算"""
     
     def __init__(self):
         self.radar_bands = {
@@ -115,6 +115,67 @@ class AdvancedRadarImpactAnalyzer:
             "C波段": {"freq": 5.6e9, "wavelength": 0.054, "description": "气象雷达"},
             "X波段": {"freq": 9.4e9, "wavelength": 0.032, "description": "海事雷达"},
             "Ku波段": {"freq": 15.0e9, "wavelength": 0.02, "description": "高精度雷达"}
+        }
+        
+        # 雷达系统默认参数
+        self.radar_params = {
+            "transmit_power_dbm": 80,      # 发射功率 (dBm) ~ 100kW
+            "antenna_gain_db": 30,          # 天线增益 (dBi)
+            "target_rcs_dbsm": 10,          # 目标RCS (dBsm) ~ 10 m²
+            "system_loss_db": 6,            # 系统损耗 (dB)
+            "noise_figure_db": 3,           # 噪声系数 (dB)
+            "bandwidth_hz": 1e6,            # 接收机带宽 (Hz)
+            "temperature_k": 290            # 系统温度 (K)
+        }
+    
+    def calculate_echo_power(self, radar_band, target_distance, target_rcs_dbsm=None, 
+                            num_turbines=1, shadow_loss_db=0, scattering_loss_db=0,
+                            diffraction_loss_db=0, multipath_fading_db=0):
+        """计算雷达回波功率 - 基于雷达方程"""
+        wavelength = self.radar_bands[radar_band]["wavelength"]
+        rcs = target_rcs_dbsm if target_rcs_dbsm is not None else self.radar_params["target_rcs_dbsm"]
+        pt_dbm = self.radar_params["transmit_power_dbm"]
+        g_db = self.radar_params["antenna_gain_db"]
+        l_db = self.radar_params["system_loss_db"]
+        r_m = target_distance * 1000
+        
+        # 雷达方程计算 (dB)
+        wavelength_db = 20 * np.log10(wavelength)
+        range_db = 40 * np.log10(r_m)
+        const_db = 30 * np.log10(4 * np.pi)
+        echo_power_dbm = pt_dbm + 2 * g_db + wavelength_db + rcs - const_db - range_db - l_db
+        
+        # 风机影响损耗
+        total_turbine_loss_db = shadow_loss_db + scattering_loss_db + diffraction_loss_db + multipath_fading_db
+        multi_turbine_factor_db = 10 * np.log10(1 + 0.1 * (num_turbines - 1)) if num_turbines > 1 else 0
+        received_power_dbm = echo_power_dbm - total_turbine_loss_db - multi_turbine_factor_db
+        received_power_mw = 10 ** (received_power_dbm / 10)
+        
+        # 计算SNR
+        k_boltzmann = 1.38e-23
+        t_k = self.radar_params["temperature_k"]
+        b_hz = self.radar_params["bandwidth_hz"]
+        nf_db = self.radar_params["noise_figure_db"]
+        noise_power_w = k_boltzmann * t_k * b_hz * (10 ** (nf_db / 10))
+        noise_power_dbm = 10 * np.log10(noise_power_w * 1000)
+        snr_db = received_power_dbm - noise_power_dbm
+        
+        # 检测概率
+        required_snr_db = 13
+        if snr_db > required_snr_db + 10: detection_prob = 0.99
+        elif snr_db > required_snr_db: detection_prob = 0.9 + 0.09 * (snr_db - required_snr_db) / 10
+        elif snr_db > required_snr_db - 10: detection_prob = 0.5 + 0.4 * (snr_db - (required_snr_db - 10)) / 10
+        else: detection_prob = max(0.01, 0.5 * (snr_db + 10) / 10) if snr_db > -10 else 0.01
+        
+        return {
+            'echo_power_dbm': echo_power_dbm,
+            'received_power_dbm': received_power_dbm,
+            'received_power_mw': received_power_mw,
+            'total_turbine_loss_db': total_turbine_loss_db,
+            'noise_power_dbm': noise_power_dbm,
+            'snr_db': snr_db,
+            'detection_prob': detection_prob,
+            'power_degradation_db': total_turbine_loss_db + multi_turbine_factor_db
         }
         
     def calculate_shadowing_effect(self, turbine_height, target_height, distance, num_turbines=1):
@@ -348,16 +409,27 @@ class AdvancedRadarImpactAnalyzer:
                 num_turbines
             )
             
+            # 计算回波功率
+            echo_power = self.calculate_echo_power(
+                base_params['radar_band'],
+                base_params['target_distance'],
+                num_turbines=num_turbines,
+                shadow_loss_db=shadowing['shadow_loss_db'],
+                scattering_loss_db=scattering['scattering_loss_db'],
+                diffraction_loss_db=diffraction['diffraction_loss_db'],
+                multipath_fading_db=multipath['multipath_fading_depth_db']
+            )
+            
             # 综合影响评分（调整权重，增加多径效应权重）
             total_impact_score = (
-                shadowing['shadow_loss_db'] * 0.15 +  # 调整权重
+                shadowing['shadow_loss_db'] * 0.15 +
                 scattering['scattering_loss_db'] * 0.2 +
                 diffraction['diffraction_loss_db'] * 0.1 +
                 abs(doppler['velocity_measurement_error']) * 0.1 +
                 angle_error['angle_error_deg'] * 0.1 +
                 range_error['range_error_m'] * 0.1 +
                 velocity_error['velocity_error_ms'] * 0.05 +
-                multipath['multipath_fading_depth_db'] * 0.2  # 新增多径效应权重
+                multipath['multipath_fading_depth_db'] * 0.2
             )
             
             result = {
@@ -369,11 +441,19 @@ class AdvancedRadarImpactAnalyzer:
                 '测角误差_度': angle_error['angle_error_deg'],
                 '测距误差_m': range_error['range_error_m'],
                 '测速误差_m/s': velocity_error['velocity_error_ms'],
-                # 新增多径效应指标
                 '多径衰落_db': multipath['multipath_fading_depth_db'],
                 '时延扩展_μs': multipath['delay_spread_us'],
                 '相干带宽_MHz': multipath['coherence_bandwidth_mhz'],
                 'ISI影响因子': multipath['isi_impact_factor'],
+                # 新增回波功率指标
+                '回波功率_dBm': echo_power['echo_power_dbm'],
+                '接收功率_dBm': echo_power['received_power_dbm'],
+                '接收功率_mW': echo_power['received_power_mw'],
+                '功率损耗_dB': echo_power['total_turbine_loss_db'],
+                '噪声功率_dBm': echo_power['noise_power_dbm'],
+                'SNR_dB': echo_power['snr_db'],
+                '检测概率': echo_power['detection_prob'],
+                '功率衰减_dB': echo_power['power_degradation_db'],
                 '总影响评分': total_impact_score,
                 '探测概率降低': min(0.8, total_impact_score * 0.1)
             }
@@ -441,8 +521,8 @@ def create_turbine_comparison_interface(analyzer, params):
             ('风机数量范围', f"{comparison_data['风机数量'].min()}-{comparison_data['风机数量'].max()}"),
             ('最大遮挡损耗', f"{comparison_data['遮挡损耗_db'].max():.1f} dB"),
             ('最大散射损耗', f"{comparison_data['散射损耗_db'].max():.1f} dB"),
-            ('最大多径衰落', f"{comparison_data['多径衰落_db'].max():.1f} dB"),
-            ('最大测角误差', f"{comparison_data['测角误差_度'].max():.2f}°"),
+            ('接收功率', f"{comparison_data['接收功率_dBm'].min():.1f} dBm"),
+            ('最小SNR', f"{comparison_data['SNR_dB'].min():.1f} dB"),
             ('总影响评分', f"{comparison_data['总影响评分'].max():.1f}")
         ]
         
@@ -475,23 +555,28 @@ def create_comprehensive_impact_analysis(comparison_data):
     
     # 选择要显示的指标
     metrics_options = {
-        '遮挡损耗 (dB)': '遮挡损耗_db',
-        '散射损耗 (dB)': '散射损耗_db', 
-        '绕射损耗 (dB)': '绕射损耗_db',
-        '多普勒扩展 (Hz)': '多普勒扩展_Hz',
-        '测角误差 (°)': '测角误差_度',
-        '测距误差 (m)': '测距误差_m',
-        '测速误差 (m/s)': '测速误差_m/s',
-        '多径衰落 (dB)': '多径衰落_db',
-        '总影响评分': '总影响评分'
-    }
-    
+            '遮挡损耗 (dB)': '遮挡损耗_db',
+            '散射损耗 (dB)': '散射损耗_db', 
+            '绕射损耗 (dB)': '绕射损耗_db',
+            '多普勒扩展 (Hz)': '多普勒扩展_Hz',
+            '测角误差 (°)': '测角误差_度',
+            '测距误差 (m)': '测距误差_m',
+            '测速误差 (m/s)': '测速误差_m/s',
+            '多径衰落 (dB)': '多径衰落_db',
+            '回波功率 (dBm)': '回波功率_dBm',
+            '接收功率 (dBm)': '接收功率_dBm',
+            'SNR (dB)': 'SNR_dB',
+            '检测概率': '检测概率',
+            '功率衰减 (dB)': '功率衰减_dB',
+            '总影响评分': '总影响评分'
+        }
+        
     selected_metrics = st.multiselect(
-        "选择分析指标",
-        list(metrics_options.keys()),
-        default=['遮挡损耗 (dB)', '散射损耗 (dB)', '多径衰落 (dB)', '总影响评分'],
-        key="impact_metrics"
-    )
+            "选择分析指标",
+            list(metrics_options.keys()),
+            default=['遮挡损耗 (dB)', '散射损耗 (dB)', '多径衰落 (dB)', '接收功率 (dBm)', 'SNR (dB)', '总影响评分'],
+            key="impact_metrics"
+        )
     
     if selected_metrics:
         fig = go.Figure()
@@ -529,12 +614,14 @@ def create_comprehensive_impact_analysis(comparison_data):
     if num_turbines_to_compare:
         selected_data = comparison_data[comparison_data['风机数量'] == num_turbines_to_compare].iloc[0]
         
-        categories = ['遮挡影响', '散射影响', '绕射影响', '多径影响', '测角精度', '测距精度', '测速精度']
+        categories = ['遮挡影响', '散射影响', '绕射影响', '多径影响', '功率衰减', 'SNR', '测角精度', '测距精度', '测速精度']
         values = [
-            selected_data['遮挡损耗_db'] / 20,  # 归一化
+            selected_data['遮挡损耗_db'] / 20,
             selected_data['散射损耗_db'] / 30,
             selected_data['绕射损耗_db'] / 15,
-            selected_data['多径衰落_db'] / 20,  # 新增多径影响
+            selected_data['多径衰落_db'] / 20,
+            selected_data['功率衰减_dB'] / 50,
+            max(0, 1 - selected_data['SNR_dB'] / 30),  # SNR越低值越大
             selected_data['测角误差_度'] / 2,
             selected_data['测距误差_m'] / 10,
             selected_data['测速误差_m/s'] / 2
@@ -572,7 +659,8 @@ def create_individual_metric_analysis(comparison_data):
         [
             '遮挡损耗分析', '散射影响分析', '绕射效应分析', 
             '多普勒影响', '测角误差分析', '测距误差分析', 
-            '测速误差分析', '多径效应分析'  # 新增多径效应分析
+            '测速误差分析', '多径效应分析',
+            '回波功率分析', '接收功率分析', 'SNR分析', '检测概率分析'
         ],
         key="individual_metric"
     )
@@ -643,7 +731,7 @@ def create_individual_metric_analysis(comparison_data):
             )
             st.plotly_chart(fig, width='stretch')
             
-        elif metric_choice == '多径效应分析':  # 新增多径效应分析
+        elif metric_choice == '多径效应分析':
             fig = make_subplots(rows=2, cols=2, 
                                subplot_titles=('多径衰落深度 (dB)', '时延扩展 (μs)', 
                                               '相干带宽 (MHz)', 'ISI影响因子'))
@@ -675,6 +763,44 @@ def create_individual_metric_analysis(comparison_data):
                 template="plotly_white"
             )
             st.plotly_chart(fig, width='stretch')
+            
+        elif metric_choice == '回波功率分析':
+            fig = px.line(comparison_data, x='风机数量', y='回波功率_dBm',
+                         title='回波功率随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, width='stretch')
+            
+        elif metric_choice == '接收功率分析':
+            fig = px.area(comparison_data, x='风机数量', y='接收功率_dBm',
+                         title='接收功率随风机数量变化')
+            fig.update_layout(
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, width='stretch')
+            
+        elif metric_choice == 'SNR分析':
+            fig = px.line(comparison_data, x='风机数量', y='SNR_dB',
+                         title='SNR随风机数量变化')
+            fig.add_hline(y=13, line_dash="dash", line_color="red", annotation_text="检测阈值(13dB)")
+            fig.update_layout(
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, width='stretch')
+            
+        elif metric_choice == '检测概率分析':
+            fig = px.scatter(comparison_data, x='风机数量', y='检测概率',
+                           title='检测概率随风机数量变化')
+            fig.add_hline(y=0.9, line_dash="dash", line_color="green", annotation_text="目标检测率(90%)")
+            fig.update_layout(
+                font=dict(family="SimHei, 黑体, Arial, sans-serif", size=12),
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, width='stretch')
     
     with col2:
         st.markdown("##### 📈 指标统计")
@@ -687,7 +813,11 @@ def create_individual_metric_analysis(comparison_data):
                 '测角误差分析': '测角误差_度',
                 '测距误差分析': '测距误差_m',
                 '测速误差分析': '测速误差_m/s',
-                '多径效应分析': '多径衰落_db'  # 新增
+                '多径效应分析': '多径衰落_db',
+                '回波功率分析': '回波功率_dBm',
+                '接收功率分析': '接收功率_dBm',
+                'SNR分析': 'SNR_dB',
+                '检测概率分析': '检测概率'
             }[metric_choice]
             
             stats = comparison_data[selected_metric].describe()
@@ -720,12 +850,16 @@ def create_data_comparison_view(comparison_data):
         single_data = comparison_data[comparison_data['风机数量'] == single_turbine].iloc[0]
         multi_data = comparison_data[comparison_data['风机数量'] == multi_turbine].iloc[0]
         
-        # 创建对比表格（增加多径效应指标）
+        # 创建对比表格（增加多径效应和回波功率指标）
         comparison_metrics = [
             ('风机数量', f"{single_turbine}", f"{multi_turbine}"),
             ('遮挡损耗 (dB)', f"{single_data['遮挡损耗_db']:.2f}", f"{multi_data['遮挡损耗_db']:.2f}"),
             ('散射损耗 (dB)', f"{single_data['散射损耗_db']:.2f}", f"{multi_data['散射损耗_db']:.2f}"),
             ('多径衰落 (dB)', f"{single_data['多径衰落_db']:.2f}", f"{multi_data['多径衰落_db']:.2f}"),
+            ('功率衰减 (dB)', f"{single_data['功率衰减_dB']:.2f}", f"{multi_data['功率衰减_dB']:.2f}"),
+            ('接收功率 (dBm)', f"{single_data['接收功率_dBm']:.2f}", f"{multi_data['接收功率_dBm']:.2f}"),
+            ('SNR (dB)', f"{single_data['SNR_dB']:.2f}", f"{multi_data['SNR_dB']:.2f}"),
+            ('检测概率', f"{single_data['检测概率']:.2%}", f"{multi_data['检测概率']:.2%}"),
             ('测角误差 (°)', f"{single_data['测角误差_度']:.3f}", f"{multi_data['测角误差_度']:.3f}"),
             ('测距误差 (m)', f"{single_data['测距误差_m']:.2f}", f"{multi_data['测距误差_m']:.2f}"),
             ('总影响评分', f"{single_data['总影响评分']:.1f}", f"{multi_data['总影响评分']:.1f}")
@@ -737,14 +871,28 @@ def create_data_comparison_view(comparison_data):
         # 影响增长百分比
         st.markdown("##### 📈 影响增长分析")
         increase_data = []
-        for metric in ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', 
+        for metric in ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB',
+                      '接收功率_dBm', 'SNR_dB', '检测概率',
                       '测角误差_度', '测距误差_m', '总影响评分']:
             single_val = single_data[metric]
             multi_val = multi_data[metric]
             increase_pct = ((multi_val - single_val) / abs(single_val)) * 100 if single_val != 0 else 0
             
+            metric_name_map = {
+                '遮挡损耗_db': '遮挡损耗',
+                '散射损耗_db': '散射损耗',
+                '多径衰落_db': '多径衰落',
+                '功率衰减_dB': '功率衰减',
+                '接收功率_dBm': '接收功率',
+                'SNR_dB': 'SNR',
+                '检测概率': '检测概率',
+                '测角误差_度': '测角误差',
+                '测距误差_m': '测距误差',
+                '总影响评分': '总影响评分'
+            }
+            
             increase_data.append({
-                '指标': metric.split('_')[0],
+                '指标': metric_name_map.get(metric, metric.split('_')[0]),
                 '增长百分比': f"{increase_pct:+.1f}%",
                 '增长绝对值': multi_val - single_val
             })
@@ -834,7 +982,53 @@ def create_metric_methods_tab(params):
     methods_markdown = """
 # 海上风电雷达影响分析指标计算方法与原理
 
-## 1. 遮挡损耗 (Shadowing Loss)
+## 1. 回波功率计算 (Echo Power)
+
+### 计算公式
+
+雷达方程（dB形式）:
+
+$$
+P_r = P_t + 2G + 20\log_{10}(\lambda) + \sigma - 30\log_{10}(4\pi) - 40\log_{10}(R) - L
+$$
+
+其中：
+- $P_r$: 接收回波功率 (dBm)
+- $P_t$: 发射功率 (dBm)，默认 80 dBm (~100kW)
+- $G$: 天线增益 (dBi)，默认 30 dB
+- $\lambda$: 波长 (m)
+- $\sigma$: 目标RCS (dBsm)，默认 10 dBsm (~10 m²)
+- $R$: 目标距离 (m)
+- $L$: 系统损耗 (dB)，默认 6 dB
+
+### 风机影响后的接收功率
+
+$$
+P_{received} = P_r - L_{shadow} - L_{scatter} - L_{diffraction} - L_{multipath} - L_{multi}
+$$
+
+### 信噪比 (SNR) 计算
+
+$$
+SNR = P_{received} - N
+$$
+
+噪声功率:
+$$
+N = 10\log_{10}(kTB) + NF
+$$
+
+其中 $k=1.38\times10^{-23}$ J/K, $T=290$ K, $B=1$ MHz, $NF=3$ dB
+
+### 检测概率
+
+基于SNR的简化检测概率模型:
+- SNR > 23 dB: 检测概率 99%
+- 13 dB < SNR ≤ 23 dB: 检测概率 90%-99%
+- 3 dB < SNR ≤ 13 dB: 检测概率 50%-90%
+- SNR ≤ 3 dB: 检测概率 < 50%
+
+## 2. 遮挡损耗 (Shadowing Loss)
 
 ### 计算公式
 
@@ -860,7 +1054,7 @@ $$
 - **distance**: 雷达与目标距离（千米）
 - **num_turbines**: 风机数量
 
-## 2. 散射损耗 (Scattering Loss)
+## 3. 散射损耗 (Scattering Loss)
 
 ### 计算公式
 
@@ -886,7 +1080,7 @@ $$
 - **incidence_angle**: 入射角（度）
 - **num_turbines**: 风机数量
 
-## 3. 绕射损耗 (Diffraction Loss)
+## 4. 绕射损耗 (Diffraction Loss)
 
 ### 计算公式
 
@@ -912,7 +1106,7 @@ $$
 - **turbine_height**: 风机高度（米）
 - **num_turbines**: 风机数量
 
-## 4. 多普勒扩展 (Doppler Spread)
+## 5. 多普勒扩展 (Doppler Spread)
 
 ### 计算公式
 
@@ -942,7 +1136,7 @@ $$
 - **blade_speed**: 叶片尖端速度（m/s）
 - **num_turbines**: 风机数量
 
-## 5. 测角误差 (Angle Measurement Error)
+## 6. 测角误差 (Angle Measurement Error)
 
 ### 计算公式
 
@@ -968,7 +1162,7 @@ $$
 - **incidence_angle**: 入射角（度）
 - **num_turbines**: 风机数量
 
-## 6. 测距误差 (Range Measurement Error)
+## 7. 测距误差 (Range Measurement Error)
 
 ### 计算公式
 
@@ -985,7 +1179,7 @@ $$
 - **turbine_distance**: 风机距离（千米）
 - **num_turbines**: 风机数量
 
-## 7. 测速误差 (Velocity Measurement Error)
+## 8. 测速误差 (Velocity Measurement Error)
 
 ### 计算公式
 
@@ -1006,7 +1200,7 @@ $$
 - **target_velocity**: 目标速度（m/s）
 - **num_turbines**: 风机数量
 
-## 8. 多径衰落 (Multipath Fading)
+## 9. 多径衰落 (Multipath Fading)
 
 ### 计算公式
 
@@ -1032,7 +1226,7 @@ $$
 - **incidence_angle**: 入射角（度）
 - **num_turbines**: 风机数量
 
-## 9. 总影响评分 (Total Impact Score)
+## 10. 总影响评分 (Total Impact Score)
 
 ### 计算公式
 
@@ -1167,6 +1361,10 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             '测距误差': True,
             '测速误差': True,
             '多径衰落': True,
+            '回波功率': True,
+            '接收功率': True,
+            'SNR': True,
+            '检测概率': True,
             '总影响评分': True
         }
         
@@ -1274,6 +1472,17 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         num_turbines
                     )
                     
+                    # 计算回波功率
+                    echo_power = analyzer.calculate_echo_power(
+                        current_params['radar_band'],
+                        current_params['target_distance'],
+                        num_turbines=num_turbines,
+                        shadow_loss_db=shadowing['shadow_loss_db'],
+                        scattering_loss_db=scattering['scattering_loss_db'],
+                        diffraction_loss_db=diffraction['diffraction_loss_db'],
+                        multipath_fading_db=multipath['multipath_fading_depth_db']
+                    )
+                    
                     # 综合影响评分
                     total_impact_score = (
                         shadowing['shadow_loss_db'] * 0.15 +
@@ -1303,6 +1512,14 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         results['测速误差'][num_turbines].append(velocity_error['velocity_error_ms'])
                     if '多径衰落' in selected_metrics:
                         results['多径衰落'][num_turbines].append(multipath['multipath_fading_depth_db'])
+                    if '回波功率' in selected_metrics:
+                        results['回波功率'][num_turbines].append(echo_power['echo_power_dbm'])
+                    if '接收功率' in selected_metrics:
+                        results['接收功率'][num_turbines].append(echo_power['received_power_dbm'])
+                    if 'SNR' in selected_metrics:
+                        results['SNR'][num_turbines].append(echo_power['snr_db'])
+                    if '检测概率' in selected_metrics:
+                        results['检测概率'][num_turbines].append(echo_power['detection_prob'])
                     if '总影响评分' in selected_metrics:
                         results['总影响评分'][num_turbines].append(total_impact_score)
                 
@@ -1571,6 +1788,38 @@ class MetricAnalysisEngine:
                 'unit': '',
                 'description': '分析码间干扰影响因子',
                 'chart_type': 'bar'
+            },
+            {
+                'id': 'echo_power',
+                'name': '回波功率分析',
+                'column': '回波功率_dBm',
+                'unit': 'dBm',
+                'description': '分析雷达回波功率随风机数量变化',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'received_power',
+                'name': '接收功率分析',
+                'column': '接收功率_dBm',
+                'unit': 'dBm',
+                'description': '分析实际接收功率受风机影响程度',
+                'chart_type': 'area'
+            },
+            {
+                'id': 'snr',
+                'name': 'SNR分析',
+                'column': 'SNR_dB',
+                'unit': 'dB',
+                'description': '分析信噪比变化及对检测性能的影响',
+                'chart_type': 'line'
+            },
+            {
+                'id': 'detection_prob',
+                'name': '检测概率分析',
+                'column': '检测概率',
+                'unit': '',
+                'description': '分析目标检测概率变化',
+                'chart_type': 'scatter'
             },
             {
                 'id': 'total_impact',
@@ -2501,14 +2750,18 @@ def create_parameter_sensitivity_analysis_interface(analyzer, base_params):
                         single_result = comparison_df.iloc[0]
                         
                         result = {
-                            '参数值': param_value,
-                            '总影响评分': single_result['总影响评分'],
-                            '遮挡损耗_db': single_result['遮挡损耗_db'],
-                            '散射损耗_db': single_result['散射损耗_db'],
-                            '多径衰落_db': single_result['多径衰落_db'],
-                            '测角误差_度': single_result['测角误差_度'],
-                            '测距误差_m': single_result['测距误差_m']
-                        }
+                '参数值': param_value,
+                '总影响评分': single_result['总影响评分'],
+                '遮挡损耗_db': single_result['遮挡损耗_db'],
+                '散射损耗_db': single_result['散射损耗_db'],
+                '多径衰落_db': single_result['多径衰落_db'],
+                '功率衰减_dB': single_result['功率衰减_dB'],
+                '接收功率_dBm': single_result['接收功率_dBm'],
+                'SNR_dB': single_result['SNR_dB'],
+                '检测概率': single_result['检测概率'],
+                '测角误差_度': single_result['测角误差_度'],
+                '测距误差_m': single_result['测距误差_m']
+            }
                         results.append(result)
                     
                 except Exception as e:
@@ -2580,7 +2833,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
             # 添加其他指标曲线（可选）
             metrics_to_plot = st.multiselect(
                 "选择要显示的指标",
-                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m'],
+                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m'],
                 default=['遮挡损耗_db', '散射损耗_db'],
                 key=f"metrics_selector_categorical_{param_key}"
             )
@@ -2644,7 +2897,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
             # 添加其他指标曲线（可选）
             metrics_to_plot = st.multiselect(
                 "选择要显示的指标",
-                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m'],
+                ['遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m'],
                 default=['遮挡损耗_db', '散射损耗_db'],
                 key=f"metrics_selector_numeric_{param_key}"
             )
@@ -2727,7 +2980,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
         
         if is_categorical:
             # 分类变量显示分组条形图
-            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m']
+            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m']
             available_metrics = [m for m in metrics if m in results_df.columns]
             
             if len(available_metrics) > 0:
@@ -2785,7 +3038,7 @@ def display_sensitivity_results(results_df, param_key, param_name, param_values)
                 st.info("没有可用的指标数据")
         else:
             # 数值变量使用热力图
-            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '测角误差_度', '测距误差_m']
+            metrics = ['总影响评分', '遮挡损耗_db', '散射损耗_db', '多径衰落_db', '功率衰减_dB', '接收功率_dBm', 'SNR_dB', '检测概率', '测角误差_度', '测距误差_m']
             
             # 只选择存在的指标
             available_metrics = [m for m in metrics if m in results_df.columns]
