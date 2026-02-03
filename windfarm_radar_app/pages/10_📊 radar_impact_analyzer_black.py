@@ -471,8 +471,40 @@ class AdvancedRadarImpactAnalyzer:
             'is_frequency_selective': coherence_bandwidth < 10  # 相干带宽小于10MHz为频率选择性衰落
         }
     
+    def haversine_distance(self, lat1, lon1, lat2, lon2):
+        """
+        计算两点间的大圆距离（公里）
+        
+        参数:
+            lat1, lon1: 第一点的经纬度
+            lat2, lon2: 第二点的经纬度
+        
+        返回:
+            距离（公里）
+        """
+        from math import radians, sin, cos, sqrt, atan2
+        
+        R = 6371  # 地球半径（公里）
+        
+        lat1_rad = radians(lat1)
+        lat2_rad = radians(lat2)
+        delta_lat = radians(lat2 - lat1)
+        delta_lon = radians(lon2 - lon1)
+        
+        a = sin(delta_lat / 2)**2 + cos(lat1_rad) * cos(lat2_rad) * sin(delta_lon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        
+        return R * c
+    
     def evaluate_single_vs_multiple_turbines(self, base_params, num_turbines_list=None):
-        """比较单个风机与多个风机的影响"""
+        """
+        比较单个风机与多个风机的影响
+        支持自定义风机位置（通过CSV上传）
+        """
+        # 检查是否使用自定义风机位置
+        use_custom_turbines = base_params.get('use_custom_turbines', False)
+        custom_turbine_positions = base_params.get('custom_turbine_positions', None)
+        
         # 如果未提供列表，则生成从1到max_turbines的所有整数
         if num_turbines_list is None:
             max_turbines = base_params.get('max_turbines', 30)
@@ -481,133 +513,383 @@ class AdvancedRadarImpactAnalyzer:
         results = []
         
         for num_turbines in num_turbines_list:
-            # 计算各项指标
-            shadowing = self.calculate_shadowing_effect(
-                base_params['turbine_height'], 
-                base_params['target_height'],
-                base_params['turbine_distance'],
-                num_turbines
-            )
-            
-            scattering = self.calculate_scattering_effect(
-                base_params['radar_band'],
-                base_params['turbine_distance'],
-                base_params['incidence_angle'],
-                num_turbines
-            )
-            
-            diffraction = self.calculate_diffraction_effect(
-                base_params['radar_band'],
-                base_params['turbine_distance'],
-                base_params['turbine_height'],
-                num_turbines
-            )
-            
-            doppler = self.calculate_doppler_effects(
-                self.radar_bands[base_params['radar_band']]["freq"],
-                base_params['target_speed'],
-                num_turbines=num_turbines
-            )
-            
-            angle_error = self.calculate_angle_measurement_error(
-                base_params['radar_band'],
-                base_params['turbine_distance'],
-                base_params['incidence_angle'],
-                num_turbines
-            )
-            
-            range_error = self.calculate_range_measurement_error(
-                base_params['radar_band'],
-                base_params['turbine_distance'],
-                num_turbines
-            )
-            
-            velocity_error = self.calculate_velocity_measurement_error(
-                doppler['doppler_spread_hz'],
-                base_params['target_speed'],
-                num_turbines
-            )
-            
-            # 新增：多径效应计算
-            multipath = self.calculate_multipath_effects(
-                base_params['radar_band'],
-                base_params['turbine_distance'],
-                base_params['turbine_height'],
-                base_params['incidence_angle'],
-                num_turbines
-            )
-            
-            # 计算回波功率
-            echo_power = self.calculate_echo_power(
-                base_params['radar_band'],
-                base_params['target_distance'],
-                target_rcs_dbsm=base_params.get('target_rcs_dbsm', 10),
-                num_turbines=num_turbines,
-                shadow_loss_db=shadowing['shadow_loss_db'],
-                scattering_loss_db=scattering['scattering_loss_db'],
-                diffraction_loss_db=diffraction['diffraction_loss_db'],
-                multipath_fading_db=multipath['multipath_fading_depth_db']
-            )
-            
-            # 综合影响评分（调整权重，增加多径效应权重）
-            total_impact_score = (
-                shadowing['shadow_loss_db'] * 0.15 +
-                scattering['scattering_loss_db'] * 0.2 +
-                diffraction['diffraction_loss_db'] * 0.1 +
-                abs(doppler['velocity_measurement_error']) * 0.1 +
-                angle_error['angle_error_deg'] * 0.1 +
-                range_error['range_error_m'] * 0.1 +
-                velocity_error['velocity_error_ms'] * 0.05 +
-                multipath['multipath_fading_depth_db'] * 0.2
-            )
-            
-            # 计算塔筒回波功率
-            tower_echo = self.calculate_tower_echo_power(
-                base_params['radar_band'],
-                base_params['turbine_distance'],
-                num_turbines=num_turbines,
-                incidence_angle=base_params['incidence_angle'],
-                tower_height=base_params.get('tower_height', 100)
-            )
-            
-            result = {
-                '风机数量': num_turbines,
-                '遮挡损耗_db': shadowing['shadow_loss_db'],
-                '散射损耗_db': scattering['scattering_loss_db'],
-                '绕射损耗_db': diffraction['diffraction_loss_db'],
-                '多普勒扩展_Hz': doppler['doppler_spread_hz'],
-                '测角误差_度': angle_error['angle_error_deg'],
-                '测距误差_m': range_error['range_error_m'],
-                '测速误差_m/s': velocity_error['velocity_error_ms'],
-                '多径衰落_db': multipath['multipath_fading_depth_db'],
-                '时延扩展_μs': multipath['delay_spread_us'],
-                '相干带宽_MHz': multipath['coherence_bandwidth_mhz'],
-                'ISI影响因子': multipath['isi_impact_factor'],
-                # 目标回波功率指标
-                '目标回波功率_dBm': echo_power['echo_power_dbm'],
-                '目标接收功率_dBm': echo_power['received_power_dbm'],
-                '目标接收功率_mW': echo_power['received_power_mw'],
-                '功率损耗_dB': echo_power['total_turbine_loss_db'],
-                '噪声功率_dBm': echo_power['noise_power_dbm'],
-                '目标SNR_dB': echo_power['snr_db'],
-                '目标检测概率': echo_power['detection_prob'],
-                '功率衰减_dB': echo_power['power_degradation_db'],
-                # 塔筒回波功率指标
-                '塔筒RCS_dBsm': tower_echo['tower_rcs_dbsm'],
-                '塔筒RCS_m2': tower_echo['tower_rcs_m2'],
-                '塔筒回波功率_dBm': tower_echo['echo_power_dbm'],
-                '塔筒接收功率_dBm': tower_echo['received_power_dbm'],
-                '塔筒SNR_dB': tower_echo['snr_db'],
-                '塔筒检测概率': tower_echo['detection_prob'],
-                # 功率对比
-                '功率差值_dB': tower_echo['echo_power_dbm'] - echo_power['echo_power_dbm'],
-                '总影响评分': total_impact_score,
-                '探测概率降低': min(0.8, total_impact_score * 0.1)
-            }
+            # 根据是否使用自定义风机位置选择计算方式
+            if use_custom_turbines and custom_turbine_positions:
+                # 使用自定义风机位置进行分析
+                result = self._evaluate_with_custom_turbines(
+                    base_params, custom_turbine_positions, num_turbines
+                )
+            else:
+                # 使用内置方法计算
+                result = self._evaluate_with_builtin_turbines(base_params, num_turbines)
             
             results.append(result)
         
         return pd.DataFrame(results)
+    
+    def _evaluate_with_builtin_turbines(self, base_params, num_turbines):
+        """使用内置方法计算风机影响"""
+        # 计算各项指标
+        shadowing = self.calculate_shadowing_effect(
+            base_params['turbine_height'], 
+            base_params['target_height'],
+            base_params['turbine_distance'],
+            num_turbines
+        )
+        
+        scattering = self.calculate_scattering_effect(
+            base_params['radar_band'],
+            base_params['turbine_distance'],
+            base_params['incidence_angle'],
+            num_turbines
+        )
+        
+        diffraction = self.calculate_diffraction_effect(
+            base_params['radar_band'],
+            base_params['turbine_distance'],
+            base_params['turbine_height'],
+            num_turbines
+        )
+        
+        doppler = self.calculate_doppler_effects(
+            self.radar_bands[base_params['radar_band']]["freq"],
+            base_params['target_speed'],
+            num_turbines=num_turbines
+        )
+        
+        angle_error = self.calculate_angle_measurement_error(
+            base_params['radar_band'],
+            base_params['turbine_distance'],
+            base_params['incidence_angle'],
+            num_turbines
+        )
+        
+        range_error = self.calculate_range_measurement_error(
+            base_params['radar_band'],
+            base_params['turbine_distance'],
+            num_turbines
+        )
+        
+        velocity_error = self.calculate_velocity_measurement_error(
+            doppler['doppler_spread_hz'],
+            base_params['target_speed'],
+            num_turbines
+        )
+        
+        multipath = self.calculate_multipath_effects(
+            base_params['radar_band'],
+            base_params['turbine_distance'],
+            base_params['turbine_height'],
+            base_params['incidence_angle'],
+            num_turbines
+        )
+        
+        # 计算回波功率
+        echo_power = self.calculate_echo_power(
+            base_params['radar_band'],
+            base_params['target_distance'],
+            target_rcs_dbsm=base_params.get('target_rcs_dbsm', 10),
+            num_turbines=num_turbines,
+            shadow_loss_db=shadowing['shadow_loss_db'],
+            scattering_loss_db=scattering['scattering_loss_db'],
+            diffraction_loss_db=diffraction['diffraction_loss_db'],
+            multipath_fading_db=multipath['multipath_fading_depth_db']
+        )
+        
+        # 综合影响评分
+        total_impact_score = (
+            shadowing['shadow_loss_db'] * 0.15 +
+            scattering['scattering_loss_db'] * 0.2 +
+            diffraction['diffraction_loss_db'] * 0.1 +
+            abs(doppler['velocity_measurement_error']) * 0.1 +
+            angle_error['angle_error_deg'] * 0.1 +
+            range_error['range_error_m'] * 0.1 +
+            velocity_error['velocity_error_ms'] * 0.05 +
+            multipath['multipath_fading_depth_db'] * 0.2
+        )
+        
+        # 计算塔筒回波功率
+        tower_echo = self.calculate_tower_echo_power(
+            base_params['radar_band'],
+            base_params['turbine_distance'],
+            num_turbines=num_turbines,
+            incidence_angle=base_params['incidence_angle'],
+            tower_height=base_params.get('tower_height', 100)
+        )
+        
+        return {
+            '风机数量': num_turbines,
+            '遮挡损耗_db': shadowing['shadow_loss_db'],
+            '散射损耗_db': scattering['scattering_loss_db'],
+            '绕射损耗_db': diffraction['diffraction_loss_db'],
+            '多普勒扩展_Hz': doppler['doppler_spread_hz'],
+            '测角误差_度': angle_error['angle_error_deg'],
+            '测距误差_m': range_error['range_error_m'],
+            '测速误差_m/s': velocity_error['velocity_error_ms'],
+            '多径衰落_db': multipath['multipath_fading_depth_db'],
+            '时延扩展_μs': multipath['delay_spread_us'],
+            '相干带宽_MHz': multipath['coherence_bandwidth_mhz'],
+            'ISI影响因子': multipath['isi_impact_factor'],
+            '目标回波功率_dBm': echo_power['echo_power_dbm'],
+            '目标接收功率_dBm': echo_power['received_power_dbm'],
+            '目标接收功率_mW': echo_power['received_power_mw'],
+            '功率损耗_dB': echo_power['total_turbine_loss_db'],
+            '噪声功率_dBm': echo_power['noise_power_dbm'],
+            '目标SNR_dB': echo_power['snr_db'],
+            '目标检测概率': echo_power['detection_prob'],
+            '功率衰减_dB': echo_power['power_degradation_db'],
+            '塔筒RCS_dBsm': tower_echo['tower_rcs_dbsm'],
+            '塔筒RCS_m2': tower_echo['tower_rcs_m2'],
+            '塔筒回波功率_dBm': tower_echo['echo_power_dbm'],
+            '塔筒接收功率_dBm': tower_echo['received_power_dbm'],
+            '塔筒SNR_dB': tower_echo['snr_db'],
+            '塔筒检测概率': tower_echo['detection_prob'],
+            '功率差值_dB': tower_echo['echo_power_dbm'] - echo_power['echo_power_dbm'],
+            '总影响评分': total_impact_score,
+            '探测概率降低': min(0.8, total_impact_score * 0.1)
+        }
+    
+    def _evaluate_with_custom_turbines(self, base_params, custom_turbine_positions, num_turbines):
+        """
+        使用自定义风机位置计算影响
+        
+        基于实际的风机经纬度坐标计算平均距离和分布特征
+        """
+        # 获取当前数量的风机位置
+        current_turbines = custom_turbine_positions[:num_turbines]
+        
+        # 假设雷达位于原点（0经度，0纬度）或使用参考位置
+        radar_lat = base_params.get('radar_lat', 0.0)
+        radar_lon = base_params.get('radar_lon', 0.0)
+        
+        # 计算每个风机到雷达的距离
+        turbine_distances = []
+        for turbine in current_turbines:
+            dist = self.haversine_distance(radar_lat, radar_lon, turbine['lat'], turbine['lon'])
+            turbine_distances.append(dist)
+        
+        # 计算统计特征
+        avg_distance = np.mean(turbine_distances) if turbine_distances else base_params['turbine_distance']
+        min_distance = np.min(turbine_distances) if turbine_distances else avg_distance
+        max_distance = np.max(turbine_distances) if turbine_distances else avg_distance
+        distance_std = np.std(turbine_distances) if len(turbine_distances) > 1 else 0
+        
+        # 使用平均距离作为计算参数
+        effective_distance = avg_distance
+        
+        # 计算各项指标（基于实际风机分布）
+        shadowing = self.calculate_shadowing_effect(
+            base_params['turbine_height'], 
+            base_params['target_height'],
+            effective_distance,
+            num_turbines
+        )
+        
+        # 增强遮挡效应（如果风机分布范围大）
+        if distance_std > 1.0:
+            shadowing['shadow_loss_db'] *= (1 + 0.1 * distance_std)
+        
+        scattering = self.calculate_scattering_effect(
+            base_params['radar_band'],
+            effective_distance,
+            base_params['incidence_angle'],
+            num_turbines
+        )
+        
+        diffraction = self.calculate_diffraction_effect(
+            base_params['radar_band'],
+            effective_distance,
+            base_params['turbine_height'],
+            num_turbines
+        )
+        
+        doppler = self.calculate_doppler_effects(
+            self.radar_bands[base_params['radar_band']]["freq"],
+            base_params['target_speed'],
+            num_turbines=num_turbines
+        )
+        
+        angle_error = self.calculate_angle_measurement_error(
+            base_params['radar_band'],
+            effective_distance,
+            base_params['incidence_angle'],
+            num_turbines
+        )
+        
+        range_error = self.calculate_range_measurement_error(
+            base_params['radar_band'],
+            effective_distance,
+            num_turbines
+        )
+        
+        velocity_error = self.calculate_velocity_measurement_error(
+            doppler['doppler_spread_hz'],
+            base_params['target_speed'],
+            num_turbines
+        )
+        
+        multipath = self.calculate_multipath_effects(
+            base_params['radar_band'],
+            effective_distance,
+            base_params['turbine_height'],
+            base_params['incidence_angle'],
+            num_turbines
+        )
+        
+        # 计算回波功率
+        echo_power = self.calculate_echo_power(
+            base_params['radar_band'],
+            base_params['target_distance'],
+            target_rcs_dbsm=base_params.get('target_rcs_dbsm', 10),
+            num_turbines=num_turbines,
+            shadow_loss_db=shadowing['shadow_loss_db'],
+            scattering_loss_db=scattering['scattering_loss_db'],
+            diffraction_loss_db=diffraction['diffraction_loss_db'],
+            multipath_fading_db=multipath['multipath_fading_depth_db']
+        )
+        
+        # 综合影响评分
+        total_impact_score = (
+            shadowing['shadow_loss_db'] * 0.15 +
+            scattering['scattering_loss_db'] * 0.2 +
+            diffraction['diffraction_loss_db'] * 0.1 +
+            abs(doppler['velocity_measurement_error']) * 0.1 +
+            angle_error['angle_error_deg'] * 0.1 +
+            range_error['range_error_m'] * 0.1 +
+            velocity_error['velocity_error_ms'] * 0.05 +
+            multipath['multipath_fading_depth_db'] * 0.2
+        )
+        
+        # 计算塔筒回波功率
+        tower_echo = self.calculate_tower_echo_power(
+            base_params['radar_band'],
+            effective_distance,
+            num_turbines=num_turbines,
+            incidence_angle=base_params['incidence_angle'],
+            tower_height=base_params.get('tower_height', 100)
+        )
+        
+        return {
+            '风机数量': num_turbines,
+            '遮挡损耗_db': shadowing['shadow_loss_db'],
+            '散射损耗_db': scattering['scattering_loss_db'],
+            '绕射损耗_db': diffraction['diffraction_loss_db'],
+            '多普勒扩展_Hz': doppler['doppler_spread_hz'],
+            '测角误差_度': angle_error['angle_error_deg'],
+            '测距误差_m': range_error['range_error_m'],
+            '测速误差_m/s': velocity_error['velocity_error_ms'],
+            '多径衰落_db': multipath['multipath_fading_depth_db'],
+            '时延扩展_μs': multipath['delay_spread_us'],
+            '相干带宽_MHz': multipath['coherence_bandwidth_mhz'],
+            'ISI影响因子': multipath['isi_impact_factor'],
+            '目标回波功率_dBm': echo_power['echo_power_dbm'],
+            '目标接收功率_dBm': echo_power['received_power_dbm'],
+            '目标接收功率_mW': echo_power['received_power_mw'],
+            '功率损耗_dB': echo_power['total_turbine_loss_db'],
+            '噪声功率_dBm': echo_power['noise_power_dbm'],
+            '目标SNR_dB': echo_power['snr_db'],
+            '目标检测概率': echo_power['detection_prob'],
+            '功率衰减_dB': echo_power['power_degradation_db'],
+            '塔筒RCS_dBsm': tower_echo['tower_rcs_dbsm'],
+            '塔筒RCS_m2': tower_echo['tower_rcs_m2'],
+            '塔筒回波功率_dBm': tower_echo['echo_power_dbm'],
+            '塔筒接收功率_dBm': tower_echo['received_power_dbm'],
+            '塔筒SNR_dB': tower_echo['snr_db'],
+            '塔筒检测概率': tower_echo['detection_prob'],
+            '功率差值_dB': tower_echo['echo_power_dbm'] - echo_power['echo_power_dbm'],
+            '总影响评分': total_impact_score,
+            '探测概率降低': min(0.8, total_impact_score * 0.1),
+            # CSV模式下的额外信息
+            '平均风机距离_km': round(avg_distance, 2),
+            '最近风机距离_km': round(min_distance, 2),
+            '最远风机距离_km': round(max_distance, 2),
+            '风机距离标准差_km': round(distance_std, 2)
+        }
+
+def parse_turbine_csv(uploaded_file):
+    """
+    解析上传的风机位置CSV文件
+    
+    支持的列名格式:
+    - 纬度: 'lat', 'latitude', '纬度'
+    - 经度: 'lon', 'longitude', 'lng', '经度'
+    - 可选ID: 'id', 'ID', '编号', 'turbine_id'
+    
+    参数:
+        uploaded_file: Streamlit上传的文件对象
+    
+    返回:
+        list: 包含风机位置信息的字典列表，每个字典包含 'id', 'lat', 'lon'
+    """
+    import io
+    
+    # 读取CSV文件
+    df = pd.read_csv(uploaded_file)
+    
+    if df.empty:
+        raise ValueError("CSV文件为空")
+    
+    # 标准化列名（转换为小写）
+    df.columns = [col.lower().strip() for col in df.columns]
+    
+    # 查找纬度列
+    lat_candidates = ['lat', 'latitude', '纬度', 'y', 'y_coord', 'ycoord']
+    lat_col = None
+    for col in lat_candidates:
+        if col in df.columns:
+            lat_col = col
+            break
+    
+    if lat_col is None:
+        raise ValueError(f"未找到纬度列。支持的列名: {', '.join(lat_candidates)}")
+    
+    # 查找经度列
+    lon_candidates = ['lon', 'longitude', 'lng', '经度', 'x', 'x_coord', 'xcoord']
+    lon_col = None
+    for col in lon_candidates:
+        if col in df.columns:
+            lon_col = col
+            break
+    
+    if lon_col is None:
+        raise ValueError(f"未找到经度列。支持的列名: {', '.join(lon_candidates)}")
+    
+    # 查找ID列（可选）
+    id_candidates = ['id', 'turbine_id', '风机id', '编号', 'turbine', 'name']
+    id_col = None
+    for col in id_candidates:
+        if col in df.columns:
+            id_col = col
+            break
+    
+    # 验证数据有效性
+    turbines = []
+    for idx, row in df.iterrows():
+        try:
+            lat = float(row[lat_col])
+            lon = float(row[lon_col])
+            
+            # 验证经纬度范围
+            if not (-90 <= lat <= 90):
+                raise ValueError(f"第 {idx + 1} 行纬度 {lat} 超出有效范围 [-90, 90]")
+            if not (-180 <= lon <= 180):
+                raise ValueError(f"第 {idx + 1} 行经度 {lon} 超出有效范围 [-180, 180]")
+            
+            turbine = {
+                'id': row[id_col] if id_col else f"T{idx + 1}",
+                'lat': lat,
+                'lon': lon,
+                'row_index': idx
+            }
+            turbines.append(turbine)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"第 {idx + 1} 行数据解析错误: {str(e)}")
+    
+    if not turbines:
+        raise ValueError("CSV文件中没有有效的风机位置数据")
+    
+    return turbines
+
 
 class EnhancedSimulationEngine:
     """增强型仿真引擎 - 支持多风机影响分析"""
@@ -663,6 +945,24 @@ def create_turbine_comparison_interface(analyzer, params):
         
         # 关键指标概览
         st.markdown("### 📊 影响指标概览")
+        
+        # 检查是否是CSV模式
+        is_csv_mode = '平均风机距离_km' in comparison_data.columns
+        
+        if is_csv_mode:
+            # CSV模式下显示额外的距离统计信息
+            st.markdown("#### 📍 CSV风机位置统计")
+            cols_csv = st.columns(4)
+            with cols_csv[0]:
+                st.metric("平均风机距离", f"{comparison_data['平均风机距离_km'].iloc[0]:.2f} km")
+            with cols_csv[1]:
+                st.metric("最近风机距离", f"{comparison_data['最近风机距离_km'].iloc[0]:.2f} km")
+            with cols_csv[2]:
+                st.metric("最远风机距离", f"{comparison_data['最远风机距离_km'].iloc[0]:.2f} km")
+            with cols_csv[3]:
+                st.metric("距离分布标准差", f"{comparison_data['风机距离标准差_km'].iloc[0]:.2f} km")
+            st.divider()
+        
         cols = st.columns(6)
         metrics = [
             ('风机数量范围', f"{comparison_data['风机数量'].min()}-{comparison_data['风机数量'].max()}"),
@@ -3654,10 +3954,76 @@ def main():
                 """)
     
     with st.sidebar.expander("风机参数"):
-        turbine_height = st.slider("风机高度 (m)", 50, 300, 185)
-        turbine_distance = st.slider("目标-风机距离 (km)", 0.1, 50.0, 1.0, 0.5)
+        # 风机位置设置模式选择
+        st.markdown("**风机位置设置**")
+        turbine_position_mode = st.radio(
+            "位置设置方式",
+            ["内置自动生成", "上传CSV文件"],
+            key="turbine_position_mode",
+            help="选择使用内置方法自动生成风机位置或上传自定义CSV文件"
+        )
+        
+        # 存储自定义风机位置
+        custom_turbine_positions = None
+        csv_uploaded = False
+        
+        if turbine_position_mode == "上传CSV文件":
+            st.markdown("📁 **上传风机坐标文件**")
+            
+            # 提供模板下载
+            template_csv = "id,lat,lon\nT1,39.9042,116.4074\nT2,39.9156,116.4189\nT3,39.9289,116.3886\nT4,39.8934,116.4263\nT5,39.8765,116.3954"
+            st.download_button(
+                label="📥 下载CSV模板",
+                data=template_csv,
+                file_name="turbine_template.csv",
+                mime="text/csv",
+                help="下载CSV模板文件查看格式要求"
+            )
+            
+            uploaded_file = st.file_uploader(
+                "选择CSV文件",
+                type=['csv'],
+                help="CSV文件需包含 'lat'/'latitude' 和 'lon'/'longitude' 列，可选 'id' 列"
+            )
+            
+            if uploaded_file is not None:
+                try:
+                    custom_turbine_positions = parse_turbine_csv(uploaded_file)
+                    csv_uploaded = True
+                    st.success(f"✅ 成功加载 {len(custom_turbine_positions)} 个风机位置")
+                    
+                    # 显示预览
+                    with st.expander("📋 风机位置预览"):
+                        preview_df = pd.DataFrame(custom_turbine_positions)
+                        st.dataframe(preview_df.head(10), use_container_width=True)
+                        if len(custom_turbine_positions) > 10:
+                            st.caption(f"... 共 {len(custom_turbine_positions)} 个风机")
+                    
+                    # 根据CSV数据设置最大风机数量
+                    max_turbines_from_csv = len(custom_turbine_positions)
+                except Exception as e:
+                    st.error(f"❌ CSV文件解析失败: {str(e)}")
+                    st.info("💡 请确保CSV文件包含 'lat'/'latitude' 和 'lon'/'longitude' 列")
+                    csv_uploaded = False
+            else:
+                st.info("📤 请上传包含风机经纬度坐标的CSV文件")
+        
+        if not csv_uploaded:
+            turbine_height = st.slider("风机高度 (m)", 50, 300, 185)
+            turbine_distance = st.slider("目标-风机距离 (km)", 0.1, 50.0, 1.0, 0.5)
+        else:
+            # 使用CSV数据时，计算平均距离作为参考
+            turbine_distance = st.slider("参考风机距离 (km)", 0.1, 50.0, 1.0, 0.5, 
+                                        help="CSV模式下此值用于计算参考距离")
+            turbine_height = st.slider("风机高度 (m)", 50, 300, 185)
+        
         incidence_angle = st.slider("照射角度 (°)", 0, 180, 45)
-        max_turbines = st.slider("最大风机数量", 1, 50, 30)
+        
+        if csv_uploaded and custom_turbine_positions:
+            max_turbines = st.slider("最大风机数量", 1, len(custom_turbine_positions), 
+                                    min(30, len(custom_turbine_positions)))
+        else:
+            max_turbines = st.slider("最大风机数量", 1, 50, 30)
         
         # 塔筒参数设置
         st.markdown("**塔筒参数**")
@@ -3688,7 +4054,9 @@ def main():
         'max_turbines': max_turbines,
         'tower_height': tower_height,
         'tower_base_diameter': tower_base_diameter,
-        'tower_top_diameter': tower_top_diameter
+        'tower_top_diameter': tower_top_diameter,
+        'custom_turbine_positions': custom_turbine_positions,  # 自定义风机位置
+        'use_custom_turbines': csv_uploaded  # 是否使用自定义风机位置
     }
     
     # 主界面标签页
