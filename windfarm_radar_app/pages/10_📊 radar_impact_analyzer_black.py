@@ -2053,32 +2053,45 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            for i, turbine_distance in enumerate(distances):
-                status_text.text(f"计算距离点 {i+1}/{len(distances)}: {turbine_distance:.1f} km")
+            # 获取风机到雷达的参考距离（用于计算目标到雷达的实际距离）
+            turbine_to_radar_distance = base_params.get('turbine_distance', 1.0)  # 默认1km
+            
+            for i, relative_distance in enumerate(distances):
+                status_text.text(f"计算距离点 {i+1}/{len(distances)}: {relative_distance:.1f} km")
                 
                 # 更新参数：使用传入的base_params，但替换turbine_distance
                 current_params = base_params.copy()
-                current_params['turbine_distance'] = turbine_distance
+                current_params['turbine_distance'] = relative_distance
+                
+                # 计算目标到雷达的实际距离
+                # 假设：雷达-风机-目标在一条直线上
+                # relative_distance > 0: 目标在风机远离雷达的一侧
+                # relative_distance < 0: 目标在风机靠近雷达的一侧（雷达和风机之间）
+                target_to_radar_distance = turbine_to_radar_distance + relative_distance
+                
+                # 确保距离为正（目标到雷达距离必须大于0）
+                if target_to_radar_distance <= 0:
+                    target_to_radar_distance = 0.1  # 最小距离100米
                 
                 for num_turbines in num_turbines_list:
                     # 计算各项指标
                     shadowing = analyzer.calculate_shadowing_effect(
                         current_params['turbine_height'],
                         current_params['target_height'],
-                        turbine_distance,
+                        relative_distance,
                         num_turbines
                     )
                     
                     scattering = analyzer.calculate_scattering_effect(
                         current_params['radar_band'],
-                        turbine_distance,
+                        relative_distance,
                         current_params['incidence_angle'],
                         num_turbines
                     )
                     
                     diffraction = analyzer.calculate_diffraction_effect(
                         current_params['radar_band'],
-                        turbine_distance,
+                        relative_distance,
                         current_params['turbine_height'],
                         num_turbines
                     )
@@ -2091,14 +2104,14 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     
                     angle_error = analyzer.calculate_angle_measurement_error(
                         current_params['radar_band'],
-                        turbine_distance,
+                        relative_distance,
                         current_params['incidence_angle'],
                         num_turbines
                     )
                     
                     range_error = analyzer.calculate_range_measurement_error(
                         current_params['radar_band'],
-                        turbine_distance,
+                        relative_distance,
                         num_turbines
                     )
                     
@@ -2110,16 +2123,16 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     
                     multipath = analyzer.calculate_multipath_effects(
                         current_params['radar_band'],
-                        turbine_distance,
+                        relative_distance,
                         current_params['turbine_height'],
                         current_params['incidence_angle'],
                         num_turbines
                     )
 
-                    # 计算回波功率
+                    # 计算回波功率 - 使用目标到雷达的实际距离
                     echo_power = analyzer.calculate_echo_power(
                         current_params['radar_band'],
-                        current_params['target_distance'],
+                        target_to_radar_distance,  # 使用计算出的目标到雷达距离
                         target_rcs_dbsm=current_params.get('target_rcs_dbsm', 10),
                         num_turbines=num_turbines,
                         shadow_loss_db=shadowing['shadow_loss_db'],
@@ -2128,10 +2141,10 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         multipath_fading_db=multipath['multipath_fading_depth_db']
                     )
 
-                    # 计算塔筒回波功率
+                    # 计算塔筒回波功率 - 使用目标到雷达的实际距离（塔筒回波是从雷达角度看）
                     tower_echo = analyzer.calculate_tower_echo_power(
                         current_params['radar_band'],
-                        turbine_distance,
+                        target_to_radar_distance,  # 使用计算出的距离
                         num_turbines=num_turbines,
                         incidence_angle=current_params['incidence_angle'],
                         tower_height=current_params.get('tower_height', 100)
