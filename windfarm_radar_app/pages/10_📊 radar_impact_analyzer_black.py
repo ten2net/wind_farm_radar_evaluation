@@ -2366,12 +2366,16 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                 if num_turbines in results[metric]:
                     y_data = results[metric][num_turbines]
                     
-                    # 对特定指标进行平滑处理（使用Savitzky-Golay滤波或移动平均）
+                    # 对特定指标进行平滑处理（使用边界保护的移动平均）
                     if needs_smooth and len(y_data) >= 5:
-                        # 使用移动平均进行平滑
+                        # 使用移动平均进行平滑，并处理边界效应
                         window_size = min(5, len(y_data) // 2 * 2 + 1)  # 确保窗口大小合适
                         if window_size >= 3:
-                            y_data_smooth = np.convolve(y_data, np.ones(window_size)/window_size, mode='same')
+                            # 使用边缘镜像填充来避免边界畸变
+                            pad_size = window_size // 2
+                            y_padded = np.pad(y_data, pad_size, mode='edge')  # 边缘填充
+                            y_convolved = np.convolve(y_padded, np.ones(window_size)/window_size, mode='valid')
+                            y_data_smooth = y_convolved
                         else:
                             y_data_smooth = y_data
                     else:
