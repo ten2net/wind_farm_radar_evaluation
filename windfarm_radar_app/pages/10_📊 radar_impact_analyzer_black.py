@@ -475,9 +475,14 @@ class AdvancedRadarImpactAnalyzer:
         base_velocity_error = doppler_spread * 0.1 * np.sqrt(num_turbines)
         
         # 距离影响因子：近距离时多径效应更复杂，测速误差增大
-        if turbine_distance is not None and abs(turbine_distance) < 1.0:
-            # 1km内距离增强因子
-            distance_factor = 1.0 + 1.5 * (1.0 - abs(turbine_distance))
+        # 使用更平滑的高斯衰减模型，扩大影响范围到3km
+        if turbine_distance is not None:
+            d_abs = abs(turbine_distance)
+            # 特征距离：3km，最大增强倍数：4倍（距离因子5.0）
+            characteristic_dist = 3.0  # km
+            max_enhancement = 4.0      # 最大增强倍数
+            # 高斯衰减：近距离增强，远距离趋于1.0
+            distance_factor = 1.0 + max_enhancement * np.exp(-(d_abs ** 2) / (2 * (characteristic_dist / 2) ** 2))
         else:
             distance_factor = 1.0
         
