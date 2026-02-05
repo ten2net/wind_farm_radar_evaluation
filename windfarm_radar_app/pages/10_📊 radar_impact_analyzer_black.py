@@ -461,15 +461,37 @@ class AdvancedRadarImpactAnalyzer:
             'range_resolution_degradation': min(0.5, 0.1 * np.log(1 + num_turbines))
         }
     
-    def calculate_velocity_measurement_error(self, doppler_spread, target_velocity, num_turbines=1):
-        """计算测速偏差"""
-        # 多普勒扩展导致的测速误差
-        velocity_error = doppler_spread * 0.1 * np.sqrt(num_turbines)
+    def calculate_velocity_measurement_error(self, doppler_spread, target_velocity, num_turbines=1, 
+                                             turbine_distance=None, radar_band=None):
+        """
+        计算测速偏差
+        
+        物理模型:
+        - 基础误差来自多普勒扩展
+        - 距离影响：距离越近，信号质量越差，测速误差越大
+        - 距离越远，信号衰减，但相对误差可能稳定
+        """
+        # 基础多普勒扩展误差
+        base_velocity_error = doppler_spread * 0.1 * np.sqrt(num_turbines)
+        
+        # 距离影响因子：近距离时多径效应更复杂，测速误差增大
+        if turbine_distance is not None and abs(turbine_distance) < 1.0:
+            # 1km内距离增强因子
+            distance_factor = 1.0 + 1.5 * (1.0 - abs(turbine_distance))
+        else:
+            distance_factor = 1.0
+        
+        # 综合测速误差
+        velocity_error = base_velocity_error * distance_factor
+        
+        # 测量精度损失（与风机数量相关，与距离无关）
         measurement_accuracy_loss = min(0.3, 0.05 * num_turbines)
         
         return {
             'velocity_error_ms': velocity_error,
-            'measurement_accuracy_loss': measurement_accuracy_loss
+            'measurement_accuracy_loss': measurement_accuracy_loss,
+            'distance_factor': distance_factor,
+            'base_velocity_error': base_velocity_error
         }
     
     def calculate_multipath_effects(self, radar_band, turbine_distance, turbine_height, 
@@ -639,7 +661,8 @@ class AdvancedRadarImpactAnalyzer:
         velocity_error = self.calculate_velocity_measurement_error(
             doppler['doppler_spread_hz'],
             base_params['target_speed'],
-            num_turbines
+            num_turbines,
+            turbine_distance=base_params['turbine_distance']
         )
         
         multipath = self.calculate_multipath_effects(
@@ -791,7 +814,8 @@ class AdvancedRadarImpactAnalyzer:
         velocity_error = self.calculate_velocity_measurement_error(
             doppler['doppler_spread_hz'],
             base_params['target_speed'],
-            num_turbines
+            num_turbines,
+            turbine_distance=base_params['turbine_distance']
         )
         
         multipath = self.calculate_multipath_effects(
@@ -1602,6 +1626,9 @@ def create_tower_echo_analysis(comparison_data, params):
     - 塔筒RCS基于圆柱体散射模型估算，考虑了塔筒尺寸、入射角和雷达波长
     - 塔筒回波功率通常远大于目标回波功率，这会形成强烈的杂波干扰
     - 当目标SNR低于塔筒SNR时，目标可能被塔筒杂波掩盖（Target Masking）
+    - **功率差值随距离变化原因**：塔筒固定在风机位置，回波功率恒定；目标回波功率随距离按R⁴衰减
+      - 近距离：目标回波强，功率差值小
+      - 远距离：目标回波弱，功率差值大（杂波相对更强）
     """)
 
 
@@ -2184,7 +2211,8 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     velocity_error = analyzer.calculate_velocity_measurement_error(
                         doppler['doppler_spread_hz'],
                         current_params['target_speed'],
-                        num_turbines
+                        num_turbines,
+                        turbine_distance=relative_distance
                     )
                     
                     multipath = analyzer.calculate_multipath_effects(
@@ -2207,10 +2235,11 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         multipath_fading_db=multipath['multipath_fading_depth_db']
                     )
 
-                    # 计算塔筒回波功率 - 使用目标到雷达的实际距离（塔筒回波是从雷达角度看）
+                    # 计算塔筒回波功率 - 塔筒位于风机位置，使用固定的风机到雷达距离
+                    # 注意：塔筒不随目标位置变化，始终位于风机处
                     tower_echo = analyzer.calculate_tower_echo_power(
                         current_params['radar_band'],
-                        target_to_radar_distance,  # 使用计算出的距离
+                        turbine_to_radar_distance,  # 使用固定的风机到雷达距离
                         num_turbines=num_turbines,
                         incidence_angle=current_params['incidence_angle'],
                         tower_height=current_params.get('tower_height', 100)
