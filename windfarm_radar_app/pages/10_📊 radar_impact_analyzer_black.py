@@ -630,11 +630,19 @@ class AdvancedRadarImpactAnalyzer:
     
     def _evaluate_with_builtin_turbines(self, base_params, num_turbines):
         """使用内置方法计算风机影响"""
-        # 计算各项指标
+        # 计算目标到雷达的实际距离（基于几何关系）
+        # 采用垂直配置：目标-风机连线垂直于雷达-风机连线
+        turbine_distance = base_params['turbine_distance']  # 目标-风机距离
+        
+        # 使用勾股定理计算目标-雷达距离
+        radar_to_turbine = base_params.get('radar_to_turbine_distance', 1.0)  # km
+        target_to_radar_distance = np.sqrt(radar_to_turbine**2 + turbine_distance**2)
+        
+        # 计算各项指标（使用目标-风机距离）
         shadowing = self.calculate_shadowing_effect(
             base_params['turbine_height'], 
             base_params['target_height'],
-            base_params['turbine_distance'],
+            turbine_distance,
             num_turbines
         )
         
@@ -686,10 +694,10 @@ class AdvancedRadarImpactAnalyzer:
             num_turbines
         )
         
-        # 计算回波功率
+        # 计算回波功率（使用计算出的目标-雷达距离）
         echo_power = self.calculate_echo_power(
             base_params['radar_band'],
-            base_params['target_distance'],
+            target_to_radar_distance,  # 使用基于几何关系计算的距离
             target_rcs_dbsm=base_params.get('target_rcs_dbsm', 10),
             num_turbines=num_turbines,
             shadow_loss_db=shadowing['shadow_loss_db'],
@@ -776,8 +784,13 @@ class AdvancedRadarImpactAnalyzer:
         max_distance = np.max(turbine_distances) if turbine_distances else avg_distance
         distance_std = np.std(turbine_distances) if len(turbine_distances) > 1 else 0
         
-        # 使用平均距离作为计算参数
+        # 使用平均距离作为计算参数（目标-风机距离）
         effective_distance = avg_distance
+        
+        # 计算目标到雷达的实际距离（基于几何关系）
+        # 采用垂直配置：目标-风机连线垂直于雷达-风机连线
+        target_to_turbine = base_params.get('turbine_distance', 1.0)  # 目标-风机距离
+        target_to_radar_distance = np.sqrt(avg_distance**2 + target_to_turbine**2)
         
         # 计算各项指标（基于实际风机分布）
         shadowing = self.calculate_shadowing_effect(
@@ -839,10 +852,10 @@ class AdvancedRadarImpactAnalyzer:
             num_turbines
         )
         
-        # 计算回波功率
+        # 计算回波功率（使用计算出的目标-雷达距离）
         echo_power = self.calculate_echo_power(
             base_params['radar_band'],
-            base_params['target_distance'],
+            target_to_radar_distance,  # 使用基于几何关系计算的距离
             target_rcs_dbsm=base_params.get('target_rcs_dbsm', 10),
             num_turbines=num_turbines,
             shadow_loss_db=shadowing['shadow_loss_db'],
@@ -2173,14 +2186,23 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                 current_params['turbine_distance'] = safe_distance
                 
                 # 计算目标到雷达的实际距离
-                # 假设：雷达-风机-目标在一条直线上
-                # relative_distance > 0: 目标在风机远离雷达的一侧
-                # relative_distance < 0: 目标在风机靠近雷达的一侧（雷达和风机之间）
-                target_to_radar_distance = turbine_to_radar_distance + relative_distance
+                # 采用垂直几何配置：目标路径垂直于雷达-风机连线
+                # 这样目标距风机距离变化时，目标到雷达距离单调增加
+                # 
+                #       目标
+                #         |
+                #         | relative_distance
+                #         |
+                # 雷达 ---风机
+                #   turbine_to_radar_distance
+                #
+                target_to_radar_distance = np.sqrt(
+                    turbine_to_radar_distance**2 + relative_distance**2
+                )
                 
-                # 确保距离为正（目标到雷达距离必须大于0）
-                if target_to_radar_distance <= 0:
-                    target_to_radar_distance = 0.1  # 最小距离100米
+                # 确保最小距离（避免除零）
+                if target_to_radar_distance < 0.001:
+                    target_to_radar_distance = 0.001  # 最小距离1米
                 
                 for num_turbines in num_turbines_list:
                     # 计算各项指标（使用safe_distance避免除零错误）
