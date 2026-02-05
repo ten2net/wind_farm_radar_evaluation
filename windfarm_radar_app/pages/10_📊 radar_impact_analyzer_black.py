@@ -2360,6 +2360,16 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                 )
             )
             
+            # 强制设置x轴刻度间距为2km
+            distance_min = min(distances)
+            distance_max = max(distances)
+            tickvals = list(np.arange(np.ceil(distance_min/2)*2, distance_max + 2, 2))
+            fig.update_xaxes(
+                tickmode='array',
+                tickvals=tickvals,
+                ticktext=[str(int(x)) for x in tickvals]
+            )
+            
             st.plotly_chart(fig, use_container_width=True)
         
         # 提供数据下载
