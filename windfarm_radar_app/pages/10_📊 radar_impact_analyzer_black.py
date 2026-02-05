@@ -187,12 +187,20 @@ class AdvancedRadarImpactAnalyzer:
         noise_power_dbm = 10 * np.log10(noise_power_w * 1000)
         snr_db = received_power_dbm - noise_power_dbm
         
-        # 检测概率
+        # 检测概率 - 使用连续的S型曲线模型（避免分段不连续）
         required_snr_db = 13
-        if snr_db > required_snr_db + 10: detection_prob = 0.99
-        elif snr_db > required_snr_db: detection_prob = 0.9 + 0.09 * (snr_db - required_snr_db) / 10
-        elif snr_db > required_snr_db - 10: detection_prob = 0.5 + 0.4 * (snr_db - (required_snr_db - 10)) / 10
-        else: detection_prob = max(0.01, 0.5 * (snr_db + 10) / 10) if snr_db > -10 else 0.01
+        
+        # Sigmoid-like平滑过渡函数
+        if snr_db > 30:
+            detection_prob = 0.99
+        elif snr_db < -10:
+            detection_prob = 0.01
+        else:
+            # 使用tanh函数实现平滑的S型曲线
+            # 在required_snr_db处达到约0.9，斜率可调
+            normalized_snr = (snr_db - required_snr_db) / 10.0
+            detection_prob = 0.5 + 0.49 * np.tanh(normalized_snr)
+            detection_prob = max(0.01, min(0.99, detection_prob))
         
         return {
             'echo_power_dbm': echo_power_dbm,
