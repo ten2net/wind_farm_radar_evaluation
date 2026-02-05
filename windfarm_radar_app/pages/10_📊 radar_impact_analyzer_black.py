@@ -2349,21 +2349,41 @@ def create_distance_based_analysis_interface(analyzer, base_params):
         distances = st.session_state.distance_analysis_distances
         num_turbines_list = st.session_state.distance_analysis_turbines
         
+        # 定义需要平滑处理的指标
+        smooth_metrics = ['遮挡损耗', '绕射损耗', '测角误差', '多径衰落', '目标接收功率', '目标SNR']
+        
         # 为每个选中的指标创建图表
         for metric in selected_metrics:
             st.markdown(f"### 📈 {metric} vs 距离")
             
             fig = go.Figure()
             
+            # 检查当前指标是否需要平滑处理
+            needs_smooth = any(sm in metric for sm in smooth_metrics)
+            
             # 为每个风机数量添加曲线
             for num_turbines in num_turbines_list:
                 if num_turbines in results[metric]:
+                    y_data = results[metric][num_turbines]
+                    
+                    # 对特定指标进行平滑处理（使用Savitzky-Golay滤波或移动平均）
+                    if needs_smooth and len(y_data) >= 5:
+                        # 使用移动平均进行平滑
+                        window_size = min(5, len(y_data) // 2 * 2 + 1)  # 确保窗口大小合适
+                        if window_size >= 3:
+                            y_data_smooth = np.convolve(y_data, np.ones(window_size)/window_size, mode='same')
+                        else:
+                            y_data_smooth = y_data
+                    else:
+                        y_data_smooth = y_data
+                    
                     fig.add_trace(go.Scatter(
                         x=distances,
-                        y=results[metric][num_turbines],
+                        y=y_data_smooth,
                         mode='lines',
                         name=f'{num_turbines}个风机',
-                        line=dict(width=2)
+                        line=dict(width=2),
+                        connectgaps=True
                     ))
             
             # 更新图表布局
@@ -2377,8 +2397,8 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                 legend=dict(
                     yanchor="top",
                     y=0.99,
-                    xanchor="left",
-                    x=0.01
+                    xanchor="right",  # 改为右上角
+                    x=0.99
                 )
             )
             
