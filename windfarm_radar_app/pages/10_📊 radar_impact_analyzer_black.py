@@ -2167,7 +2167,10 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                 
                 # 更新参数：使用传入的base_params，但替换turbine_distance
                 current_params = base_params.copy()
-                current_params['turbine_distance'] = relative_distance
+                # 避免距离为0导致除零错误，设置最小距离为1米（0.001km）
+                safe_distance = max(abs(relative_distance), 0.001) if relative_distance != 0 else 0.001
+                safe_distance = safe_distance if relative_distance >= 0 else -safe_distance
+                current_params['turbine_distance'] = safe_distance
                 
                 # 计算目标到雷达的实际距离
                 # 假设：雷达-风机-目标在一条直线上
@@ -2180,24 +2183,24 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     target_to_radar_distance = 0.1  # 最小距离100米
                 
                 for num_turbines in num_turbines_list:
-                    # 计算各项指标
+                    # 计算各项指标（使用safe_distance避免除零错误）
                     shadowing = analyzer.calculate_shadowing_effect(
                         current_params['turbine_height'],
                         current_params['target_height'],
-                        relative_distance,
+                        safe_distance,
                         num_turbines
                     )
                     
                     scattering = analyzer.calculate_scattering_effect(
                         current_params['radar_band'],
-                        relative_distance,
+                        safe_distance,
                         current_params['incidence_angle'],
                         num_turbines
                     )
                     
                     diffraction = analyzer.calculate_diffraction_effect(
                         current_params['radar_band'],
-                        relative_distance,
+                        safe_distance,
                         current_params['turbine_height'],
                         num_turbines
                     )
@@ -2210,14 +2213,14 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     
                     angle_error = analyzer.calculate_angle_measurement_error(
                         current_params['radar_band'],
-                        relative_distance,
+                        safe_distance,
                         current_params['incidence_angle'],
                         num_turbines
                     )
                     
                     range_error = analyzer.calculate_range_measurement_error(
                         current_params['radar_band'],
-                        relative_distance,
+                        safe_distance,
                         num_turbines
                     )
                     
@@ -2225,12 +2228,12 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         doppler['doppler_spread_hz'],
                         current_params['target_speed'],
                         num_turbines,
-                        turbine_distance=relative_distance
+                        turbine_distance=safe_distance
                     )
                     
                     multipath = analyzer.calculate_multipath_effects(
                         current_params['radar_band'],
-                        relative_distance,
+                        safe_distance,
                         current_params['turbine_height'],
                         current_params['incidence_angle'],
                         num_turbines
