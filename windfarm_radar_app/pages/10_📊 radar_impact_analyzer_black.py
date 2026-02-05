@@ -307,9 +307,16 @@ class AdvancedRadarImpactAnalyzer:
         }
         
     def calculate_shadowing_effect(self, turbine_height, target_height, distance, num_turbines=1):
-        """计算遮挡效应 - 基于几何光学理论"""
-        # 简化的阴影区域计算
-        shadow_zone_angle = np.degrees(np.arctan(turbine_height / distance))
+        """
+        计算遮挡效应 - 基于几何光学理论
+        
+        物理模型:
+        - 目标越靠近风机，遮挡角度越大，遮挡效应越强
+        - 随着距离增加，遮挡角度减小，遮挡效应减弱
+        - 多风机会增加遮挡的累积效应
+        """
+        # 计算遮挡张角（度）：目标-风机-雷达形成的角度
+        shadow_zone_angle = np.degrees(np.arctan(turbine_height / abs(distance)))
         
         # 多风机遮挡叠加效应
         shadow_factor = min(1.0, 0.3 + 0.2 * np.log10(num_turbines))
@@ -317,12 +324,37 @@ class AdvancedRadarImpactAnalyzer:
         # 高度差影响
         height_factor = max(0.1, 1 - abs(target_height - turbine_height) / (2 * turbine_height))
         
-        shadow_loss_db = 20 * shadow_factor * height_factor
+        # 距离衰减因子：距离越近，遮挡越强
+        # 使用双曲正切函数模拟遮挡效应随距离的变化
+        # 特征距离设为风机高度（单位转换为km）
+        characteristic_distance = turbine_height / 1000.0  # 特征遮挡距离（km）
+        
+        # 距离衰减：近距离强遮挡，远距离弱遮挡
+        if abs(distance) < characteristic_distance:
+            # 近距离区域：强遮挡，接近最大值
+            distance_factor = 1.0 - 0.3 * (abs(distance) / characteristic_distance)
+        else:
+            # 远距离区域：指数衰减
+            distance_factor = 0.7 * np.exp(-(abs(distance) - characteristic_distance) / (5 * characteristic_distance))
+        
+        # 确保最小遮挡值
+        distance_factor = max(0.1, distance_factor)
+        
+        # 综合遮挡损耗
+        base_shadow_loss = 20 * shadow_factor * height_factor
+        shadow_loss_db = base_shadow_loss * distance_factor
+        
+        # 当目标正好在风机位置时（距离=0），遮挡效应最大
+        if abs(distance) < 0.001:  # 1米范围内认为是重合
+            shadow_loss_db = base_shadow_loss * 1.5  # 最大遮挡增强
         
         return {
             'shadow_zone_angle': shadow_zone_angle,
             'shadow_loss_db': shadow_loss_db,
-            'is_in_shadow': target_height < turbine_height
+            'is_in_shadow': target_height < turbine_height,
+            'distance_factor': distance_factor,
+            'base_shadow_loss': base_shadow_loss,
+            'characteristic_distance_km': characteristic_distance
         }
     
     def calculate_scattering_effect(self, radar_band, turbine_distance, incidence_angle, num_turbines=1):
