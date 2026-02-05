@@ -442,21 +442,51 @@ class AdvancedRadarImpactAnalyzer:
     
     def calculate_multipath_effects(self, radar_band, turbine_distance, turbine_height, 
                                    incidence_angle, num_turbines=1):
-        """计算多径效应综合影响"""
+        """
+        计算多径效应综合影响
+        
+        物理模型:
+        - 多径效应在目标靠近风机时最强（直达波与反射波干涉严重）
+        - 随着距离增加，反射路径损耗增大，多径效应减弱
+        - 多风机场景会增加多径复杂度
+        """
         wavelength = self.radar_bands[radar_band]["wavelength"]
         
         # 1. 多径时延计算
-        path_difference = 2 * turbine_distance * 1000 * np.sin(np.radians(incidence_angle))
+        path_difference = 2 * abs(turbine_distance) * 1000 * np.sin(np.radians(incidence_angle))
         time_delay = path_difference / 3e8  # 秒
         
-        # 2. 多径衰落深度（瑞利衰落模型简化）
-        multipath_fading_depth = 20 * np.log10(1 + 0.5 * np.sqrt(num_turbines))
+        # 2. 多径衰落深度（考虑距离衰减的改进模型）
+        # 基础衰落深度（与风机数量相关）
+        base_fading_depth = 20 * np.log10(1 + 0.5 * np.sqrt(num_turbines))
         
-        # 3. 时延扩展（多风机导致的多径扩展）
-        delay_spread = time_delay * np.sqrt(num_turbines) * 1e6  # 转换为μs
+        # 距离衰减因子：距离越近，多径效应越强
+        # 使用指数衰减模型：距离为0时因子为1，距离增大时衰减
+        # 参考距离设为1km，在该距离处衰减到约37%
+        distance_attenuation = np.exp(-abs(turbine_distance) / 2.0)  # 2km为特征衰减距离
+        
+        # 近距离增强因子：目标非常靠近风机时（<100m），多径效应显著增强
+        close_range_factor = 1.0
+        if abs(turbine_distance) < 0.1:  # 100米内
+            close_range_factor = 1.0 + 2.0 * (0.1 - abs(turbine_distance)) / 0.1
+        
+        # 综合多径衰落深度
+        multipath_fading_depth = base_fading_depth * distance_attenuation * close_range_factor
+        
+        # 确保最小值（即使远距离也有一定多径效应）
+        min_fading_depth = 0.5 * np.log10(1 + num_turbines)  # 最小衰落深度
+        multipath_fading_depth = max(multipath_fading_depth, min_fading_depth)
+        
+        # 3. 时延扩展（多风机导致的多径扩展，同时受距离影响）
+        # 近距离时延扩展更大（路径差变化更快）
+        distance_delay_factor = 1.0 / (1.0 + abs(turbine_distance) / 5.0)  # 5km参考距离
+        delay_spread = time_delay * np.sqrt(num_turbines) * distance_delay_factor * 1e6  # 转换为μs
         
         # 4. 相干带宽
-        coherence_bandwidth = 1 / (2 * np.pi * delay_spread * 1e-6) / 1e6  # MHz
+        if delay_spread > 1e-6:  # 避免除零
+            coherence_bandwidth = 1 / (2 * np.pi * delay_spread * 1e-6) / 1e6  # MHz
+        else:
+            coherence_bandwidth = 1000  # 极大值表示非频率选择性
         
         # 5. 码间干扰影响（对数字信号）
         symbol_rate = 1e6  # 假设1Mbps
@@ -468,7 +498,11 @@ class AdvancedRadarImpactAnalyzer:
             'delay_spread_us': delay_spread,
             'coherence_bandwidth_mhz': coherence_bandwidth,
             'isi_impact_factor': isi_impact,
-            'is_frequency_selective': coherence_bandwidth < 10  # 相干带宽小于10MHz为频率选择性衰落
+            'is_frequency_selective': coherence_bandwidth < 10,  # 相干带宽小于10MHz为频率选择性衰落
+            # 新增诊断信息
+            'distance_attenuation': distance_attenuation,
+            'close_range_factor': close_range_factor,
+            'base_fading_depth': base_fading_depth
         }
     
     def haversine_distance(self, lat1, lon1, lat2, lon2):
