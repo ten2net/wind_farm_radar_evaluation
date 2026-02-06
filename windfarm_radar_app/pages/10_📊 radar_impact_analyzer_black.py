@@ -1141,12 +1141,48 @@ def create_comprehensive_impact_analysis(comparison_data):
             '总影响评分': '总影响评分'
         }
         
-    selected_metrics = st.multiselect(
-            "选择分析指标",
-            list(metrics_options.keys()),
-            default=['遮挡损耗 (dB)', '散射损耗 (dB)', '多径衰落 (dB)', '目标接收功率 (dBm)', '目标SNR (dB)', '总影响评分'],
-            key="impact_metrics"
-        )
+    # 将指标分为常用和不太常用两类
+    common_metrics = [
+        '遮挡损耗 (dB)',
+        '散射损耗 (dB)',
+        '绕射损耗 (dB)',
+        '多普勒扩展 (Hz)',
+        '测角误差 (°)',
+        '测距误差 (m)',
+        '多径衰落 (dB)',
+        '目标回波功率 (dBm)',
+        '目标接收功率 (dBm)',
+        '目标SNR (dB)',
+        '目标检测概率'
+    ]
+    
+    less_common_metrics = [
+        '测速误差 (m/s)',
+        '塔筒RCS (dBsm)',
+        '塔筒回波功率 (dBm)',
+        '塔筒接收功率 (dBm)',
+        '塔筒SNR (dB)',
+        '功率差值 (dB)',
+        '功率衰减 (dB)',
+        '总影响评分'
+    ]
+    
+    # 创建两列布局
+    col_left, col_right = st.columns(2)
+    
+    selected_metrics = []
+    
+    with col_left:
+        st.markdown("**常用指标**")
+        for metric in common_metrics:
+            if st.checkbox(metric, value=True, key=f"impact_metric_{metric}"):
+                selected_metrics.append(metric)
+    
+    with col_right:
+        st.markdown("**其他指标**")
+        for metric in less_common_metrics:
+            if st.checkbox(metric, value=False, key=f"impact_metric_{metric}"):
+                selected_metrics.append(metric)
     
     if selected_metrics:
         fig = go.Figure()
@@ -2159,32 +2195,48 @@ def create_distance_based_analysis_interface(analyzer, base_params):
     with config_col3:
         # 指标选择
         st.markdown("**选择分析指标**")
-        metrics_options = {
-            '遮挡损耗': True,
-            '散射损耗': True,
-            '绕射损耗': True,
-            '多普勒扩展': True,
-            '测角误差': True,
-            '测距误差': True,
-            '测速误差': True,
-            '多径衰落': True,
-            '目标回波功率': True,
-            '目标接收功率': True,
-            '目标SNR': True,
-            '目标检测概率': True,
-            '塔筒RCS': True,
-            '塔筒回波功率': True,
-            '塔筒接收功率': True,
-            '塔筒SNR': True,
-            '功率差值': True,
-            '总影响评分': True
-        }
         
-        # 创建多选框
+        # 定义常用指标（默认选中）和不太常用指标（默认不选中）
+        common_metrics = [
+            '遮挡损耗',
+            '散射损耗',
+            '绕射损耗',
+            '多普勒扩展',
+            '测角误差',
+            '测距误差',
+            '多径衰落',
+            '目标回波功率',
+            '目标接收功率',
+            '目标SNR',
+            '目标检测概率'
+        ]
+        
+        less_common_metrics = [
+            '测速误差',
+            '塔筒RCS',
+            '塔筒回波功率',
+            '塔筒接收功率',
+            '塔筒SNR',
+            '功率差值',
+            '总影响评分'
+        ]
+        
+        # 创建两列布局
+        col_left, col_right = st.columns(2)
+        
         selected_metrics = []
-        for metric in metrics_options:
-            if st.checkbox(metric, value=metrics_options[metric], key=f"metric_{metric}"):
-                selected_metrics.append(metric)
+        
+        with col_left:
+            st.markdown("**常用指标**")
+            for metric in common_metrics:
+                if st.checkbox(metric, value=True, key=f"metric_{metric}"):
+                    selected_metrics.append(metric)
+        
+        with col_right:
+            st.markdown("**其他指标**")
+            for metric in less_common_metrics:
+                if st.checkbox(metric, value=False, key=f"metric_{metric}"):
+                    selected_metrics.append(metric)
     
     # 如果未选择任何指标，提示用户
     if not selected_metrics:
