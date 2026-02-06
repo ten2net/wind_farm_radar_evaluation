@@ -1,0 +1,11 @@
+[server]
+enableStaticServing = true
+enableCORS = false
+enableXsrfProtection = false
+corsAllowedOrigins = ['http://localhost:8501', 'https://labs.mapbox.com']
+
+[mapbox]
+token = "YOUR_MAPBOX_TOKEN_HERE"
+
+[theme]
+# backgroundColor = "#3d3d3d"
