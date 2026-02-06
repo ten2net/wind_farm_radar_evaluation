@@ -1009,7 +1009,8 @@ animate = st.sidebar.checkbox("启用动画仿真", value=True)
 if animate:
     scan_mode = st.sidebar.selectbox(
         "扫描模式",
-        ["线性扫描", "圆形扫描", "螺旋扫描", "跟踪目标", "扇形扫描", "光栅扫描"],
+        ["线性扫描", "圆形扫描", "螺旋扫描", "跟踪目标", "扇形扫描", "光栅扫描",
+         "3D波束扫描", "多目标跟踪", "干扰抑制演示", "快速波束跳变", "信号强度热力图"],
         index=0
     )
     speed = st.sidebar.slider("动画速度", 1, 10, 5)
@@ -2396,6 +2397,456 @@ if animate:
             yaxis=dict(gridcolor=theme['grid_color'])
         )
     
+    elif scan_mode == "3D波束扫描":
+        # 3D波束扫描 - 显示3D空间中的波束移动轨迹
+        n_frames = 50
+        theta_3d = np.linspace(-scan_range/2, scan_range/2, n_frames)
+        phi_3d = np.linspace(-scan_range/2, scan_range/2, n_frames)
+        
+        frames = []
+        trajectory_x, trajectory_y, trajectory_z = [], [], []
+        
+        for i in range(n_frames):
+            t = theta_3d[i]
+            p = phi_3d[i]
+            
+            phase = calculate_phase_shift_cached(t, p, X, Y, Z, wavelength)
+            weighted_phase = phase * weights
+            
+            # 计算3D波束形状
+            theta_grid = np.linspace(-20, 20, 20)
+            phi_grid = np.linspace(-20, 20, 20)
+            AF_3d = np.zeros((20, 20))
+            
+            for ti, theta_val in enumerate(theta_grid):
+                for pi, phi_val in enumerate(phi_grid):
+                    AF_3d[ti, pi] = calculate_array_factor_cached(
+                        X, Y, Z, weighted_phase, theta_val, phi_val, wavelength
+                    )
+            
+            # 计算波束主瓣方向
+            beam_x = np.sin(np.radians(t)) * np.cos(np.radians(p))
+            beam_y = np.sin(np.radians(t)) * np.sin(np.radians(p))
+            beam_z = np.cos(np.radians(t))
+            
+            trajectory_x.append(beam_x)
+            trajectory_y.append(beam_y)
+            trajectory_z.append(beam_z)
+            
+            frames.append(go.Frame(
+                data=[
+                    go.Surface(
+                        x=theta_grid,
+                        y=phi_grid,
+                        z=20 * np.log10(np.abs(AF_3d) + 1e-10),
+                        colorscale='Viridis',
+                        showscale=False,
+                        opacity=0.7
+                    ),
+                    go.Scatter3d(
+                        x=[beam_x], y=[beam_y], z=[beam_z],
+                        mode='markers',
+                        marker=dict(size=15, color='red', symbol='diamond'),
+                        name='波束指向'
+                    ),
+                    go.Scatter3d(
+                        x=trajectory_x, y=trajectory_y, z=trajectory_z,
+                        mode='lines',
+                        line=dict(color='orange', width=3),
+                        name='扫描轨迹'
+                    )
+                ],
+                name=f"θ={t:.1f}°, φ={p:.1f}°"
+            ))
+        
+        fig_anim = go.Figure(
+            data=[frames[0].data[0], frames[0].data[1], frames[0].data[2]],
+            frames=frames
+        )
+        
+        fig_anim.update_layout(
+            title="3D波束扫描 - 空间轨迹可视化",
+            scene=dict(
+                xaxis_title='X方向',
+                yaxis_title='Y方向',
+                zaxis_title='Z方向',
+                camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))
+            ),
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(
+                        label="▶️ 播放",
+                        method="animate",
+                        args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
+                    ),
+                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                ]
+            )],
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color'])
+        )
+    
+    elif scan_mode == "多目标跟踪" and len(targets) >= 2:
+        # 多目标跟踪 - 同时跟踪多个目标并显示波束切换
+        n_frames = 60
+        frames = []
+        
+        # 模拟波束在不同目标之间切换
+        for i in range(n_frames):
+            # 循环切换到不同目标
+            target_idx = i % len(targets)
+            current_target = targets[target_idx]
+            
+            # 在目标附近进行小范围扫描
+            angle_offset = 10 * np.sin(2 * np.pi * i / 20)
+            current_theta = current_target.theta + angle_offset * np.cos(np.radians(current_target.phi))
+            current_phi = current_target.phi + angle_offset * np.sin(np.radians(current_target.phi))
+            
+            phase = calculate_phase_shift_cached(current_theta, current_phi, X, Y, Z, wavelength)
+            weighted_phase = phase * weights
+            pattern = calculate_radiation_pattern_cached(
+                X, Y, Z, weighted_phase, wavelength, theta_range, phi_fixed=current_phi
+            )
+            
+            # 计算所有目标的增益
+            all_targets_data = []
+            colors = ['purple', 'green', 'orange', 'blue', 'red']
+            for idx, tgt in enumerate(targets):
+                tgt_gain = calculate_array_factor_cached(
+                    X, Y, Z, weighted_phase, tgt.theta, tgt.phi, wavelength
+                )
+                tgt_gain_db = 20 * np.log10(tgt_gain + 1e-10)
+                all_targets_data.append((
+                    tgt.theta,
+                    tgt_gain_db,
+                    colors[idx % len(colors)],
+                    f"目标{idx+1}"
+                ))
+            
+            # 创建多个目标的scatter trace
+            target_traces = []
+            for t_theta, t_gain, t_color, t_name in all_targets_data:
+                target_traces.append(go.Scatter(
+                    x=[t_theta],
+                    y=[t_gain],
+                    mode='markers',
+                    marker=dict(size=12, color=t_color, symbol='circle',
+                              line=dict(width=2 if targets.index(targets[0]) == idx else 1,
+                                       color='white' if targets.index(targets[0]) == idx else t_color)),
+                    name=t_name
+                ))
+            
+            frames.append(go.Frame(
+                data=[
+                    go.Scatter(
+                        x=theta_range,
+                        y=pattern,
+                        mode='lines',
+                        line=dict(color='blue', width=2),
+                        name='方向图'
+                    ),
+                    go.Scatter(
+                        x=[current_theta],
+                        y=[np.max(pattern)],
+                        mode='markers',
+                        marker=dict(size=14, color='red', symbol='star'),
+                        name='波束指向'
+                    )
+                ] + target_traces,
+                name=f"跟踪目标{target_idx+1}"
+            ))
+        
+        fig_anim = go.Figure(
+            data=[frames[0].data[0], frames[0].data[1]] + frames[0].data[2:],
+            frames=frames
+        )
+        
+        fig_anim.update_layout(
+            title=f"多目标跟踪 ({len(targets)}个目标) - 波束自动切换",
+            xaxis_title="俯仰角 (度)",
+            yaxis_title="增益 (dB)",
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(
+                        label="▶️ 播放",
+                        method="animate",
+                        args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
+                    ),
+                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                ]
+            )],
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
+        )
+    
+    elif scan_mode == "干扰抑制演示":
+        # 干扰抑制演示 - 展示MVDR如何动态抑制干扰
+        n_frames = 40
+        frames = []
+        
+        # 模拟干扰源和目标
+        target_angle = 0
+        jammer_angles = [-15, 20, -25][:3]  # 取前3个干扰源
+        
+        for i in range(n_frames):
+            # 波束在目标方向附近小幅度扫描
+            scan_angle = 5 * np.sin(2 * np.pi * i / n_frames)
+            current_theta = target_angle + scan_angle
+            
+            # 计算普通波束
+            phase_normal = calculate_phase_shift_cached(current_theta, phi, X, Y, Z, wavelength)
+            phase_weighted = phase_normal * weights
+            
+            # 计算MVDR波束(模拟零陷)
+            pattern_normal = calculate_radiation_pattern_cached(
+                X, Y, Z, phase_weighted, wavelength, theta_range, phi_fixed=phi
+            )
+            
+            # 模拟在干扰方向形成零陷
+            pattern_mvdr = np.array(pattern_normal)
+            for jam_angle in jammer_angles:
+                # 在干扰方向附近降低增益
+                jam_idx = np.argmin(np.abs(theta_range - jam_angle))
+                null_width = 3  # 零陷宽度(度)
+                for offset in range(-int(null_width/resolution), int(null_width/resolution)+1):
+                    idx = jam_idx + offset
+                    if 0 <= idx < len(pattern_mvdr):
+                        # 使用高斯形状形成零陷
+                        distance = abs(offset * resolution)
+                        null_depth = np.exp(-2 * (distance / null_width)**2) * 40  # 最大零陷40dB
+                        pattern_mvdr[idx] = pattern_mvdr[idx] - null_depth
+            
+            frames.append(go.Frame(
+                data=[
+                    go.Scatter(
+                        x=theta_range,
+                        y=pattern_normal,
+                        mode='lines',
+                        line=dict(color='blue', width=2, dash='solid'),
+                        name='普通波束'
+                    ),
+                    go.Scatter(
+                        x=theta_range,
+                        y=pattern_mvdr,
+                        mode='lines',
+                        line=dict(color='green', width=2, dash='dash'),
+                        name='MVDR波束(抗干扰)'
+                    ),
+                    go.Scatter(
+                        x=[target_angle],
+                        y=[np.max(pattern_normal)],
+                        mode='markers',
+                        marker=dict(size=15, color='lime', symbol='star'),
+                        name='目标'
+                    ),
+                    go.Scatter(
+                        x=jammer_angles,
+                        y=[pattern_normal[np.argmin(np.abs(theta_range - angle))] for angle in jammer_angles],
+                        mode='markers',
+                        marker=dict(size=12, color='red', symbol='x'),
+                        name='干扰源'
+                    )
+                ],
+                name=f"帧{i+1}"
+            ))
+        
+        fig_anim = go.Figure(
+            data=[frames[0].data[0], frames[0].data[1], frames[0].data[2], frames[0].data[3]],
+            frames=frames
+        )
+        
+        fig_anim.update_layout(
+            title="干扰抑制演示 - MVDR自适应零陷形成",
+            xaxis_title="俯仰角 (度)",
+            yaxis_title="增益 (dB)",
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(
+                        label="▶️ 播放",
+                        method="animate",
+                        args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
+                    ),
+                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                ]
+            )],
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
+        )
+    
+    elif scan_mode == "快速波束跳变":
+        # 快速波束跳变 - 展示电子扫描的快速跳变能力
+        n_jumps = 20
+        frames = []
+        
+        # 预定义波束位置
+        beam_positions = [
+            (-15, -15), (15, -15), (15, 15), (-15, 15),  # 四角
+            (-20, 0), (0, -20), (20, 0), (0, 20),       # 四边
+            (0, 0),                                         # 中心
+            (-10, -5), (5, -10), (10, 5), (-5, 10),      # 内部
+            (-8, 8), (8, -8), (-12, 3), (12, -3),        # 更多内部
+            (0, 12), (0, -12)                             # 上下
+        ]
+        
+        for i in range(n_jumps):
+            pos = beam_positions[i % len(beam_positions)]
+            jump_theta, jump_phi = pos
+            
+            phase = calculate_phase_shift_cached(jump_theta, jump_phi, X, Y, Z, wavelength)
+            weighted_phase = phase * weights
+            pattern = calculate_radiation_pattern_cached(
+                X, Y, Z, weighted_phase, wavelength, theta_range, phi_fixed=jump_phi
+            )
+            
+            frames.append(go.Frame(
+                data=[
+                    go.Scatter(
+                        x=theta_range,
+                        y=pattern,
+                        mode='lines',
+                        line=dict(color='cyan', width=2),
+                        name='方向图'
+                    ),
+                    go.Scatter(
+                        x=[jump_theta],
+                        y=[np.max(pattern)],
+                        mode='markers',
+                        marker=dict(size=14, color='red', symbol='diamond'),
+                        name=f'波束{i+1}'
+                    ),
+                    go.Scatter(
+                        x=[bp[0] for bp in beam_positions[:i+1]],
+                        y=[np.max(pattern)] * (i+1),
+                        mode='markers',
+                        marker=dict(size=8, color='yellow', symbol='circle', opacity=0.5),
+                        name='历史位置'
+                    )
+                ],
+                name=f"跳变{i+1}: θ={jump_theta}°"
+            ))
+        
+        fig_anim = go.Figure(
+            data=[frames[0].data[0], frames[0].data[1], frames[0].data[2]],
+            frames=frames
+        )
+        
+        fig_anim.update_layout(
+            title=f"快速波束跳变 - 电子扫描 ({n_jumps}个位置)",
+            xaxis_title="俯仰角 (度)",
+            yaxis_title="增益 (dB)",
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(
+                        label="▶️ 播放",
+                        method="animate",
+                        args=[None, {"frame": {"duration": 200, "redraw": True}}]  # 快速播放
+                    ),
+                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                ]
+            )],
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
+        )
+    
+    elif scan_mode == "信号强度热力图":
+        # 信号强度热力图 - 展示空间中的信号强度分布
+        n_frames = 30
+        frames = []
+        
+        # 创建2D空间网格
+        theta_grid = np.linspace(-30, 30, 50)
+        phi_grid = np.linspace(-30, 30, 50)
+        
+        for i in range(n_frames):
+            # 波束沿对角线移动
+            t = -30 + 60 * i / n_frames
+            p = -30 + 60 * i / n_frames
+            
+            phase = calculate_phase_shift_cached(t, p, X, Y, Z, wavelength)
+            weighted_phase = phase * weights
+            
+            # 计算整个空间的信号强度
+            signal_map = np.zeros((50, 50))
+            for ti, theta_val in enumerate(theta_grid):
+                for pi, phi_val in enumerate(phi_grid):
+                    af = calculate_array_factor_cached(
+                        X, Y, Z, weighted_phase, theta_val, phi_val, wavelength
+                    )
+                    signal_map[ti, pi] = 20 * np.log10(abs(af) + 1e-10)
+            
+            frames.append(go.Frame(
+                data=[
+                    go.Heatmap(
+                        x=phi_grid,
+                        y=theta_grid,
+                        z=signal_map,
+                        colorscale='Jet',
+                        zmin=-40,
+                        zmax=0,
+                        colorbar=dict(title="增益(dB)"),
+                        showscale=True
+                    ),
+                    go.Scatter(
+                        x=[p],
+                        y=[t],
+                        mode='markers',
+                        marker=dict(size=15, color='white', symbol='star',
+                                  line=dict(color='red', width=2)),
+                        name='波束中心'
+                    )
+                ],
+                name=f"θ={t:.1f}°, φ={p:.1f}°"
+            ))
+        
+        fig_anim = go.Figure(
+            data=[frames[0].data[0], frames[0].data[1]],
+            frames=frames
+        )
+        
+        fig_anim.update_layout(
+            title="信号强度热力图 - 空间覆盖可视化",
+            xaxis_title="方位角 φ (度)",
+            yaxis_title="俯仰角 θ (度)",
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[
+                    dict(
+                        label="▶️ 播放",
+                        method="animate",
+                        args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
+                    ),
+                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                ]
+            )],
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color'])
+        )
+    
     st.plotly_chart(fig_anim, use_container_width=True)
 
 # --- 技术说明 ---
@@ -2519,6 +2970,11 @@ with st.expander("🎮 使用说明"):
    - **扇形扫描**：在指定扇区内往复扫描
    - **光栅扫描**：二维光栅扫描模式
    - **跟踪目标**：对目标进行圆锥扫描跟踪
+   - **3D波束扫描**：显示3D空间中波束移动轨迹
+   - **多目标跟踪**：同时跟踪多个目标并自动切换波束
+   - **干扰抑制演示**：展示MVDR算法动态抑制干扰源
+   - **快速波束跳变**：演示电子扫描的快速跳变能力
+   - **信号强度热力图**：可视化空间中信号强度分布
 
 8. **📊 高级可视化**：
    - **3D波束方向图**：球坐标3D可视化
