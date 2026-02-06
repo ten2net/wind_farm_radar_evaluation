@@ -2100,7 +2100,7 @@ def create_distance_based_analysis_interface(analyzer, base_params):
     
     with config_col2:
         # 距离范围配置
-        distance_min = st.number_input("最小距离 (km)", -50.0, 50.0, -50.0, 1.0,
+        distance_min = st.number_input("最小距离 (km)", -50.0, 50.0, 0.0, 1.0,
                                       help="目标距风机的最小距离，负值表示目标在风机另一侧")
         distance_max = st.number_input("最大距离 (km)", -50.0, 50.0, 50.0, 1.0,
                                       help="目标距风机的最大距离")
@@ -2417,6 +2417,25 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             )
             
             st.plotly_chart(fig, use_container_width=True)
+            
+            # 为该指标创建CSV下载数据
+            metric_df_data = {'距离_km': distances}
+            for num_turbines in num_turbines_list:
+                if num_turbines in results[metric]:
+                    metric_df_data[f'{metric}_{num_turbines}风机'] = results[metric][num_turbines]
+            metric_df = pd.DataFrame(metric_df_data)
+            
+            # 提供该指标的CSV下载
+            csv_data = metric_df.to_csv(index=False)
+            metric_name_clean = metric.replace(' ', '_').replace('/', '_')
+            st.download_button(
+                label=f"📥 下载{metric}数据 (CSV)",
+                data=csv_data,
+                file_name=f"距离影响分析_{metric_name_clean}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                type="secondary",
+                key=f"download_{metric}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
         
         # 提供数据下载
         st.markdown("### 📥 数据下载")
