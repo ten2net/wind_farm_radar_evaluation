@@ -283,7 +283,10 @@ def calculate_phase_shift_cached(theta_deg: float, phi_deg: float, X: np.ndarray
 @st.cache_data
 def calculate_array_factor_cached(X: np.ndarray, Y: np.ndarray, Z: np.ndarray, phase_shift: np.ndarray,
                                  theta_scan: float, phi_scan: float, wavelength: float) -> float:
-    """计算阵列因子"""
+    """计算阵列因子（归一化）
+    
+    返回归一化的阵列因子 (0-1范围)
+    """
     theta = np.radians(theta_scan)
     phi = np.radians(phi_scan)
     
@@ -292,16 +295,33 @@ def calculate_array_factor_cached(X: np.ndarray, Y: np.ndarray, Z: np.ndarray, p
     v_obs = np.sin(theta) * np.sin(phi)
     w_obs = np.cos(theta)
     
+    N, M = X.shape
+    
+    # 确保phase_shift是实数
+    phase_shift_real = np.real(phase_shift)
+    
     spatial_phase = k * (u_obs * X + v_obs * Y + w_obs * Z)
-    total_phase = spatial_phase - phase_shift
+    total_phase = spatial_phase - phase_shift_real
     array_factor = np.sum(np.exp(1j * total_phase))
     
-    return np.abs(array_factor) / (X.shape[0] * X.shape[1])
+    # 归一化到0-1范围
+    return np.abs(array_factor) / (N * M)
 
 def calculate_radiation_pattern_vectorized(X: np.ndarray, Y: np.ndarray, Z: np.ndarray, 
                                            phase_shift: np.ndarray, wavelength: float, 
                                            theta_range: np.ndarray, phi_fixed: float = 0) -> np.ndarray:
-    """向量化计算辐射方向图 - 性能优化版"""
+    """向量化计算辐射方向图 - 性能优化版
+    
+    参数:
+        X, Y, Z: 阵元位置坐标 (N, M)
+        phase_shift: 波束指向所需的相位补偿 (N, M)，实数数组
+        wavelength: 波长
+        theta_range: 观察角度范围
+        phi_fixed: 固定的方位角
+    
+    返回:
+        方向图 (dB) - 相对于各向同性辐射的增益
+    """
     k = 2 * np.pi / wavelength
     theta_rad = np.radians(theta_range)
     phi_rad = np.radians(phi_fixed)
@@ -312,19 +332,28 @@ def calculate_radiation_pattern_vectorized(X: np.ndarray, Y: np.ndarray, Z: np.n
     
     # 向量化计算
     N, M = X.shape
+    n_elements = N * M
     X_flat = X.flatten()
     Y_flat = Y.flatten()
     Z_flat = Z.flatten()
-    phase_shift_flat = phase_shift.flatten()
+    phase_shift_flat = np.real(phase_shift).flatten()  # 确保是实数
     
     # 计算所有角度的空间相位 [n_angles, n_elements]
+    # spatial_phase: 观察方向带来的空间相位
     spatial_phase = k * (np.outer(u_obs, X_flat) + np.outer(v_obs, Y_flat) + np.outer(w_obs, Z_flat))
+    
+    # total_phase: 总相位差 = 观察方向相位 - 波束指向补偿相位
     total_phase = spatial_phase - phase_shift_flat
     
     # 计算阵列因子
-    array_factors = np.abs(np.sum(np.exp(1j * total_phase), axis=1)) / (N * M)
+    # 不归一化，直接计算合成幅度，然后转换为增益
+    array_factor = np.abs(np.sum(np.exp(1j * total_phase), axis=1))
     
-    return 20 * np.log10(array_factors + 1e-10)
+    # 计算增益 (dBi) = 20*log10(array_factor) - 10*log10(n_elements)
+    # 这样最大增益约为 10*log10(n_elements) dBi
+    pattern_db = 20 * np.log10(np.maximum(array_factor, 1e-10)) - 10 * np.log10(n_elements)
+    
+    return pattern_db
 
 @st.cache_data
 def calculate_radiation_pattern_cached(X: np.ndarray, Y: np.ndarray, Z: np.ndarray, phase_shift: np.ndarray,
@@ -502,26 +531,29 @@ def analyze_pattern(pattern: np.ndarray, angles: np.ndarray) -> Tuple[float, flo
     return mainlobe_gain, mainlobe_angle, sidelobes[:3]
 
 def calculate_scan_loss(theta_deg: float, phi_deg: float, d: float, wavelength: float) -> float:
-    """计算扫描损失"""
+    """计算扫描损失
+    
+    波束偏离法向时产生的增益损失
+    法向(theta=0, phi=0): 0 dB 损失
+    扫描角度越大，损失越大
+    """
     theta_rad = np.radians(theta_deg)
     phi_rad = np.radians(phi_deg)
     
-    # 波束扫描因子
-    u = np.sin(theta_rad) * np.cos(phi_rad)
-    v = np.sin(theta_rad) * np.sin(phi_rad)
+    # 计算扫描角度（与法向的夹角）
+    # cos(scan_angle) = cos(theta) 当phi任意时
+    scan_angle = theta_rad  # 简化为俯仰角
     
-    # 阵元间距归一化
-    d_norm = d * wavelength
+    # 使用余弦损失模型: L = 20*log10(cos(theta_scan))
+    # 确保cos值不小于一个很小的数，避免log(0)
+    cos_scan = np.cos(scan_angle)
+    if cos_scan < 0.01:  # 限制最大损失约-40dB
+        cos_scan = 0.01
     
-    # 扫描损失近似计算
-    if np.abs(u) < 1e-10 and np.abs(v) < 1e-10:
-        return 0.0
+    scan_loss = 20 * np.log10(cos_scan)
     
-    # 使用余弦损失模型
-    scan_angle = np.arccos(np.sqrt(1 - u**2 - v**2))
-    scan_loss = 20 * np.log10(np.cos(scan_angle))
-    
-    return min(0, scan_loss)  # 确保损失为负值
+    # 确保损失为负值或零
+    return min(0.0, float(scan_loss))
 
 # --- 权重函数 ---
 def calculate_weighting(window_type: str, N: int, M: int, sidelobe_level: float = -30) -> np.ndarray:
@@ -817,11 +849,18 @@ if enable_adaptive and jammers:
 if enable_errors and (amp_error_std > 0 or phase_error_std > 0 or element_failure_rate > 0):
     weights = apply_array_errors(weights, amp_error_std, phase_error_std, element_failure_rate)
 
-# 计算相位偏移
+# 计算相位偏移 (波束指向相位)
 phase_shift = calculate_phase_shift_cached(theta, phi, X, Y, Z, wavelength)
 
-# 应用加权
-weighted_phase_shift = phase_shift * weights
+# 应用加权 - 正确处理复数权重
+# 将相位偏移转换为复数形式，然后与权重相乘
+if np.iscomplexobj(weights):
+    # 如果weights是复数（自适应波束成形），直接相乘
+    weighted_phase_shift = phase_shift + np.angle(weights)
+else:
+    # 如果weights是实数（传统加权），权重只影响幅度，不影响相位
+    # 对于方向图计算，我们只需要相位信息，幅度权重在计算后应用
+    weighted_phase_shift = phase_shift
 
 # 计算方向图
 theta_range = np.linspace(-90, 90, int(180/resolution) + 1)
@@ -1517,25 +1556,35 @@ st.header("📊 系统性能指标")
 # 主要指标
 metric_cols = st.columns(6)
 
+# 计算理论最大增益
+theoretical_gain = 10 * np.log10(N * M)
+
 with metric_cols[0]:
     st.metric(
         label="主瓣增益",
-        value=f"{mainlobe_gain:.2f} dB",
-        delta=f"θ={theta}°, φ={phi}°"
+        value=f"{mainlobe_gain:.2f} dBi",
+        delta=f"理论值: {theoretical_gain:.1f} dBi",
+        help="相对于各向同性辐射的增益"
     )
 
 with metric_cols[1]:
+    # 计算理论波束宽度 (近似公式: BW ≈ 51° * λ/(N*d*λ) = 51°/N 对于半波长间距)
+    theoretical_bw = 51.0 / N
     st.metric(
         label="波束宽度",
         value=f"{beamwidth:.2f}°",
+        delta=f"理论值: {theoretical_bw:.1f}°",
         help="-3dB 波束宽度"
     )
 
 with metric_cols[2]:
+    scan_loss_text = f"{scan_loss:.2f} dB"
+    if abs(scan_loss) < 0.01:
+        scan_loss_text = "0.00 dB (法向)"
     st.metric(
         label="扫描损失",
-        value=f"{scan_loss:.2f} dB",
-        help="由于波束扫描引起的增益损失"
+        value=scan_loss_text,
+        help="由于波束扫描引起的增益损失 (法向为0 dB)"
     )
 
 with metric_cols[3]:
