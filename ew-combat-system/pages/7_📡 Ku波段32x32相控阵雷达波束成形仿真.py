@@ -1082,13 +1082,52 @@ with tabs[4]:  # 距离-多普勒图
     if show_range_doppler:
         st.subheader("📡 距离-多普勒图 (Range-Doppler Map)")
         
-        col_rd1, col_rd2, col_rd3 = st.columns(3)
+        # 业界常用配色方案
+        COLORSCALES = {
+            "Jet (标准雷达)": "Jet",
+            "Hot (热力图)": "Hot",
+            "Turbo (Google改进)": "Turbo",
+            "Plasma (现代推荐)": "Plasma",
+            "Cividis (感知均匀)": "Cividis",
+            "Viridis (色盲友好)": "Viridis",
+            "RdYlGn (红-黄-绿)": "RdYlGn",
+            "Greys (灰度)": "Greys",
+            "Electric (高对比)": "Electric",
+            "Portland (蓝-紫-红)": "Portland"
+        }
+        
+        col_rd1, col_rd2, col_rd3, col_rd4 = st.columns(4)
         with col_rd1:
             prf = st.number_input("PRF (Hz)", 100, 10000, 1000)
         with col_rd2:
             num_pulses = st.number_input("脉冲数", 8, 128, 64)
         with col_rd3:
             snr_rd = st.slider("信噪比 (dB)", -10, 30, 10)
+        with col_rd4:
+            colorscale_name = st.selectbox(
+                "配色方案",
+                list(COLORSCALES.keys()),
+                index=0,
+                help="选择业界标准的RDM显示配色"
+            )
+        
+        # 配色说明
+        with st.expander("🎨 配色方案说明"):
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                st.markdown("""
+                **传统雷达配色：**
+                - **Jet**: 最经典的雷达显示配色，蓝→青→黄→红，对比度强
+                - **Hot**: 黑→红→黄→白，热力图标准，适合弱信号检测
+                - **Turbo**: Google改进版Jet，减少感知不均匀问题
+                """)
+            with col_info2:
+                st.markdown("""
+                **现代推荐配色：**
+                - **Plasma**: 感知均匀，从黑→红→黄→白，适合连续数据
+                - **Cividis**: 色盲友好，适合专业出版物
+                - **Viridis**: 蓝→绿→黄，色盲友好，科学计算标准
+                """)
         
         with st.spinner("正在生成距离-多普勒图..."):
             # 生成距离-多普勒图数据
@@ -1117,21 +1156,36 @@ with tabs[4]:  # 距离-多普勒图
                         vel_diff = (i - vel_idx) / 3.0
                         rdm[i, j] += np.sqrt(tgt.rcs) * np.exp(-(range_diff**2 + vel_diff**2))
             
+            # 获取选中的配色
+            selected_colorscale = COLORSCALES[colorscale_name]
+            
             # 绘制RDM
             fig_rdm = go.Figure(data=go.Heatmap(
                 z=20*np.log10(np.abs(rdm) + 1e-10),
                 x=range_bins,
                 y=velocity_bins,
-                colorscale='Jet',
-                colorbar=dict(title="功率 (dB)")
+                colorscale=selected_colorscale,
+                colorbar=dict(
+                    title="功率 (dB)",
+                    # titleside="right",
+                    # titlefont=dict(size=12),
+                    tickfont=dict(size=10)
+                ),
+                hovertemplate='距离: %{x:.2f} km<br>速度: %{y:.1f} m/s<br>功率: %{z:.1f} dB<extra></extra>'
             ))
             
             fig_rdm.update_layout(
-                title="距离-多普勒图",
+                title=dict(
+                    text=f"距离-多普勒图 - {colorscale_name}",
+                    x=0.5,
+                    font=dict(size=16)
+                ),
                 xaxis_title="距离 (km)",
                 yaxis_title="径向速度 (m/s)",
                 template='plotly_dark',
-                height=600
+                height=650,
+                xaxis=dict(gridcolor='rgba(128,128,128,0.3)', zeroline=False),
+                yaxis=dict(gridcolor='rgba(128,128,128,0.3)', zeroline=False)
             )
             
             st.plotly_chart(fig_rdm, use_container_width=True)
@@ -1150,7 +1204,14 @@ with tabs[4]:  # 距离-多普勒图
                 st.dataframe(tgt_info, use_container_width=True)
             
             # 参数信息
-            st.info(f"最大不模糊距离: {max_range/1000:.1f} km | 最大不模糊速度: ±{max_doppler * wavelength / 2:.1f} m/s")
+            col_param1, col_param2, col_param3 = st.columns(3)
+            with col_param1:
+                st.metric("最大不模糊距离", f"{max_range/1000:.1f} km")
+            with col_param2:
+                st.metric("最大不模糊速度", f"±{max_doppler * wavelength / 2:.1f} m/s")
+            with col_param3:
+                range_res = 3e8 / (2 * lfm_bw) if 'lfm_bw' in locals() else max_range/200
+                st.metric("距离分辨率", f"{range_res/1000:.3f} km")
     else:
         st.info("请在侧边栏启用'显示距离-多普勒图'以查看此内容")
 
