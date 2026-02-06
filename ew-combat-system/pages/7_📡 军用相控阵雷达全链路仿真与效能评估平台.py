@@ -2440,7 +2440,9 @@ $$
 最小方差无失真响应 (Minimum Variance Distortionless Response) 算法：
 
 $$
-w_{MVDR} = \frac{R^{-1}a(θ_0)}{a^H(θ_0)R^{-1}a(θ_0)}
+
+w_{\\mathrm{MVDR}} = \\frac{R^{-1}a(\\theta_0)}{a^{\\mathrm{H}}(\\theta_0)R^{-1}a(\\theta_0)}
+
 $$
 
 其中 R 是协方差矩阵，a(θ₀) 是目标方向导向矢量。
