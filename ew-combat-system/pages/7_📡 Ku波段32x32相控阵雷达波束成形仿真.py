@@ -643,7 +643,7 @@ for tgt in targets:
 
 # --- 可视化 ---
 # 创建选项卡
-tabs = st.tabs(["📊 基础方向图", "🎲 3D波束方向图", "🎯 目标分析", "📡 脉冲压缩", "📈 性能对比"])
+tabs = st.tabs(["📊 基础方向图", "🎲 3D波束方向图", "🎯 目标分析", "📡 脉冲压缩", "📡 距离-多普勒", "📈 性能对比"])
 
 with tabs[0]:  # 基础方向图
     # 创建子图
@@ -1078,7 +1078,83 @@ with tabs[3]:  # 脉冲压缩
     else:
         st.info("请在侧边栏启用'显示脉冲压缩'以查看此内容")
 
-with tabs[4]:  # 性能对比
+with tabs[4]:  # 距离-多普勒图
+    if show_range_doppler:
+        st.subheader("📡 距离-多普勒图 (Range-Doppler Map)")
+        
+        col_rd1, col_rd2, col_rd3 = st.columns(3)
+        with col_rd1:
+            prf = st.number_input("PRF (Hz)", 100, 10000, 1000)
+        with col_rd2:
+            num_pulses = st.number_input("脉冲数", 8, 128, 64)
+        with col_rd3:
+            snr_rd = st.slider("信噪比 (dB)", -10, 30, 10)
+        
+        with st.spinner("正在生成距离-多普勒图..."):
+            # 生成距离-多普勒图数据
+            # 距离轴
+            max_range = 3e8 / (2 * prf)  # 最大不模糊距离
+            range_bins = np.linspace(0, max_range/1000, 200)  # km
+            
+            # 多普勒轴
+            max_doppler = prf / 2
+            velocity_bins = np.linspace(-max_doppler * wavelength / 2, 
+                                         max_doppler * wavelength / 2, 128)  # m/s
+            
+            # 生成RDM数据
+            rdm = np.random.randn(len(velocity_bins), len(range_bins)) * (10**(-snr_rd/20))
+            
+            # 添加目标
+            for tgt in targets:
+                # 找到目标在RDM中的位置
+                range_idx = np.argmin(np.abs(range_bins - tgt.range_km))
+                vel_idx = np.argmin(np.abs(velocity_bins - tgt.velocity))
+                
+                # 添加目标响应 (高斯形状)
+                for i in range(len(velocity_bins)):
+                    for j in range(len(range_bins)):
+                        range_diff = (j - range_idx) / 5.0
+                        vel_diff = (i - vel_idx) / 3.0
+                        rdm[i, j] += np.sqrt(tgt.rcs) * np.exp(-(range_diff**2 + vel_diff**2))
+            
+            # 绘制RDM
+            fig_rdm = go.Figure(data=go.Heatmap(
+                z=20*np.log10(np.abs(rdm) + 1e-10),
+                x=range_bins,
+                y=velocity_bins,
+                colorscale='Jet',
+                colorbar=dict(title="功率 (dB)")
+            ))
+            
+            fig_rdm.update_layout(
+                title="距离-多普勒图",
+                xaxis_title="距离 (km)",
+                yaxis_title="径向速度 (m/s)",
+                template='plotly_dark',
+                height=600
+            )
+            
+            st.plotly_chart(fig_rdm, use_container_width=True)
+            
+            # 显示目标信息
+            if targets:
+                st.subheader("🎯 目标在RDM中的位置")
+                tgt_info = []
+                for tgt in targets:
+                    tgt_info.append({
+                        "目标": f"目标{targets.index(tgt)+1}",
+                        "距离(km)": f"{tgt.range_km:.1f}",
+                        "速度(m/s)": f"{tgt.velocity:.1f}",
+                        "RCS(m²)": f"{tgt.rcs:.1f}"
+                    })
+                st.dataframe(tgt_info, use_container_width=True)
+            
+            # 参数信息
+            st.info(f"最大不模糊距离: {max_range/1000:.1f} km | 最大不模糊速度: ±{max_doppler * wavelength / 2:.1f} m/s")
+    else:
+        st.info("请在侧边栏启用'显示距离-多普勒图'以查看此内容")
+
+with tabs[5]:  # 性能对比
     st.subheader("📈 不同加权函数性能对比")
     
     if st.button("生成对比分析"):
