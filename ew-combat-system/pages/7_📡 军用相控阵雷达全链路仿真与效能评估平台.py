@@ -2313,89 +2313,104 @@ if animate:
             yaxis=dict(gridcolor=theme['grid_color'])
         )
     
-    elif scan_mode == "跟踪目标" and targets:
+    elif scan_mode == "跟踪目标":
         # 目标跟踪仿真 - 跟踪第一个目标
-        target_to_track = targets[0]
-        scan_range_track = 15
-        n_frames = 40
-        frames = []
-        
-        for i in range(n_frames):
-            # 在目标周围小范围扫描（圆锥扫描）
-            angle = 2 * np.pi * i / n_frames
-            offset_theta = scan_range_track * np.cos(angle) * np.sin(np.radians(target_to_track.theta))
-            offset_phi = scan_range_track * np.sin(angle)
+        if not targets:
+            st.warning("跟踪目标模式需要至少1个目标！请在侧边栏添加目标。")
+            # 创建一个占位图
+            fig_anim = go.Figure()
+            fig_anim.update_layout(
+                title="目标跟踪模式 - 需要至少1个目标",
+                xaxis_title="俯仰角 (度)",
+                yaxis_title="增益 (dB)",
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                plot_bgcolor=theme['background_color'],
+                font=dict(color=theme['text_color'])
+            )
+        else:
+            target_to_track = targets[0]
+            scan_range_track = 15
+            n_frames = 40
+            frames = []
             
-            current_theta = target_to_track.theta + offset_theta
-            current_phi = target_to_track.phi + offset_phi
+            for i in range(n_frames):
+                # 在目标周围小范围扫描（圆锥扫描）
+                angle = 2 * np.pi * i / n_frames
+                offset_theta = scan_range_track * np.cos(angle) * np.sin(np.radians(target_to_track.theta))
+                offset_phi = scan_range_track * np.sin(angle)
+                
+                current_theta = target_to_track.theta + offset_theta
+                current_phi = target_to_track.phi + offset_phi
+                
+                phase = calculate_phase_shift_cached(current_theta, current_phi, X, Y, Z, wavelength)
+                weighted_phase = phase * weights
+                pattern = calculate_radiation_pattern_cached(
+                    X, Y, Z, weighted_phase, wavelength, theta_range, phi_fixed=current_phi
+                )
+                
+                # 计算目标增益
+                target_current_gain = calculate_array_factor_cached(
+                    X, Y, Z, weighted_phase, target_to_track.theta, target_to_track.phi, wavelength
+                )
+                target_current_gain_db = 20 * np.log10(target_current_gain + 1e-10)
+                
+                frames.append(go.Frame(
+                    data=[
+                        go.Scatter(
+                            x=theta_range,
+                            y=pattern,
+                            mode='lines',
+                            line=dict(color='orange', width=2),
+                            name='扫描方向图'
+                        ),
+                        go.Scatter(
+                            x=[current_theta],
+                            y=[np.max(pattern)],
+                            mode='markers',
+                            marker=dict(size=12, color='red', symbol='star'),
+                            name='波束指向'
+                        ),
+                        go.Scatter(
+                            x=[target_to_track.theta],
+                            y=[target_current_gain_db],
+                            mode='markers',
+                            marker=dict(size=14, color='purple', symbol='x', line=dict(width=2)),
+                            name='目标位置'
+                        )
+                    ],
+                    name=f"扫描 {i+1}"
+                ))
             
-            phase = calculate_phase_shift_cached(current_theta, current_phi, X, Y, Z, wavelength)
-            weighted_phase = phase * weights
-            pattern = calculate_radiation_pattern_cached(
-                X, Y, Z, weighted_phase, wavelength, theta_range, phi_fixed=current_phi
+            fig_anim = go.Figure(
+                data=[frames[0].data[0], frames[0].data[1], frames[0].data[2]],
+                frames=frames
             )
             
-            # 计算目标增益
-            target_current_gain = calculate_array_factor_cached(
-                X, Y, Z, weighted_phase, target_to_track.theta, target_to_track.phi, wavelength
+            fig_anim.update_layout(
+                title=f"目标跟踪扫描 - 跟踪目标1 (θ={target_to_track.theta}°, φ={target_to_track.phi}°)",
+                xaxis_title="俯仰角 (度)",
+                yaxis_title="增益 (dB)",
+                updatemenus=[dict(
+                    type="buttons",
+                    showactive=False,
+                    buttons=[
+                        dict(
+                            label="▶️ 播放",
+                            method="animate",
+                            args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
+                        ),
+                        dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                    ]
+                )],
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                plot_bgcolor=theme['background_color'],
+                font=dict(color=theme['text_color']),
+                xaxis=dict(gridcolor=theme['grid_color']),
+                yaxis=dict(gridcolor=theme['grid_color'])
             )
-            target_current_gain_db = 20 * np.log10(target_current_gain + 1e-10)
-            
-            frames.append(go.Frame(
-                data=[
-                    go.Scatter(
-                        x=theta_range,
-                        y=pattern,
-                        mode='lines',
-                        line=dict(color='orange', width=2),
-                        name='扫描方向图'
-                    ),
-                    go.Scatter(
-                        x=[current_theta],
-                        y=[np.max(pattern)],
-                        mode='markers',
-                        marker=dict(size=12, color='red', symbol='star'),
-                        name='波束指向'
-                    ),
-                    go.Scatter(
-                        x=[target_to_track.theta],
-                        y=[target_current_gain_db],
-                        mode='markers',
-                        marker=dict(size=14, color='purple', symbol='x', line=dict(width=2)),
-                        name='目标位置'
-                    )
-                ],
-                name=f"扫描 {i+1}"
-            ))
-        
-        fig_anim = go.Figure(
-            data=[frames[0].data[0], frames[0].data[1], frames[0].data[2]],
-            frames=frames
-        )
-        
-        fig_anim.update_layout(
-            title=f"目标跟踪扫描 - 跟踪目标1 (θ={target_to_track.theta}°, φ={target_to_track.phi}°)",
-            xaxis_title="俯仰角 (度)",
-            yaxis_title="增益 (dB)",
-            updatemenus=[dict(
-                type="buttons",
-                showactive=False,
-                buttons=[
-                    dict(
-                        label="▶️ 播放",
-                        method="animate",
-                        args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
-                    ),
-                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
-                ]
-            )],
-            template=theme['plotly_template'],
-            paper_bgcolor=theme['paper_color'],
-            plot_bgcolor=theme['background_color'],
-            font=dict(color=theme['text_color']),
-            xaxis=dict(gridcolor=theme['grid_color']),
-            yaxis=dict(gridcolor=theme['grid_color'])
-        )
+
     
     elif scan_mode == "3D波束扫描":
         # 3D波束扫描 - 显示3D空间中的波束移动轨迹
@@ -2490,104 +2505,119 @@ if animate:
             font=dict(color=theme['text_color'])
         )
     
-    elif scan_mode == "多目标跟踪" and len(targets) >= 2:
+    elif scan_mode == "多目标跟踪":
         # 多目标跟踪 - 同时跟踪多个目标并显示波束切换
-        n_frames = 60
-        frames = []
-        
-        # 模拟波束在不同目标之间切换
-        for i in range(n_frames):
-            # 循环切换到不同目标
-            target_idx = i % len(targets)
-            current_target = targets[target_idx]
+        if len(targets) < 2:
+            st.warning("多目标跟踪模式需要至少2个目标！请在侧边栏添加更多目标。")
+            # 创建一个占位图
+            fig_anim = go.Figure()
+            fig_anim.update_layout(
+                title="多目标跟踪模式 - 需要至少2个目标",
+                xaxis_title="俯仰角 (度)",
+                yaxis_title="增益 (dB)",
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                plot_bgcolor=theme['background_color'],
+                font=dict(color=theme['text_color'])
+            )
+        else:
+            n_frames = 60
+            frames = []
             
-            # 在目标附近进行小范围扫描
-            angle_offset = 10 * np.sin(2 * np.pi * i / 20)
-            current_theta = current_target.theta + angle_offset * np.cos(np.radians(current_target.phi))
-            current_phi = current_target.phi + angle_offset * np.sin(np.radians(current_target.phi))
+            # 模拟波束在不同目标之间切换
+            for i in range(n_frames):
+                # 循环切换到不同目标
+                target_idx = i % len(targets)
+                current_target = targets[target_idx]
+                
+                # 在目标附近进行小范围扫描
+                angle_offset = 10 * np.sin(2 * np.pi * i / 20)
+                current_theta = current_target.theta + angle_offset * np.cos(np.radians(current_target.phi))
+                current_phi = current_target.phi + angle_offset * np.sin(np.radians(current_target.phi))
+                
+                phase = calculate_phase_shift_cached(current_theta, current_phi, X, Y, Z, wavelength)
+                weighted_phase = phase * weights
+                pattern = calculate_radiation_pattern_cached(
+                    X, Y, Z, weighted_phase, wavelength, theta_range, phi_fixed=current_phi
+                )
+                
+                # 计算所有目标的增益
+                all_targets_data = []
+                colors = ['purple', 'green', 'orange', 'blue', 'red']
+                for idx, tgt in enumerate(targets):
+                    tgt_gain = calculate_array_factor_cached(
+                        X, Y, Z, weighted_phase, tgt.theta, tgt.phi, wavelength
+                    )
+                    tgt_gain_db = 20 * np.log10(tgt_gain + 1e-10)
+                    all_targets_data.append((
+                        tgt.theta,
+                        tgt_gain_db,
+                        colors[idx % len(colors)],
+                        f"目标{idx+1}"
+                    ))
+                
+                # 创建多个目标的scatter trace
+                target_traces = []
+                for idx, (t_theta, t_gain, t_color, t_name) in enumerate(all_targets_data):
+                    is_current = (idx == targets.index(current_target))
+                    target_traces.append(go.Scatter(
+                        x=[t_theta],
+                        y=[t_gain],
+                        mode='markers',
+                        marker=dict(size=12, color=t_color, symbol='circle',
+                                  line=dict(width=2 if is_current else 1,
+                                           color='white' if is_current else t_color)),
+                        name=t_name
+                    ))
+                
+                frames.append(go.Frame(
+                    data=[
+                        go.Scatter(
+                            x=theta_range,
+                            y=pattern,
+                            mode='lines',
+                            line=dict(color='blue', width=2),
+                            name='方向图'
+                        ),
+                        go.Scatter(
+                            x=[current_theta],
+                            y=[np.max(pattern)],
+                            mode='markers',
+                            marker=dict(size=14, color='red', symbol='star'),
+                            name='波束指向'
+                        )
+                    ] + target_traces,
+                    name=f"跟踪目标{target_idx+1}"
+                ))
             
-            phase = calculate_phase_shift_cached(current_theta, current_phi, X, Y, Z, wavelength)
-            weighted_phase = phase * weights
-            pattern = calculate_radiation_pattern_cached(
-                X, Y, Z, weighted_phase, wavelength, theta_range, phi_fixed=current_phi
+            fig_anim = go.Figure(
+                data=[frames[0].data[0], frames[0].data[1]] + list(frames[0].data[2:]),
+                frames=frames
             )
             
-            # 计算所有目标的增益
-            all_targets_data = []
-            colors = ['purple', 'green', 'orange', 'blue', 'red']
-            for idx, tgt in enumerate(targets):
-                tgt_gain = calculate_array_factor_cached(
-                    X, Y, Z, weighted_phase, tgt.theta, tgt.phi, wavelength
-                )
-                tgt_gain_db = 20 * np.log10(tgt_gain + 1e-10)
-                all_targets_data.append((
-                    tgt.theta,
-                    tgt_gain_db,
-                    colors[idx % len(colors)],
-                    f"目标{idx+1}"
-                ))
-            
-            # 创建多个目标的scatter trace
-            target_traces = []
-            for t_theta, t_gain, t_color, t_name in all_targets_data:
-                target_traces.append(go.Scatter(
-                    x=[t_theta],
-                    y=[t_gain],
-                    mode='markers',
-                    marker=dict(size=12, color=t_color, symbol='circle',
-                              line=dict(width=2 if targets.index(targets[0]) == idx else 1,
-                                       color='white' if targets.index(targets[0]) == idx else t_color)),
-                    name=t_name
-                ))
-            
-            frames.append(go.Frame(
-                data=[
-                    go.Scatter(
-                        x=theta_range,
-                        y=pattern,
-                        mode='lines',
-                        line=dict(color='blue', width=2),
-                        name='方向图'
-                    ),
-                    go.Scatter(
-                        x=[current_theta],
-                        y=[np.max(pattern)],
-                        mode='markers',
-                        marker=dict(size=14, color='red', symbol='star'),
-                        name='波束指向'
-                    )
-                ] + target_traces,
-                name=f"跟踪目标{target_idx+1}"
-            ))
-        
-        fig_anim = go.Figure(
-            data=[frames[0].data[0], frames[0].data[1]] + frames[0].data[2:],
-            frames=frames
-        )
-        
-        fig_anim.update_layout(
-            title=f"多目标跟踪 ({len(targets)}个目标) - 波束自动切换",
-            xaxis_title="俯仰角 (度)",
-            yaxis_title="增益 (dB)",
-            updatemenus=[dict(
-                type="buttons",
-                showactive=False,
-                buttons=[
-                    dict(
-                        label="▶️ 播放",
-                        method="animate",
-                        args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
-                    ),
-                    dict(label="⏸️ 暂停", method="animate", args=[[None]])
-                ]
-            )],
-            template=theme['plotly_template'],
-            paper_bgcolor=theme['paper_color'],
-            plot_bgcolor=theme['background_color'],
-            font=dict(color=theme['text_color']),
-            xaxis=dict(gridcolor=theme['grid_color']),
-            yaxis=dict(gridcolor=theme['grid_color'])
-        )
+            fig_anim.update_layout(
+                title=f"多目标跟踪 ({len(targets)}个目标) - 波束自动切换",
+                xaxis_title="俯仰角 (度)",
+                yaxis_title="增益 (dB)",
+                updatemenus=[dict(
+                    type="buttons",
+                    showactive=False,
+                    buttons=[
+                        dict(
+                            label="▶️ 播放",
+                            method="animate",
+                            args=[None, {"frame": {"duration": 1000//speed, "redraw": True}}]
+                        ),
+                        dict(label="⏸️ 暂停", method="animate", args=[[None]])
+                    ]
+                )],
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                plot_bgcolor=theme['background_color'],
+                font=dict(color=theme['text_color']),
+                xaxis=dict(gridcolor=theme['grid_color']),
+                yaxis=dict(gridcolor=theme['grid_color'])
+            )
     
     elif scan_mode == "干扰抑制演示":
         # 干扰抑制演示 - 展示MVDR如何动态抑制干扰
