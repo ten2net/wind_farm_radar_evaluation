@@ -403,6 +403,8 @@ class AdvancedRadarImpactAnalyzer:
         # 绕射损耗计算（简化模型）
         if v_parameter > -0.8:
             diffraction_loss_db = 6.9 + 20 * np.log10(np.sqrt((v_parameter - 0.1)**2 + 1) + v_parameter - 0.1)
+            # 限制最大绕射损耗为40dB，避免过度估计
+            diffraction_loss_db = min(diffraction_loss_db, 40.0)
         else:
             diffraction_loss_db = 0
         
@@ -635,7 +637,7 @@ class AdvancedRadarImpactAnalyzer:
         turbine_distance = base_params['turbine_distance']  # 目标-风机距离
         
         # 使用勾股定理计算目标-雷达距离
-        radar_to_turbine = base_params.get('radar_to_turbine_distance', 1.0)  # km
+        radar_to_turbine = base_params.get('radar_to_turbine_distance', 5.0)  # km
         target_to_radar_distance = np.sqrt(radar_to_turbine**2 + turbine_distance**2)
         
         # 计算各项指标（使用目标-风机距离）
@@ -2274,7 +2276,7 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             status_text = st.empty()
             
             # 获取风机到雷达的参考距离（用于计算目标到雷达的实际距离）
-            turbine_to_radar_distance = base_params.get('turbine_distance', 1.0)  # 默认1km
+            turbine_to_radar_distance = base_params.get('radar_to_turbine_distance', 5.0)  # 默认5km
             
             for i, relative_distance in enumerate(distances):
                 status_text.text(f"计算距离点 {i+1}/{len(distances)}: {relative_distance:.1f} km")
@@ -4341,6 +4343,8 @@ def main():
         if api_key:
             st.session_state.kimi_api_key = api_key
             st.success("✅ Kimi API密钥已保存")
+    # 计算雷达-风机距离：假设为5倍的目标-风机距离，但至少5km
+    radar_to_turbine_distance = max(5.0, turbine_distance * 5.0)
     
     base_params = {
         'radar_band': radar_band,
@@ -4355,6 +4359,7 @@ def main():
         'tower_height': tower_height,
         'tower_base_diameter': tower_base_diameter,
         'tower_top_diameter': tower_top_diameter,
+        'radar_to_turbine_distance': radar_to_turbine_distance,  # 雷达到风机距离
         'custom_turbine_positions': custom_turbine_positions,  # 自定义风机位置
         'use_custom_turbines': csv_uploaded  # 是否使用自定义风机位置
     }
