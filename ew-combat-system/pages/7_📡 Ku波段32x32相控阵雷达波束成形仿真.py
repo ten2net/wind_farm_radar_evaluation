@@ -533,7 +533,7 @@ fig.update_layout(
 )
 
 # 显示图表
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # --- 性能指标 ---
 st.header("📊 性能指标")
@@ -844,7 +844,7 @@ if animate:
             template='plotly_dark'
         )
     
-    st.plotly_chart(fig_anim, use_container_width=True)
+    st.plotly_chart(fig_anim, width='stretch')
 
 # --- 技术说明 ---
 with st.expander("📖 技术说明"):
