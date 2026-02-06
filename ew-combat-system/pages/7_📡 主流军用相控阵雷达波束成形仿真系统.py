@@ -1,7 +1,7 @@
 """
-Ku波段32x32相控阵雷达波束成形及实时仿真工具
+军用相控阵雷达波束成形及实时仿真工具
 使用Streamlit和Plotly构建
-优化版本 - 包含自适应波束成形、3D可视化、多目标跟踪
+支持多款经典军用雷达型号仿真
 """
 
 import streamlit as st
@@ -16,28 +16,220 @@ from scipy import signal
 from scipy.linalg import inv
 import json
 
+# --- 军用雷达型号数据库 ---
+RADAR_DATABASE = {
+    "自定义配置": {
+        "band": "Ku",
+        "freq_ghz": 14.0,
+        "freq_range": "12-18 GHz",
+        "array_size": "32×32",
+        "N": 32,
+        "M": 32,
+        "element_spacing": 0.5,
+        "description": "用户自定义参数配置",
+        "country": "通用",
+        "platform": "地面/舰载/机载"
+    },
+    "AN/SPY-1 宙斯盾": {
+        "band": "S",
+        "freq_ghz": 3.0,
+        "freq_range": "2-4 GHz",
+        "array_size": "约4350单元",
+        "N": 66,
+        "M": 66,
+        "element_spacing": 0.55,
+        "description": "美国海军宙斯盾系统核心雷达，固定四面阵",
+        "country": "美国",
+        "platform": "提康德罗加级巡洋舰/阿利伯克级驱逐舰"
+    },
+    "AN/MPQ-53 爱国者": {
+        "band": "C",
+        "freq_ghz": 5.6,
+        "freq_range": "4-8 GHz",
+        "array_size": "约5000单元",
+        "N": 71,
+        "M": 71,
+        "element_spacing": 0.55,
+        "description": "MIM-104爱国者防空导弹系统火控雷达",
+        "country": "美国",
+        "platform": "陆基防空导弹系统"
+    },
+    "AN/APG-77 (F-22)": {
+        "band": "X",
+        "freq_ghz": 9.5,
+        "freq_range": "8-12 GHz",
+        "array_size": "约1500单元",
+        "N": 39,
+        "M": 39,
+        "element_spacing": 0.55,
+        "description": "F-22猛禽战斗机有源相控阵雷达，首款机载AESA",
+        "country": "美国",
+        "platform": "F-22 Raptor"
+    },
+    "AN/APG-81 (F-35)": {
+        "band": "X",
+        "freq_ghz": 9.6,
+        "freq_range": "8-12 GHz",
+        "array_size": "约1200单元",
+        "N": 35,
+        "M": 35,
+        "element_spacing": 0.55,
+        "description": "F-35闪电II联合攻击战斗机AESA雷达",
+        "country": "美国",
+        "platform": "F-35 Lightning II"
+    },
+    "AN/APG-79 (F/A-18E/F)": {
+        "band": "X",
+        "freq_ghz": 9.4,
+        "freq_range": "8-12 GHz",
+        "array_size": "约1000单元",
+        "N": 32,
+        "M": 32,
+        "element_spacing": 0.55,
+        "description": "超级大黄蜂升级用AESA雷达",
+        "country": "美国",
+        "platform": "F/A-18E/F Super Hornet"
+    },
+    "RBE2 (阵风)": {
+        "band": "X",
+        "freq_ghz": 10.0,
+        "freq_range": "8-12 GHz",
+        "array_size": "约1000单元",
+        "N": 32,
+        "M": 32,
+        "element_spacing": 0.55,
+        "description": "法国阵风战斗机有源相控阵雷达",
+        "country": "法国",
+        "platform": "Rafale战斗机"
+    },
+    "Captor-E (台风)": {
+        "band": "X",
+        "freq_ghz": 9.5,
+        "freq_range": "8-12 GHz",
+        "array_size": "约1400单元",
+        "N": 38,
+        "M": 38,
+        "element_spacing": 0.55,
+        "description": "欧洲台风战斗机AESA雷达",
+        "country": "欧洲",
+        "platform": "Typhoon战斗机"
+    },
+    "N036 Byelka (Su-57)": {
+        "band": "X",
+        "freq_ghz": 10.0,
+        "freq_range": "8-12 GHz",
+        "array_size": "约1500单元",
+        "N": 39,
+        "M": 39,
+        "element_spacing": 0.55,
+        "description": "苏-57战斗机N036松鼠雷达，五阵面AESA",
+        "country": "俄罗斯",
+        "platform": "Su-57 Felon"
+    },
+    "346型 海之星": {
+        "band": "S/C",
+        "freq_ghz": 3.5,
+        "freq_range": "2-4 GHz",
+        "array_size": "约4000单元",
+        "N": 64,
+        "M": 64,
+        "element_spacing": 0.55,
+        "description": "中国052C/D驱逐舰舰载相控阵雷达",
+        "country": "中国",
+        "platform": "052C/D型驱逐舰"
+    },
+    "KLJ-7A 枭龙": {
+        "band": "X",
+        "freq_ghz": 10.0,
+        "freq_range": "8-12 GHz",
+        "array_size": "约800单元",
+        "N": 28,
+        "M": 28,
+        "element_spacing": 0.55,
+        "description": "中巴JF-17 Block III战斗机AESA雷达",
+        "country": "中国/巴基斯坦",
+        "platform": "JF-17 Thunder Block III"
+    },
+    "JY-27A 警戒": {
+        "band": "VHF/UHF",
+        "freq_ghz": 0.25,
+        "freq_range": "100-400 MHz",
+        "array_size": "米波大型阵列",
+        "N": 24,
+        "M": 24,
+        "element_spacing": 0.6,
+        "description": "中国米波反隐身警戒雷达，对隐身目标有良好探测能力",
+        "country": "中国",
+        "platform": "陆基远程警戒"
+    },
+    "EL/M-2075 费尔康": {
+        "band": "L",
+        "freq_ghz": 1.3,
+        "freq_range": "1-2 GHz",
+        "array_size": "相控阵预警雷达",
+        "N": 40,
+        "M": 20,
+        "element_spacing": 0.55,
+        "description": "以色列ELTA相控阵预警雷达，共形阵列",
+        "country": "以色列",
+        "platform": "预警机"
+    }
+}
+
+# 频段参数定义
+BAND_PARAMETERS = {
+    "VHF": {"freq_min": 0.03, "freq_max": 0.3, "default": 0.15, "wavelength_m": 2.0},
+    "UHF": {"freq_min": 0.3, "freq_max": 1.0, "default": 0.5, "wavelength_m": 0.6},
+    "L": {"freq_min": 1.0, "freq_max": 2.0, "default": 1.5, "wavelength_m": 0.2},
+    "S": {"freq_min": 2.0, "freq_max": 4.0, "default": 3.0, "wavelength_m": 0.1},
+    "C": {"freq_min": 4.0, "freq_max": 8.0, "default": 5.5, "wavelength_m": 0.055},
+    "X": {"freq_min": 8.0, "freq_max": 12.0, "default": 10.0, "wavelength_m": 0.03},
+    "Ku": {"freq_min": 12.0, "freq_max": 18.0, "default": 14.0, "wavelength_m": 0.021},
+    "K": {"freq_min": 18.0, "freq_max": 27.0, "default": 22.0, "wavelength_m": 0.014},
+    "Ka": {"freq_min": 27.0, "freq_max": 40.0, "default": 33.0, "wavelength_m": 0.009}
+}
+
 # --- 页面配置 ---
 st.set_page_config(
-    page_title="Ku波段相控阵雷达仿真 - 增强版",
-    page_icon="📡",
+    page_title="军用相控阵雷达仿真系统",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # --- 标题和描述 ---
-st.title("📡 Ku波段32x32相控阵雷达波束成形仿真 - 增强版")
+st.title("🎯 主流军用相控阵雷达波束成形仿真系统")
 st.markdown("""
-这是一个**增强型**交互式相控阵雷达波束成形仿真工具。
-- **阵列规模**：32×32阵元
-- **工作频段**：Ku波段（12-18 GHz）
-- **新增功能**：
-  - 🎯 **自适应波束成形** (MVDR/LCMV)
-  - 🎲 **3D波束方向图** 可视化
-  - 📡 **多目标跟踪** 仿真
-  - 🛡️ **干扰抑制** (波束零陷)
-  - 📊 **阵列误差分析**
-  - 📈 **脉冲压缩** (LFM信号)
+这是一个**专业级**军用相控阵雷达仿真平台，支持多款经典雷达型号。
+
+**核心功能**：
+- 🛩️ **多型号雷达库** - 支持宙斯盾、F-22/F-35、苏-57、346型等12款经典雷达
+- 📡 **波束成形仿真** - 自适应波束成形、3D方向图可视化
+- 🎯 **多目标跟踪** - 多目标检测分析、距离-多普勒图
+- 🛡️ **干扰抑制** - MVDR自适应零陷、干扰机模拟
+- 📊 **系统性能** - 雷达方程计算、性能对比分析
 """)
+
+# --- 雷达型号选择 ---
+st.sidebar.header("🛩️ 雷达型号选择")
+selected_radar = st.sidebar.selectbox(
+    "选择雷达型号",
+    list(RADAR_DATABASE.keys()),
+    index=0,
+    help="选择预定义的军用雷达型号或自定义配置"
+)
+
+# 获取选中雷达的参数
+radar_config = RADAR_DATABASE[selected_radar]
+
+# 显示雷达信息
+with st.sidebar.expander("📋 雷达详情", expanded=True):
+    st.markdown(f"**型号**: {selected_radar}")
+    st.markdown(f"**频段**: {radar_config['band']} ({radar_config['freq_range']})")
+    st.markdown(f"**阵元数**: {radar_config['array_size']}")
+    st.markdown(f"**载台**: {radar_config['platform']}")
+    st.markdown(f"**国家**: {radar_config['country']}")
+    st.markdown(f"**简介**: {radar_config['description']}")
 
 # --- 数据类定义 ---
 @dataclass
@@ -410,6 +602,11 @@ def create_download_link(data: str, filename: str) -> str:
 # --- 侧边栏控制参数 ---
 st.sidebar.header("🎛️ 参数设置")
 
+# 根据选择的雷达型号获取频段参数
+default_freq = radar_config['freq_ghz']
+band_name = radar_config['band'].split('/')[0]  # 取第一个频段
+band_params = BAND_PARAMETERS.get(band_name, BAND_PARAMETERS['X'])
+
 # 新增：预设配置
 st.sidebar.subheader("📋 快速预设")
 preset = st.sidebar.selectbox(
@@ -428,15 +625,41 @@ if st.sidebar.button("应用预设"):
 
 st.sidebar.divider()
 
-# 频率设置
-frequency = st.sidebar.slider(
-    "工作频率 (GHz)",
-    min_value=12.0,
-    max_value=18.0,
-    value=14.0,
-    step=0.1,
-    help="Ku波段频率范围"
-)
+# 动态频率范围
+st.sidebar.subheader("📡 频率参数")
+freq_col1, freq_col2 = st.sidebar.columns(2)
+with freq_col1:
+    st.markdown(f"**频段**: {radar_config['band']}")
+    st.markdown(f"**默认**: {default_freq} GHz")
+with freq_col2:
+    use_custom_freq = st.checkbox("自定义频率", value=False)
+
+if use_custom_freq:
+    frequency = st.sidebar.slider(
+        "工作频率 (GHz)",
+        min_value=float(band_params['freq_min']),
+        max_value=float(band_params['freq_max']),
+        value=float(default_freq),
+        step=0.1,
+        help=f"{radar_config['band']}波段频率范围"
+    )
+else:
+    frequency = default_freq
+    st.sidebar.info(f"使用标准频率: {frequency} GHz")
+
+# 动态阵列规模
+st.sidebar.subheader("📐 阵列配置")
+array_col1, array_col2 = st.sidebar.columns(2)
+with array_col1:
+    use_custom_array = st.checkbox("自定义阵元数", value=False)
+
+if use_custom_array:
+    N_elements = st.sidebar.slider("阵元数 N", 4, 128, radar_config['N'])
+    M_elements = st.sidebar.slider("阵元数 M", 4, 128, radar_config['M'])
+else:
+    N_elements = radar_config['N']
+    M_elements = radar_config['M']
+    st.sidebar.info(f"标准配置: {N_elements}×{M_elements} = {N_elements*M_elements}单元")
 
 # 波束方向
 theta = st.sidebar.slider(
@@ -462,7 +685,7 @@ d = st.sidebar.slider(
     "阵元间距 (λ)",
     min_value=0.3,
     max_value=1.0,
-    value=0.5,
+    value=float(radar_config['element_spacing']),
     step=0.05,
     help="以波长为单位的阵元间距"
 )
@@ -575,8 +798,8 @@ with st.sidebar.expander("🔧 高级设置"):
 # 计算波长
 wavelength = calculate_wavelength_cached(frequency)
 
-# 生成阵列位置
-N, M = 32, 32
+# 生成阵列位置 (使用选定的雷达配置)
+N, M = N_elements, M_elements
 X, Y, Z = generate_array_positions_cached(N, M, d, wavelength)
 
 # 计算基础加权系数
@@ -1885,16 +2108,23 @@ $$
 - 零陷深度可达 40-60 dB
 - 不影响目标方向的增益
 
-**Ku波段特点：**
-- 频率范围：12-18 GHz
-- 波长范围：1.67-2.5 cm
-- 应用：卫星通信、雷达、气象探测
+**各频段雷达应用：**
 
-**32×32阵列优势：**
-- 高增益（约30-35 dB）
-- 窄波束宽度（约3-5°）
-- 快速波束扫描能力
+| 频段 | 频率范围 | 主要应用 | 代表雷达 |
+|------|----------|----------|----------|
+| VHF/UHF | 30-1000 MHz | 远程警戒、反隐身 | JY-27A |
+| L | 1-2 GHz | 远程监视、预警机 | EL/M-2075 |
+| S | 2-4 GHz | 舰载雷达、远程监视 | AN/SPY-1、346型 |
+| C | 4-8 GHz | 中程防空、火控 | AN/MPQ-53 |
+| X | 8-12 GHz | 机载火控、导航 | AN/APG-77/81、RBE2 |
+| Ku | 12-18 GHz | 高分辨率、卫星通信 | 民用/商用 |
+
+**相控阵雷达优势：**
+- 高增益（与阵元数成正比）
+- 窄波束宽度（高角度分辨率）
+- 快速波束扫描（微秒级）
 - 多波束形成能力
+- 自适应波束成形与干扰抑制
 """)
 
 # --- 使用说明 ---
@@ -1902,9 +2132,14 @@ with st.expander("🎮 使用说明"):
     st.markdown("""
 ### 快速入门
 
-1. **基本参数设置**：
-   - 使用**快速预设**快速加载常用配置
-   - 调整工作频率（12-18 GHz）
+1. **选择雷达型号**：
+   - 从下拉菜单选择预定义军用雷达（宙斯盾、F-22/F-35、346型等）
+   - 查看雷达详情：频段、阵元数、载台平台
+   - 选择"自定义配置"进行自由参数设置
+
+2. **参数配置**：
+   - 勾选"自定义频率"调整工作频率（按选定雷达频段范围）
+   - 勾选"自定义阵元数"修改阵列规模
    - 设置波束指向的俯仰角和方位角
    - 调整阵元间距（建议0.5λ以避免栅瓣）
 
@@ -1971,7 +2206,7 @@ with st.expander("📐 雷达方程计算"):
     with col1:
         transmit_power = st.number_input("发射功率 (W)", 100.0, 10000.0, 1000.0, 100.0)
         antenna_gain = st.number_input("天线增益 (dB)", 20.0, 50.0, 30.0, 1.0)
-        frequency_input = st.number_input("频率 (GHz)", 12.0, 18.0, 14.0, 0.1)
+        frequency_input = st.number_input("频率 (GHz)", 0.1, 100.0, float(frequency), 0.1)
     
     with col2:
         target_rcs_input = st.number_input("目标RCS (m²)", 0.1, 100.0, 1.0, 0.1)
@@ -2010,4 +2245,4 @@ with st.expander("📐 雷达方程计算"):
                      delta_color="normal" if SNR > 10 else "off" if SNR > 0 else "inverse")
 
 st.markdown("---")
-st.markdown("💡 **提示**：调整左侧参数后，图表会实时更新。启用动画可以观察波束扫描过程。")
+st.markdown(f"💡 **当前仿真**: {selected_radar} | {radar_config['band']}波段 {frequency} GHz | {N}×{M}={N*M}单元 | 平台: {radar_config['platform']}")
