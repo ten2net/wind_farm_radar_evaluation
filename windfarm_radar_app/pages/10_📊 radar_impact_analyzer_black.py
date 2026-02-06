@@ -2104,8 +2104,57 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                                       help="目标距风机的最小距离，负值表示目标在风机另一侧")
         distance_max = st.number_input("最大距离 (km)", -50.0, 50.0, 50.0, 1.0,
                                       help="目标距风机的最大距离")
-        distance_points = st.slider("距离点数", 10, 200, 101,
-                                   help="距离轴上的采样点数")
+        
+        # 计算距离范围（绝对值）和方向
+        distance_range = abs(distance_max - distance_min)
+        is_decreasing = distance_max < distance_min
+        
+        # 距离参数模式选择
+        distance_mode = st.radio(
+            "距离参数模式",
+            ["距离点数", "采样距离间隔"],
+            horizontal=True,
+            help="选择配置距离采样的方式：'距离点数'指定总采样点数，'采样距离间隔'指定相邻采样点之间的距离"
+        )
+        
+        if distance_mode == "距离点数":
+            distance_points = st.slider("距离点数", 10, 200, 101,
+                                      help="距离轴上的采样点数")
+            # 计算并显示距离间隔
+            if distance_points > 1:
+                distance_interval_km = distance_range / (distance_points - 1)
+                distance_interval_m = distance_interval_km * 1000
+                direction = "递减" if is_decreasing else "递增"
+                st.info(f"距离间隔: {distance_interval_km:.3f} km ({distance_interval_m:.1f} m), 方向: {direction}")
+            else:
+                st.info("距离间隔: 单点采样")
+        else:  # 采样距离间隔模式
+            # 默认步长50米 (0.05 km)，允许用户输入其他值
+            default_interval_km = 0.05  # 50米
+            distance_interval_km = st.number_input(
+                "采样距离间隔 (km)",
+                min_value=0.001,  # 最小1米
+                max_value=10.0,
+                value=default_interval_km,
+                step=0.05,
+                help="相邻采样点之间的距离，建议步长50米 (0.05 km)"
+            )
+            # 计算距离点数
+            if distance_interval_km > 0:
+                distance_points = int(distance_range / distance_interval_km) + 1
+                # 限制点数在合理范围内
+                if distance_points < 10:
+                    distance_points = 10
+                    st.warning(f"距离间隔过大，已自动调整为最小点数10")
+                elif distance_points > 200:
+                    distance_points = 200
+                    st.warning(f"距离间隔过小，已自动调整为最大点数200")
+                else:
+                    direction = "递减" if is_decreasing else "递增"
+                    st.info(f"距离点数: {distance_points} (自动计算), 方向: {direction}")
+            else:
+                st.error("距离间隔必须大于0")
+                distance_points = 101  # 默认值
     
     with config_col3:
         # 指标选择
