@@ -189,6 +189,125 @@ BAND_PARAMETERS = {
     "Ka": {"freq_min": 27.0, "freq_max": 40.0, "default": 33.0, "wavelength_m": 0.009}
 }
 
+# --- 主题配置 ---
+THEMES = {
+    "科技蓝 (Tech Blue)": {
+        "plotly_template": "plotly_dark",
+        "primary_color": "#00D4FF",
+        "secondary_color": "#0099CC",
+        "accent_color": "#00FF88",
+        "warning_color": "#FFB800",
+        "danger_color": "#FF4757",
+        "background_color": "#0A1929",
+        "paper_color": "#132F4C",
+        "grid_color": "rgba(0, 212, 255, 0.1)",
+        "text_color": "#E0F7FF",
+        "secondary_text": "#8BADC4",
+        "gradient_start": "#00D4FF",
+        "gradient_end": "#0099CC",
+        "fill_alpha": 0.15,
+        "line_width": 3,
+        "marker_size": 12,
+        "colorscale": "Blues",
+        "heatmap_colorscale": "YlGnBu",
+        "surface_colorscale": "Blues",
+        "chart_colors": ["#00D4FF", "#00FF88", "#FFB800", "#FF6B6B", "#A78BFA", "#4ECDC4"],
+        "description": "现代科技蓝配色，冷色调，适合雷达监控场景"
+    },
+    "暗色经典 (Dark Classic)": {
+        "plotly_template": "plotly_dark",
+        "primary_color": "#636EFA",
+        "secondary_color": "#EF553B",
+        "accent_color": "#00CC96",
+        "warning_color": "#FFA15A",
+        "danger_color": "#FF6692",
+        "background_color": "#1a1a2e",
+        "paper_color": "#16213e",
+        "grid_color": "rgba(255, 255, 255, 0.1)",
+        "text_color": "#FFFFFF",
+        "secondary_text": "#A0A0A0",
+        "gradient_start": "#636EFA",
+        "gradient_end": "#EF553B",
+        "fill_alpha": 0.1,
+        "line_width": 2,
+        "marker_size": 10,
+        "colorscale": "Viridis",
+        "heatmap_colorscale": "RdYlBu",
+        "surface_colorscale": "Jet",
+        "chart_colors": ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A", "#19D3F3"],
+        "description": "经典暗色主题，高对比度，适合长时间使用"
+    },
+    "明亮专业 (Light Pro)": {
+        "plotly_template": "plotly_white",
+        "primary_color": "#0066CC",
+        "secondary_color": "#0052A3",
+        "accent_color": "#00AA44",
+        "warning_color": "#CC7700",
+        "danger_color": "#CC3333",
+        "background_color": "#FFFFFF",
+        "paper_color": "#F8FAFC",
+        "grid_color": "rgba(0, 0, 0, 0.05)",
+        "text_color": "#1a1a2e",
+        "secondary_text": "#4a5568",
+        "gradient_start": "#0066CC",
+        "gradient_end": "#0052A3",
+        "fill_alpha": 0.2,
+        "line_width": 2.5,
+        "marker_size": 10,
+        "colorscale": "Blues",
+        "heatmap_colorscale": "RdYlBu",
+        "surface_colorscale": "Viridis",
+        "chart_colors": ["#0066CC", "#00AA44", "#CC7700", "#CC3333", "#663399", "#008B8B"],
+        "description": "明亮专业主题，清晰易读，适合演示和报告"
+    },
+    "军事绿 (Military Green)": {
+        "plotly_template": "plotly_dark",
+        "primary_color": "#39FF14",
+        "secondary_color": "#00C851",
+        "accent_color": "#FFD700",
+        "warning_color": "#FFA500",
+        "danger_color": "#FF4444",
+        "background_color": "#0d1f0d",
+        "paper_color": "#1a331a",
+        "grid_color": "rgba(57, 255, 20, 0.1)",
+        "text_color": "#E8F5E9",
+        "secondary_text": "#81C784",
+        "gradient_start": "#39FF14",
+        "gradient_end": "#00C851",
+        "fill_alpha": 0.15,
+        "line_width": 3,
+        "marker_size": 12,
+        "colorscale": "Greens",
+        "heatmap_colorscale": "YlGn",
+        "surface_colorscale": "Greens",
+        "chart_colors": ["#39FF14", "#00C851", "#FFD700", "#FFA500", "#FF4444", "#00FFFF"],
+        "description": "军事风格绿色主题，荧光绿配色，战术监控风格"
+    },
+    "赛博朋克 (Cyberpunk)": {
+        "plotly_template": "plotly_dark",
+        "primary_color": "#FF00FF",
+        "secondary_color": "#00FFFF",
+        "accent_color": "#FFFF00",
+        "warning_color": "#FF6600",
+        "danger_color": "#FF0066",
+        "background_color": "#0a0a0f",
+        "paper_color": "#1a0a2e",
+        "grid_color": "rgba(255, 0, 255, 0.1)",
+        "text_color": "#FFE0FF",
+        "secondary_text": "#B080B0",
+        "gradient_start": "#FF00FF",
+        "gradient_end": "#00FFFF",
+        "fill_alpha": 0.2,
+        "line_width": 3,
+        "marker_size": 12,
+        "colorscale": "Plasma",
+        "heatmap_colorscale": "Plasma",
+        "surface_colorscale": "Plasma",
+        "chart_colors": ["#FF00FF", "#00FFFF", "#FFFF00", "#FF6600", "#FF0066", "#00FF00"],
+        "description": "赛博朋克风格，霓虹色彩，未来科技感"
+    }
+}
+
 # --- 页面配置 ---
 st.set_page_config(
     page_title="军用相控阵雷达仿真系统",
@@ -196,6 +315,31 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- 主题选择 (必须在页面渲染前设置) ---
+def get_theme():
+    """获取当前主题配置"""
+    theme_name = st.session_state.get('selected_theme', '科技蓝 (Tech Blue)')
+    return THEMES.get(theme_name, THEMES['科技蓝 (Tech Blue)'])
+
+# 侧边栏主题选择器
+with st.sidebar:
+    st.header("🎨 界面主题")
+    selected_theme_name = st.selectbox(
+        "选择主题配色",
+        list(THEMES.keys()),
+        index=0,
+        key='selected_theme',
+        help="选择不同的界面配色方案"
+    )
+    theme = get_theme()
+    
+    with st.expander("📋 主题说明"):
+        st.markdown(f"**{selected_theme_name}**: {theme['description']}")
+        st.markdown(f"- 主色: `{theme['primary_color']}`")
+        st.markdown(f"- 强调色: `{theme['accent_color']}`")
+    
+    st.divider()
 
 # --- 标题和描述 ---
 st.title("🎯 主流军用相控阵雷达波束成形仿真系统")
@@ -630,6 +774,50 @@ def create_download_link(data: str, filename: str) -> str:
     import base64
     b64 = base64.b64encode(data.encode()).decode()
     return f'<a href="data:file/json;base64,{b64}" download="{filename}">点击下载 {filename}</a>'
+
+# --- 主题颜色工具函数 ---
+def get_theme_color(color_type: str, alpha: float = 1.0) -> str:
+    """获取主题颜色"""
+    theme = get_theme()
+    color = theme.get(color_type, theme['primary_color'])
+    if alpha < 1.0:
+        # 转换hex为rgba
+        color = color.lstrip('#')
+        r, g, b = tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
+        return f"rgba({r}, {g}, {b}, {alpha})"
+    return color
+
+def get_chart_color(index: int) -> str:
+    """获取图表颜色序列"""
+    theme = get_theme()
+    colors = theme['chart_colors']
+    return colors[index % len(colors)]
+
+def apply_theme_to_fig(fig, is_3d: bool = False):
+    """应用主题到Plotly图表"""
+    theme = get_theme()
+    fig.update_layout(
+        template=theme['plotly_template'],
+        paper_bgcolor=theme['paper_color'],
+        plot_bgcolor=theme['background_color'] if not is_3d else None,
+        font=dict(color=theme['text_color']),
+        title_font=dict(color=theme['text_color']),
+        legend_font=dict(color=theme['text_color']),
+    )
+    if not is_3d:
+        fig.update_xaxes(
+            gridcolor=theme['grid_color'],
+            zerolinecolor=theme['grid_color'],
+            tickfont=dict(color=theme['secondary_text']),
+            title_font=dict(color=theme['text_color'])
+        )
+        fig.update_yaxes(
+            gridcolor=theme['grid_color'],
+            zerolinecolor=theme['grid_color'],
+            tickfont=dict(color=theme['secondary_text']),
+            title_font=dict(color=theme['text_color'])
+        )
+    return fig
 
 # --- 侧边栏控制参数 ---
 st.sidebar.header("🎛️ 参数设置")
@@ -1147,19 +1335,28 @@ with tabs[0]:  # 基础方向图
     fig.update_xaxes(title_text="方位角 (度)", row=2, col=2, range=[-180, 180])
     fig.update_yaxes(title_text="增益 (dB)", row=2, col=2)
 
-    # 更新布局
+    # 更新布局 - 应用主题
     fig.update_layout(
         height=900,
         showlegend=True,
-        template='plotly_dark',
+        template=theme['plotly_template'],
+        paper_bgcolor=theme['paper_color'],
+        plot_bgcolor=theme['background_color'],
+        font=dict(color=theme['text_color']),
+        title_font=dict(color=theme['text_color']),
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="left",
-            x=1.05
+            x=1.05,
+            font=dict(color=theme['text_color'])
         ),
         margin=dict(l=50, r=100, t=50, b=50)
     )
+    
+    # 应用主题到坐标轴
+    fig.update_xaxes(gridcolor=theme['grid_color'], zerolinecolor=theme['grid_color'])
+    fig.update_yaxes(gridcolor=theme['grid_color'], zerolinecolor=theme['grid_color'])
 
     st.plotly_chart(fig, use_container_width=True)
 
@@ -1213,9 +1410,15 @@ with tabs[1]:  # 3D波束方向图
                     xaxis_title="X",
                     yaxis_title="Y",
                     zaxis_title="Z",
-                    aspectmode='cube'
+                    aspectmode='cube',
+                    bgcolor=theme['background_color'],
+                    xaxis=dict(gridcolor=theme['grid_color'], tickfont=dict(color=theme['secondary_text'])),
+                    yaxis=dict(gridcolor=theme['grid_color'], tickfont=dict(color=theme['secondary_text'])),
+                    zaxis=dict(gridcolor=theme['grid_color'], tickfont=dict(color=theme['secondary_text']))
                 ),
-                template='plotly_dark',
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                font=dict(color=theme['text_color']),
                 height=700
             )
             
@@ -1281,11 +1484,24 @@ with tabs[2]:  # 目标分析
         
         fig_polar.update_layout(
             polar=dict(
-                radialaxis=dict(range=[0, 100], title="距离 (km)"),
-                angularaxis=dict(direction="clockwise", rotation=90)
+                radialaxis=dict(
+                    range=[0, 100], 
+                    title="距离 (km)",
+                    gridcolor=theme['grid_color'],
+                    tickfont=dict(color=theme['secondary_text'])
+                ),
+                angularaxis=dict(
+                    direction="clockwise", 
+                    rotation=90,
+                    gridcolor=theme['grid_color'],
+                    tickfont=dict(color=theme['secondary_text'])
+                ),
+                bgcolor=theme['background_color']
             ),
             title="目标相对位置 (方位面)",
-            template='plotly_dark',
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            font=dict(color=theme['text_color']),
             height=500
         )
         
@@ -1326,12 +1542,19 @@ with tabs[3]:  # 脉冲压缩
             row=2, col=1
         )
         
-        fig_lfm.update_xaxes(title_text="时间 (μs)", row=1, col=1)
-        fig_lfm.update_yaxes(title_text="幅度", row=1, col=1)
-        fig_lfm.update_xaxes(title_text="时间 (μs)", row=2, col=1)
-        fig_lfm.update_yaxes(title_text="幅度 (dB)", row=2, col=1)
+        fig_lfm.update_xaxes(title_text="时间 (μs)", row=1, col=1, gridcolor=theme['grid_color'])
+        fig_lfm.update_yaxes(title_text="幅度", row=1, col=1, gridcolor=theme['grid_color'])
+        fig_lfm.update_xaxes(title_text="时间 (μs)", row=2, col=1, gridcolor=theme['grid_color'])
+        fig_lfm.update_yaxes(title_text="幅度 (dB)", row=2, col=1, gridcolor=theme['grid_color'])
         
-        fig_lfm.update_layout(height=600, template='plotly_dark', showlegend=False)
+        fig_lfm.update_layout(
+            height=600, 
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            showlegend=False
+        )
         st.plotly_chart(fig_lfm, use_container_width=True)
         
         # 距离分辨率信息
@@ -1440,14 +1663,16 @@ with tabs[4]:  # 距离-多普勒图
                 title=dict(
                     text=f"距离-多普勒图 - {colorscale_name}",
                     x=0.5,
-                    font=dict(size=16)
+                    font=dict(size=16, color=theme['text_color'])
                 ),
                 xaxis_title="距离 (km)",
                 yaxis_title="径向速度 (m/s)",
-                template='plotly_dark',
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                font=dict(color=theme['text_color']),
                 height=650,
-                xaxis=dict(gridcolor='rgba(128,128,128,0.3)', zeroline=False),
-                yaxis=dict(gridcolor='rgba(128,128,128,0.3)', zeroline=False)
+                xaxis=dict(gridcolor=theme['grid_color'], zeroline=False, tickfont=dict(color=theme['secondary_text'])),
+                yaxis=dict(gridcolor=theme['grid_color'], zeroline=False, tickfont=dict(color=theme['secondary_text']))
             )
             
             st.plotly_chart(fig_rdm, use_container_width=True)
@@ -1543,9 +1768,13 @@ with tabs[5]:  # 性能对比
                 title="不同加权函数方向图对比",
                 xaxis_title="角度 (°)",
                 yaxis_title="增益 (dB)",
-                template='plotly_dark',
+                template=theme['plotly_template'],
+                paper_bgcolor=theme['paper_color'],
+                plot_bgcolor=theme['background_color'],
+                font=dict(color=theme['text_color']),
                 height=500,
-                xaxis=dict(range=[-30, 30])
+                xaxis=dict(range=[-30, 30], gridcolor=theme['grid_color']),
+                yaxis=dict(gridcolor=theme['grid_color'])
             )
             
             st.plotly_chart(fig_comp, use_container_width=True)
@@ -1771,7 +2000,12 @@ if animate:
                 yanchor="top",
                 active=0,
             )],
-            template='plotly_dark'
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
         )
         
     elif scan_mode == "圆形扫描":
@@ -1833,7 +2067,12 @@ if animate:
                     dict(label="⏸️ 暂停", method="animate", args=[[None]])
                 ]
             )],
-            template='plotly_dark'
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
         )
         
     elif scan_mode == "螺旋扫描":
@@ -1891,7 +2130,12 @@ if animate:
                     dict(label="⏸️ 暂停", method="animate", args=[[None]])
                 ]
             )],
-            template='plotly_dark'
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
         )
         
     elif scan_mode == "扇形扫描":
@@ -1954,7 +2198,12 @@ if animate:
                     dict(label="⏸️ 暂停", method="animate", args=[[None]])
                 ]
             )],
-            template='plotly_dark'
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
         )
         
     elif scan_mode == "光栅扫描":
@@ -2021,7 +2270,12 @@ if animate:
                     dict(label="⏸️ 暂停", method="animate", args=[[None]])
                 ]
             )],
-            template='plotly_dark'
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
         )
     
     elif scan_mode == "跟踪目标" and targets:
@@ -2100,7 +2354,12 @@ if animate:
                     dict(label="⏸️ 暂停", method="animate", args=[[None]])
                 ]
             )],
-            template='plotly_dark'
+            template=theme['plotly_template'],
+            paper_bgcolor=theme['paper_color'],
+            plot_bgcolor=theme['background_color'],
+            font=dict(color=theme['text_color']),
+            xaxis=dict(gridcolor=theme['grid_color']),
+            yaxis=dict(gridcolor=theme['grid_color'])
         )
     
     st.plotly_chart(fig_anim, use_container_width=True)
