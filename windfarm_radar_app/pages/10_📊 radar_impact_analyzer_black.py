@@ -2295,19 +2295,22 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                 current_params['turbine_distance'] = safe_distance
                 
                 # 计算目标到雷达的实际距离
-                # 采用垂直几何配置：目标路径垂直于雷达-风机连线
-                # 这样目标距风机距离变化时，目标到雷达距离单调增加
+                # 采用共线几何配置：雷达、风机、目标位于同一直线上
+                # 雷达位于风机一侧固定距离处，目标从远离雷达方向移动
+                # 这样目标到雷达距离随relative_distance单调增加，确保回波功率单调递减
                 # 
-                #       目标
-                #         |
-                #         | relative_distance
-                #         |
-                # 雷达 ---风机
+                # 雷达 ---风机 ---目标 (relative_distance > 0)
                 #   turbine_to_radar_distance
+                # 
+                # 或
+                # 
+                # 目标 ---风机 ---雷达 (relative_distance < 0)
+                # 
+                # 距离公式：目标到雷达距离 = turbine_to_radar_distance + (relative_distance - distance_min)
+                # 其中distance_min是用户输入的最小距离（通常为负）
+                # 这样当relative_distance=distance_min时距离最小，随relative_distance增加而单调增加
                 #
-                target_to_radar_distance = np.sqrt(
-                    turbine_to_radar_distance**2 + relative_distance**2
-                )
+                target_to_radar_distance = turbine_to_radar_distance + (relative_distance - distance_min)
                 
                 # 确保最小距离（避免除零）
                 if target_to_radar_distance < 0.001:
