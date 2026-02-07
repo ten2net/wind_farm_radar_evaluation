@@ -322,9 +322,10 @@ class AdvancedRadarImpactAnalyzer:
         - 目标越靠近风机，遮挡角度越大，遮挡效应越强
         - 随着距离增加，遮挡角度减小，遮挡效应减弱
         - 多风机会增加遮挡的累积效应
+        - 近距离（<1km）遮挡严重，远距离（>10km）遮挡微弱
         """
         # 计算遮挡张角（度）：目标-风机-雷达形成的角度
-        shadow_zone_angle = np.degrees(np.arctan(turbine_height / abs(distance)))
+        shadow_zone_angle = np.degrees(np.arctan(turbine_height / max(abs(distance), 0.001)))
         
         # 多风机遮挡叠加效应
         shadow_factor = min(1.0, 0.3 + 0.2 * np.log10(num_turbines))
@@ -332,35 +333,43 @@ class AdvancedRadarImpactAnalyzer:
         # 高度差影响
         height_factor = max(0.1, 1 - abs(target_height - turbine_height) / (2 * turbine_height))
         
-        # 距离衰减因子：距离越近，遮挡越强
-        # 使用双曲正切函数模拟遮挡效应随距离的变化
-        # 特征距离设为风机高度（单位转换为km）
-        characteristic_distance = turbine_height / 10.0  # 特征遮挡距离（km），进一步增大以保持近距离遮挡恒定
+        # 距离衰减因子：使用改进的指数衰减模型
+        # 物理直觉：距离风机越近，遮挡越严重；距离越远，遮挡迅速减小
+        abs_distance = abs(distance)
         
-        # 距离衰减：近距离强遮挡，远距离弱遮挡
-        if abs(distance) < characteristic_distance:
-            # 近距离区域：强遮挡，几乎恒定（衰减斜率极低）
-            distance_factor = 1.0 - 0.005 * (abs(distance) / characteristic_distance)
-        else:
-            # 远距离区域：指数衰减，衰减极其缓慢
-            distance_factor = 0.995 * np.exp(-(abs(distance) - characteristic_distance) / (100 * characteristic_distance))
+        # 特征距离：遮挡效应显著减弱的距离（km）
+        # 对于100m高的风机，特征距离约为2-3km
+        characteristic_distance = turbine_height / 50.0  # 约2km对于100m风机
         
-        # 确保最小遮挡值（大幅提高，使远距离仍有显著遮挡）
-        distance_factor = max(0.95, distance_factor)
+        # 使用双曲衰减模型：1 / (1 + (d/d0)^2)
+        # 在d=0时为1（最大遮挡），d=d0时衰减到0.5，d>>d0时趋近于0
+        distance_factor = 1.0 / (1.0 + (abs_distance / characteristic_distance) ** 1.5)
         
-        # 综合遮挡损耗（大幅提高基础损耗）
-        base_shadow_loss = 50 * shadow_factor * height_factor
-        shadow_loss_db = base_shadow_loss * distance_factor
+        # 确保远距离有一定最小遮挡（但很小）
+        min_shadow_factor = 0.05  # 远距离最小遮挡系数
+        distance_factor = max(distance_factor, min_shadow_factor)
         
-        # 当目标正好在风机位置时（距离=0），遮挡效应最大，但增强减弱
-        if abs(distance) < 0.001:  # 1米范围内认为是重合
-            shadow_loss_db = base_shadow_loss * 1.05  # 最大遮挡增强（极低）
+        # 近距离增强：目标非常靠近风机时（<500m），遮挡达到峰值
+        close_range_boost = 1.0
+        if abs_distance < 0.5:  # 500米内
+            close_range_boost = 1.0 + 0.3 * (0.5 - abs_distance) / 0.5  # 最大增强30%
+        
+        # 综合遮挡损耗
+        base_shadow_loss = 40 * shadow_factor * height_factor  # 基础遮挡损耗
+        shadow_loss_db = base_shadow_loss * distance_factor * close_range_boost
+        
+        # 当目标正好在风机位置时（距离≈0），遮挡效应达到峰值
+        if abs_distance < 0.1:  # 100米范围内认为是近距离
+            # 在风机位置附近，遮挡达到最大值
+            proximity_factor = 1.0 + 0.2 * (0.1 - abs_distance) / 0.1  # 额外20%增强
+            shadow_loss_db = base_shadow_loss * distance_factor * close_range_boost * proximity_factor
         
         return {
             'shadow_zone_angle': shadow_zone_angle,
             'shadow_loss_db': shadow_loss_db,
             'is_in_shadow': target_height < turbine_height,
             'distance_factor': distance_factor,
+            'close_range_boost': close_range_boost,
             'base_shadow_loss': base_shadow_loss,
             'characteristic_distance_km': characteristic_distance
         }
