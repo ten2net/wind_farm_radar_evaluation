@@ -516,18 +516,18 @@ class AdvancedRadarImpactAnalyzer:
         }
     
     def calculate_multipath_effects(self, radar_band, turbine_distance, turbine_height, 
-                                   incidence_angle, num_turbines=1):
+                                   incidence_angle, num_turbines=1, target_to_radar_distance=None):
         """
         计算多径效应综合影响
         
         物理模型:
         - 多径效应在目标靠近风机时最强（直达波与反射波干涉严重）
-        - 随着距离增加，反射路径损耗增大，多径效应减弱
+        - 随着目标到雷达距离增加，反射路径损耗增大，多径效应减弱
         - 多风机场景会增加多径复杂度
         """
         wavelength = self.radar_bands[radar_band]["wavelength"]
         
-        # 1. 多径时延计算
+        # 1. 多径时延计算（基于目标-风机距离）
         path_difference = 2 * abs(turbine_distance) * 1000 * np.sin(np.radians(incidence_angle))
         time_delay = path_difference / 3e8  # 秒
         
@@ -535,12 +535,18 @@ class AdvancedRadarImpactAnalyzer:
         # 基础衰落深度（与风机数量相关），降低系数
         base_fading_depth = 10 * np.log10(1 + 0.5 * np.sqrt(num_turbines))
         
-        # 距离衰减因子：距离越近，多径效应越强
-        # 使用指数衰减模型：距离为0时因子为1，距离增大时衰减
-        # 参考距离设为1km，在该距离处衰减到约37%
-        distance_attenuation = np.exp(-abs(turbine_distance) / 50.0)  # 50km为特征衰减距离（几乎恒定）
+        # 距离衰减因子：使用目标到雷达距离（如果提供），否则使用目标-风机距离
+        # 目标到雷达距离越大，多径效应越弱（反射路径损耗越大）
+        if target_to_radar_distance is not None:
+            distance_for_attenuation = target_to_radar_distance
+        else:
+            distance_for_attenuation = abs(turbine_distance)
+        
+        # 使用指数衰减模型：特征衰减距离50km
+        distance_attenuation = np.exp(-distance_for_attenuation / 50.0)
         
         # 近距离增强因子：目标非常靠近风机时（<200m），多径效应轻微增强
+        # 基于目标-风机距离（物理上反射面接近）
         close_range_factor = 1.0
         if abs(turbine_distance) < 0.2:  # 200米内
             close_range_factor = 1.0 + 0.1 * (0.2 - abs(turbine_distance)) / 0.2
@@ -553,8 +559,8 @@ class AdvancedRadarImpactAnalyzer:
         multipath_fading_depth = max(multipath_fading_depth, min_fading_depth)
         
         # 3. 时延扩展（多风机导致的多径扩展，同时受距离影响）
-        # 近距离时延扩展更大（路径差变化更快）
-        distance_delay_factor = 1.0 / (1.0 + abs(turbine_distance) / 10.0)  # 10km参考距离
+        # 使用与衰落相同的距离度量
+        distance_delay_factor = 1.0 / (1.0 + distance_for_attenuation / 10.0)  # 10km参考距离
         delay_spread = time_delay * np.sqrt(num_turbines) * distance_delay_factor * 1e6  # 转换为μs
         
         # 4. 相干带宽
@@ -577,7 +583,8 @@ class AdvancedRadarImpactAnalyzer:
             # 新增诊断信息
             'distance_attenuation': distance_attenuation,
             'close_range_factor': close_range_factor,
-            'base_fading_depth': base_fading_depth
+            'base_fading_depth': base_fading_depth,
+            'distance_for_attenuation': distance_for_attenuation
         }
     
     def haversine_distance(self, lat1, lon1, lat2, lon2):
@@ -699,7 +706,8 @@ class AdvancedRadarImpactAnalyzer:
             base_params['turbine_distance'],
             base_params['turbine_height'],
             base_params['incidence_angle'],
-            num_turbines
+            num_turbines,
+            target_to_radar_distance=target_to_radar_distance
         )
         
         # 计算回波功率（使用计算出的目标-雷达距离）
@@ -857,7 +865,8 @@ class AdvancedRadarImpactAnalyzer:
             effective_distance,
             base_params['turbine_height'],
             base_params['incidence_angle'],
-            num_turbines
+            num_turbines,
+            target_to_radar_distance=target_to_radar_distance
         )
         
         # 计算回波功率（使用计算出的目标-雷达距离）
@@ -2370,7 +2379,8 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         safe_distance,
                         current_params['turbine_height'],
                         current_params['incidence_angle'],
-                        num_turbines
+                        num_turbines,
+                        target_to_radar_distance=target_to_radar_distance
                     )
 
                     # 计算回波功率 - 使用目标到雷达的实际距离
