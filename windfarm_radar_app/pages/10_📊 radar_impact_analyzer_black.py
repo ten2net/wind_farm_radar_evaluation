@@ -474,20 +474,50 @@ class AdvancedRadarImpactAnalyzer:
         }
     
     def calculate_angle_measurement_error(self, radar_band, turbine_distance, incidence_angle, num_turbines=1):
-        """计算测角偏差 - 基于多径效应模型"""
+        """计算测角偏差 - 基于多径效应模型
+        
+        物理模型:
+        - 测角误差在目标靠近风机时最大（多径效应最强）
+        - 采用高斯衰减模型：0km处有限峰值，向两侧逐渐衰减
+        - 远距离趋于非零最小值（雷达固有测角精度限制）
+        """
         wavelength = self.radar_bands[radar_band]["wavelength"]
         
-        # 多径引起的测角误差
-        multipath_phase_shift = 2 * np.pi * turbine_distance * 1000 / wavelength * np.sin(np.radians(incidence_angle))
-        angle_error_deg = np.degrees(wavelength / (4 * np.pi * turbine_distance * 1000)) * 10
+        # 多径引起的相位偏移（计算用）
+        multipath_phase_shift = 2 * np.pi * abs(turbine_distance) * 1000 / wavelength * np.sin(np.radians(incidence_angle))
         
-        # 多风机导致的误差累积
-        multi_turbine_error = angle_error_deg * np.sqrt(min(num_turbines, 5))
+        # 测角误差计算 - 使用高斯衰减模型替代1/distance模型
+        # 基础测角误差（与波长相关）
+        base_angle_error = 0.5 * (wavelength / 0.1)  # 归一化到S波段基准
+        
+        # 近距离增强因子（高斯型）
+        # 特征距离5km：在风机附近误差最大，向两侧逐渐减小
+        abs_distance = abs(turbine_distance)
+        characteristic_distance = 5.0  # 特征距离5km
+        
+        # 高斯衰减：0km处为1（峰值），距离增大时衰减
+        proximity_factor = np.exp(-(abs_distance ** 2) / (2 * characteristic_distance ** 2))
+        
+        # 多径增强：近距离时多径效应显著增强测角误差
+        multipath_enhancement = 1.0 + 4.0 * proximity_factor  # 最大增强5倍（0km处）
+        
+        # 基础测角误差（考虑雷达固有精度）
+        min_angle_error = 0.1  # 最小测角误差0.1度（雷达固有精度）
+        
+        # 综合测角误差
+        angle_error_deg = max(min_angle_error, base_angle_error * multipath_enhancement)
+        
+        # 多风机导致的误差累积（非相干叠加）
+        multi_turbine_factor = np.sqrt(min(num_turbines, 5))
+        multi_turbine_error = angle_error_deg * multi_turbine_factor
         
         return {
             'angle_error_deg': multi_turbine_error,
             'multipath_phase_shift': multipath_phase_shift,
-            'bearing_accuracy_loss': min(1.0, multi_turbine_error / 10)
+            'bearing_accuracy_loss': min(1.0, multi_turbine_error / 10),
+            'proximity_factor': proximity_factor,
+            'multipath_enhancement': multipath_enhancement,
+            'base_angle_error': base_angle_error
         }
     
     def calculate_range_measurement_error(self, radar_band, turbine_distance, num_turbines=1):
