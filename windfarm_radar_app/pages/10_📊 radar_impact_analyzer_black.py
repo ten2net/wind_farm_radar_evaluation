@@ -375,7 +375,13 @@ class AdvancedRadarImpactAnalyzer:
         }
     
     def calculate_scattering_effect(self, radar_band, turbine_distance, incidence_angle, num_turbines=1):
-        """计算散射效应 - 基于雷达截面积模型"""
+        """计算散射效应 - 基于雷达截面积模型
+        
+        物理模型:
+        - 散射效应随目标-风机距离增加而衰减（比遮挡慢）
+        - 特征距离约20km：在50km处衰减约50%
+        - 多风机场景散射叠加
+        """
         wavelength = self.radar_bands[radar_band]["wavelength"]
         freq = self.radar_bands[radar_band]["freq"]
         
@@ -383,24 +389,34 @@ class AdvancedRadarImpactAnalyzer:
         base_rcs = 1000  # 平方米，典型风机RCS
         incidence_factor = np.cos(np.radians(incidence_angle))**2
         
-        # 距离衰减 - 几乎恒定：分母从50改为100，指数从1.1改为1.05
-        distance_factor = 1 / (1 + (turbine_distance / 100)**1.05)
+        # 距离衰减因子：中度衰减模型
+        # 特征距离20km：0km=100%, 20km=50%, 50km=28%
+        abs_distance = abs(turbine_distance)
+        characteristic_distance = 20.0  # 特征距离20km（中度衰减）
+        distance_factor = 1 / (1 + (abs_distance / characteristic_distance)**1.5)
+        
+        # 近距离增强：目标非常靠近风机时（<1km），散射效应轻微增强
+        close_range_factor = 1.0
+        if abs_distance < 1.0:  # 1km内
+            close_range_factor = 1.0 + 0.15 * (1.0 - abs_distance)  # 最大增强15%
         
         # 频率相关散射
         freq_factor = (freq / 1e9)**2
         
-        effective_rcs = base_rcs * incidence_factor * distance_factor * freq_factor
+        effective_rcs = base_rcs * incidence_factor * distance_factor * close_range_factor * freq_factor
         
         # 多风机散射叠加（非相干叠加）
         scattering_power = effective_rcs * min(num_turbines, 10)  # 限制最大影响
         
-        # 大幅降低散射损耗：分母从10000改为20000
-        scattering_loss_db = 10 * np.log10(1 + scattering_power / 20000)
+        # 散射损耗计算
+        scattering_loss_db = 10 * np.log10(1 + scattering_power / 15000)
         
         return {
             'effective_rcs': effective_rcs,
             'scattering_loss_db': scattering_loss_db,
-            'scattering_power': scattering_power
+            'scattering_power': scattering_power,
+            'distance_factor': distance_factor,
+            'close_range_factor': close_range_factor
         }
     
     def calculate_diffraction_effect(self, radar_band, turbine_distance, turbine_height, num_turbines=1):
