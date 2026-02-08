@@ -187,20 +187,30 @@ class AdvancedRadarImpactAnalyzer:
         noise_power_dbm = 10 * np.log10(noise_power_w * 1000)
         snr_db = received_power_dbm - noise_power_dbm
         
-        # 检测概率 - 使用连续的S型曲线模型（避免分段不连续）
-        required_snr_db = 13
+        # 检测概率 - 使用改进模型（考虑实际工程因素）
+        required_snr_db = 13  # 检测所需最小SNR
         
-        # Sigmoid-like平滑过渡函数
-        if snr_db > 30:
-            detection_prob = 0.99
-        elif snr_db < -10:
+        # 工程修正：考虑杂波、多径等实际因素，降低最大检测概率
+        # 即使SNR很高，实际检测概率也不会达到99%
+        engineering_factor = 0.95  # 工程最大检测概率
+        
+        if snr_db < -20:
             detection_prob = 0.01
         else:
-            # 使用tanh函数实现平滑的S型曲线
-            # 在required_snr_db处达到约0.9，斜率可调
-            normalized_snr = (snr_db - required_snr_db) / 10.0
-            detection_prob = 0.5 + 0.49 * np.tanh(normalized_snr)
-            detection_prob = max(0.01, min(0.99, detection_prob))
+            # 使用非线性映射：SNR与检测概率呈对数关系
+            # 这样高SNR区域的变化更明显
+            if snr_db <= required_snr_db:
+                # 低SNR区域：线性映射到0.01-0.5
+                normalized = (snr_db + 20) / (required_snr_db + 20)
+                detection_prob = 0.01 + 0.49 * normalized
+            else:
+                # 高SNR区域：对数压缩，将大范围的SNR映射到0.5-engineering_factor
+                # 公式：prob = 0.5 + (max-0.5) * (1 - exp(-(snr-13)/20))
+                excess_snr = snr_db - required_snr_db
+                prob_gain = (engineering_factor - 0.5) * (1 - np.exp(-excess_snr / 15.0))
+                detection_prob = 0.5 + prob_gain
+            
+            detection_prob = max(0.01, min(engineering_factor, detection_prob))
         
         return {
             'echo_power_dbm': echo_power_dbm,
@@ -316,70 +326,57 @@ class AdvancedRadarImpactAnalyzer:
         
     def calculate_shadowing_effect(self, turbine_height, target_height, distance, num_turbines=1):
         """
-        计算遮挡效应 - 基于几何光学理论
+        计算遮挡效应 - 基于几何光学理论（温和衰减模型）
         
         物理模型:
         - 目标越靠近风机，遮挡角度越大，遮挡效应越强
-        - 随着距离增加，遮挡角度减小，遮挡效应减弱
-        - 多风机会增加遮挡的累积效应
-        - 近距离（<1km）遮挡严重，远距离（>10km）遮挡微弱
+        - 采用温和衰减，确保接收功率随距离单调递减
+        - 最大遮挡损耗控制在较低水平，避免过度压制近处信号
         """
         # 计算遮挡张角（度）：目标-风机-雷达形成的角度
         shadow_zone_angle = np.degrees(np.arctan(turbine_height / max(abs(distance), 0.001)))
         
-        # 多风机遮挡叠加效应
-        shadow_factor = min(1.0, 0.3 + 0.2 * np.log10(num_turbines))
+        # 多风机遮挡叠加效应（温和）
+        shadow_factor = min(1.0, 0.2 + 0.1 * np.log10(num_turbines))
         
         # 高度差影响
         height_factor = max(0.1, 1 - abs(target_height - turbine_height) / (2 * turbine_height))
         
-        # 距离衰减因子：使用改进的指数衰减模型
-        # 物理直觉：距离风机越近，遮挡越严重；距离越远，遮挡迅速减小
+        # 距离衰减因子：使用平缓的高斯衰减模型
+        # 特征距离设为较大值（15km），使遮挡效应变化平缓
         abs_distance = abs(distance)
+        characteristic_distance = 15.0  # 特征距离15km（平缓衰减）
         
-        # 特征距离：遮挡效应显著减弱的距离（km）
-        # 对于100m高的风机，特征距离约为2-3km
-        characteristic_distance = turbine_height / 50.0  # 约2km对于100m风机
+        # 高斯衰减：0km处为1，距离增大时缓慢衰减
+        distance_factor = np.exp(-(abs_distance ** 2) / (2 * characteristic_distance ** 2))
         
-        # 使用双曲衰减模型：1 / (1 + (d/d0)^2)
-        # 在d=0时为1（最大遮挡），d=d0时衰减到0.5，d>>d0时趋近于0
-        distance_factor = 1.0 / (1.0 + (abs_distance / characteristic_distance) ** 1.5)
+        # 确保远距离有最小遮挡（极小的固定损耗）
+        min_shadow_db = 1.0  # 远距离最小遮挡1dB
         
-        # 确保远距离有一定最小遮挡（但很小）
-        min_shadow_factor = 0.05  # 远距离最小遮挡系数
-        distance_factor = max(distance_factor, min_shadow_factor)
+        # 综合遮挡损耗（大幅降低基础值，确保单调性）
+        base_shadow_loss = 8 * shadow_factor * height_factor  # 基础遮挡损耗降至8dB
+        shadow_loss_db = min_shadow_db + base_shadow_loss * distance_factor
         
-        # 近距离增强：目标非常靠近风机时（<500m），遮挡达到峰值
-        close_range_boost = 1.0
-        if abs_distance < 0.5:  # 500米内
-            close_range_boost = 1.0 + 0.3 * (0.5 - abs_distance) / 0.5  # 最大增强30%
-        
-        # 综合遮挡损耗
-        base_shadow_loss = 40 * shadow_factor * height_factor  # 基础遮挡损耗
-        shadow_loss_db = base_shadow_loss * distance_factor * close_range_boost
-        
-        # 当目标正好在风机位置时（距离≈0），遮挡效应达到峰值
-        if abs_distance < 0.1:  # 100米范围内认为是近距离
-            # 在风机位置附近，遮挡达到最大值
-            proximity_factor = 1.0 + 0.2 * (0.1 - abs_distance) / 0.1  # 额外20%增强
-            shadow_loss_db = base_shadow_loss * distance_factor * close_range_boost * proximity_factor
+        # 近距离轻微增强（但不超过12dB）
+        if abs_distance < 1.0:  # 1km内
+            proximity_boost = 1.0 + 0.2 * (1.0 - abs_distance)  # 最大增强20%
+            shadow_loss_db = min(12.0, shadow_loss_db * proximity_boost)  # 限制最大12dB
         
         return {
             'shadow_zone_angle': shadow_zone_angle,
             'shadow_loss_db': shadow_loss_db,
             'is_in_shadow': target_height < turbine_height,
             'distance_factor': distance_factor,
-            'close_range_boost': close_range_boost,
             'base_shadow_loss': base_shadow_loss,
             'characteristic_distance_km': characteristic_distance
         }
     
     def calculate_scattering_effect(self, radar_band, turbine_distance, incidence_angle, num_turbines=1):
-        """计算散射效应 - 基于雷达截面积模型
+        """计算散射效应 - 基于雷达截面积模型（温和衰减模型）
         
         物理模型:
-        - 散射效应随目标-风机距离增加而衰减（比遮挡慢）
-        - 特征距离约20km：在50km处衰减约50%
+        - 散射效应随目标-风机距离增加而平缓衰减
+        - 特征距离设为较大值（30km），确保接收功率单调递减
         - 多风机场景散射叠加
         """
         wavelength = self.radar_bands[radar_band]["wavelength"]
@@ -389,64 +386,77 @@ class AdvancedRadarImpactAnalyzer:
         base_rcs = 1000  # 平方米，典型风机RCS
         incidence_factor = np.cos(np.radians(incidence_angle))**2
         
-        # 距离衰减因子：中度衰减模型
-        # 特征距离20km：0km=100%, 20km=50%, 50km=28%
+        # 距离衰减因子：平缓衰减模型
+        # 特征距离30km：使散射损耗变化非常平缓
         abs_distance = abs(turbine_distance)
-        characteristic_distance = 20.0  # 特征距离20km（中度衰减）
-        distance_factor = 1 / (1 + (abs_distance / characteristic_distance)**1.5)
-        
-        # 近距离增强：目标非常靠近风机时（<1km），散射效应轻微增强
-        close_range_factor = 1.0
-        if abs_distance < 1.0:  # 1km内
-            close_range_factor = 1.0 + 0.15 * (1.0 - abs_distance)  # 最大增强15%
+        characteristic_distance = 30.0  # 特征距离30km（平缓衰减）
+        distance_factor = 1 / (1 + (abs_distance / characteristic_distance)**1.2)
         
         # 频率相关散射
         freq_factor = (freq / 1e9)**2
         
-        effective_rcs = base_rcs * incidence_factor * distance_factor * close_range_factor * freq_factor
+        effective_rcs = base_rcs * incidence_factor * distance_factor * freq_factor
         
         # 多风机散射叠加（非相干叠加）
         scattering_power = effective_rcs * min(num_turbines, 10)  # 限制最大影响
         
-        # 散射损耗计算
-        scattering_loss_db = 10 * np.log10(1 + scattering_power / 15000)
+        # 散射损耗计算（降低基础值）
+        scattering_loss_db = 10 * np.log10(1 + scattering_power / 25000)
+        
+        # 限制最大散射损耗
+        scattering_loss_db = min(5.0, scattering_loss_db)
         
         return {
             'effective_rcs': effective_rcs,
             'scattering_loss_db': scattering_loss_db,
             'scattering_power': scattering_power,
-            'distance_factor': distance_factor,
-            'close_range_factor': close_range_factor
+            'distance_factor': distance_factor
         }
     
     def calculate_diffraction_effect(self, radar_band, turbine_distance, turbine_height, num_turbines=1):
-        """计算绕射效应 - 基于刃形绕射模型"""
+        """计算绕射效应 - 基于高斯衰减模型
+        
+        物理模型:
+        - 目标越靠近风机，绕射损耗越大（刃形绕射最强）
+        - 目标远离风机时，绕射损耗迅速减小
+        - 特征距离3km：0-10km范围内有明显衰减
+        """
         wavelength = self.radar_bands[radar_band]["wavelength"]
         
-        # 刃形绕射参数 - 添加最小距离1米，避免近距离极端值
-        safe_distance_m = max(turbine_distance * 1000, 1.0)  # 至少1米
+        abs_distance = abs(turbine_distance)
+        
+        # 计算刃形绕射参数（用于近距离峰值计算）
+        safe_distance_m = max(abs_distance * 1000, 100.0)  # 至少100米
         v_parameter = turbine_height * np.sqrt(2 / (wavelength * safe_distance_m))
         
-        # 绕射损耗计算（简化模型）
+        # 基础绕射损耗（近距离最大值，约6-8dB）
         if v_parameter > -0.8:
-            diffraction_loss_db = 6.9 + 20 * np.log10(np.sqrt((v_parameter - 0.1)**2 + 1) + v_parameter - 0.1)
-            # 限制最大绕射损耗为30dB，避免过度估计
-            diffraction_loss_db = min(diffraction_loss_db, 30.0)
+            peak_diffraction = 6.9 + 20 * np.log10(np.sqrt((v_parameter - 0.1)**2 + 1) + v_parameter - 0.1)
+            peak_diffraction = min(max(peak_diffraction, 2.0), 8.0)  # 限制在2-8dB
         else:
-            diffraction_loss_db = 0
+            peak_diffraction = 2.0
         
-        # 添加基础绕射损耗，确保远距离仍有损耗
-        base_diffraction_loss = 5.0
-        total_diffraction_loss = base_diffraction_loss + diffraction_loss_db
+        # 高斯衰减模型：0km处为峰值，随距离迅速衰减
+        # 特征距离3km：d=3km时衰减到50%，d=10km时衰减到约10%
+        characteristic_distance = 3.0  # 3km特征距离
+        distance_factor = np.exp(-(abs_distance ** 2) / (2 * characteristic_distance ** 2))
         
-        # 多风机绕射效应（近似为最差情况），减缓增长
-        multi_turbine_factor = 1 + 0.05 * np.log(num_turbines)
+        # 综合绕射损耗：近距离大，远距离小
+        total_diffraction_loss = peak_diffraction * distance_factor
+        
+        # 多风机绕射效应（温和增长）
+        multi_turbine_factor = 1 + 0.1 * np.log(num_turbines)
         total_diffraction_loss = total_diffraction_loss * multi_turbine_factor
+        
+        # 限制最大绕射损耗
+        total_diffraction_loss = min(10.0, total_diffraction_loss)
         
         return {
             'diffraction_parameter': v_parameter,
             'diffraction_loss_db': total_diffraction_loss,
-            'fresnel_zone_clearance': self.calculate_fresnel_zone(turbine_distance, wavelength)
+            'fresnel_zone_clearance': self.calculate_fresnel_zone(turbine_distance, wavelength),
+            'distance_factor': distance_factor,
+            'peak_diffraction': peak_diffraction
         }
     
     def calculate_fresnel_zone(self, distance, wavelength):
@@ -573,11 +583,11 @@ class AdvancedRadarImpactAnalyzer:
     def calculate_multipath_effects(self, radar_band, turbine_distance, turbine_height, 
                                    incidence_angle, num_turbines=1, target_to_radar_distance=None):
         """
-        计算多径效应综合影响
+        计算多径效应综合影响（温和衰减模型）
         
         物理模型:
-        - 多径效应在目标靠近风机时最强（直达波与反射波干涉严重）
-        - 随着目标到雷达距离增加，反射路径损耗增大，多径效应减弱
+        - 多径效应在目标靠近风机时较强，但变化平缓
+        - 采用较大特征距离，确保接收功率单调递减
         - 多风机场景会增加多径复杂度
         """
         wavelength = self.radar_bands[radar_band]["wavelength"]
@@ -586,47 +596,45 @@ class AdvancedRadarImpactAnalyzer:
         path_difference = 2 * abs(turbine_distance) * 1000 * np.sin(np.radians(incidence_angle))
         time_delay = path_difference / 3e8  # 秒
         
-        # 2. 多径衰落深度（考虑距离衰减的改进模型）
-        # 基础衰落深度（与风机数量相关），降低系数
-        base_fading_depth = 10 * np.log10(1 + 0.5 * np.sqrt(num_turbines))
+        # 2. 多径衰落深度（平缓衰减模型）
+        # 基础衰落深度（与风机数量相关）
+        base_fading_depth = 5 * np.log10(1 + 0.3 * np.sqrt(num_turbines))  # 降低基础值
         
-        # 距离衰减因子：使用目标到雷达距离（如果提供），否则使用目标-风机距离
-        # 目标到雷达距离越大，多径效应越弱（反射路径损耗越大）
+        # 距离衰减因子：使用平缓的高斯衰减
         if target_to_radar_distance is not None:
             distance_for_attenuation = target_to_radar_distance
         else:
             distance_for_attenuation = abs(turbine_distance)
         
-        # 使用指数衰减模型：特征衰减距离50km
-        distance_attenuation = np.exp(-distance_for_attenuation / 50.0)
+        # 使用平缓的高斯衰减：特征距离80km
+        distance_attenuation = np.exp(-distance_for_attenuation / 80.0)
         
-        # 近距离增强因子：目标非常靠近风机时（<200m），多径效应轻微增强
-        # 基于目标-风机距离（物理上反射面接近）
-        close_range_factor = 1.0
-        if abs(turbine_distance) < 0.2:  # 200米内
-            close_range_factor = 1.0 + 0.1 * (0.2 - abs(turbine_distance)) / 0.2
+        # 近距离轻微增强
+        close_range_factor = 1.0 + 0.3 * np.exp(-abs(turbine_distance) / 5.0)
         
         # 综合多径衰落深度
         multipath_fading_depth = base_fading_depth * distance_attenuation * close_range_factor
         
-        # 确保最小值（即使远距离也有一定多径效应）
-        min_fading_depth = 2.0 * np.log10(1 + num_turbines)  # 最小衰落深度（大幅提高）
+        # 确保最小值（远距离仍有小量多径效应）
+        min_fading_depth = 1.0 * np.log10(1 + num_turbines)  # 降低最小值
         multipath_fading_depth = max(multipath_fading_depth, min_fading_depth)
         
-        # 3. 时延扩展（多风机导致的多径扩展，同时受距离影响）
-        # 使用与衰落相同的距离度量
-        distance_delay_factor = 1.0 / (1.0 + distance_for_attenuation / 10.0)  # 10km参考距离
+        # 限制最大衰落深度
+        multipath_fading_depth = min(8.0, multipath_fading_depth)
+        
+        # 3. 时延扩展
+        distance_delay_factor = 1.0 / (1.0 + distance_for_attenuation / 20.0)  # 20km参考距离
         delay_spread = time_delay * np.sqrt(num_turbines) * distance_delay_factor * 1e6  # 转换为μs
         
         # 4. 相干带宽
-        if delay_spread > 1e-6:  # 避免除零
+        if delay_spread > 1e-6:
             coherence_bandwidth = 1 / (2 * np.pi * delay_spread * 1e-6) / 1e6  # MHz
         else:
-            coherence_bandwidth = 1000  # 极大值表示非频率选择性
+            coherence_bandwidth = 1000
         
-        # 5. 码间干扰影响（对数字信号）
-        symbol_rate = 1e6  # 假设1Mbps
-        isi_impact = delay_spread * 1e-6 * symbol_rate  # 时延扩展与码元周期比
+        # 5. 码间干扰影响
+        symbol_rate = 1e6
+        isi_impact = delay_spread * 1e-6 * symbol_rate
         
         return {
             'multipath_time_delay': time_delay,
@@ -634,8 +642,7 @@ class AdvancedRadarImpactAnalyzer:
             'delay_spread_us': delay_spread,
             'coherence_bandwidth_mhz': coherence_bandwidth,
             'isi_impact_factor': isi_impact,
-            'is_frequency_selective': coherence_bandwidth < 10,  # 相干带宽小于10MHz为频率选择性衰落
-            # 新增诊断信息
+            'is_frequency_selective': coherence_bandwidth < 10,
             'distance_attenuation': distance_attenuation,
             'close_range_factor': close_range_factor,
             'base_fading_depth': base_fading_depth,
