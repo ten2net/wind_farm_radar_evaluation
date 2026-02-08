@@ -486,9 +486,9 @@ class AdvancedRadarImpactAnalyzer:
         else:
             peak_diffraction = 3.0
         
-        # 指数衰减模型：0km处最大，快速下降
-        # 特征距离2km：在2km处衰减到37%
-        characteristic_distance = 2.0
+        # 指数衰减模型：0km处最大，平缓下降
+        # 特征距离6km：在6km处衰减到37%，衰减更平缓
+        characteristic_distance = 6.0
         distance_factor = np.exp(-abs_distance / characteristic_distance)
         
         # 综合绕射损耗
