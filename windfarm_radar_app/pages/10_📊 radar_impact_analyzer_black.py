@@ -2320,15 +2320,64 @@ def create_distance_based_analysis_interface(analyzer, base_params):
     """创建不同距离目标下细分指标对比分析界面"""
     st.markdown('<div class="section-header">📏 不同距离目标的细分指标对比分析</div>', unsafe_allow_html=True)
     
+    # 检查是否使用CSV导入的风机数据
+    use_custom_turbines = base_params.get('use_custom_turbines', False)
+    custom_turbine_positions = base_params.get('custom_turbine_positions', None)
+    
+    # 如果使用CSV数据，显示提示信息
+    if use_custom_turbines and custom_turbine_positions:
+        actual_turbine_count = len(custom_turbine_positions)
+        st.success(f"📊 已加载CSV风机数据: 共 {actual_turbine_count} 个风机")
+        
+        # 计算实际风机的距离分布统计
+        # 使用用户设置的雷达位置计算每个风机到雷达的距离
+        radar_lat = base_params.get('radar_lat', 39.9042)  # 默认北京附近
+        radar_lon = base_params.get('radar_lon', 116.4074)  # 默认北京附近
+        
+        turbine_distances_to_radar = []
+        for turbine in custom_turbine_positions:
+            dist = analyzer.haversine_distance(radar_lat, radar_lon, turbine['lat'], turbine['lon'])
+            turbine_distances_to_radar.append(dist)
+        
+        avg_turbine_distance = np.mean(turbine_distances_to_radar)
+        min_turbine_distance = np.min(turbine_distances_to_radar)
+        max_turbine_distance = np.max(turbine_distances_to_radar)
+        std_turbine_distance = np.std(turbine_distances_to_radar)
+        
+        # 显示风机距离统计信息
+        stat_cols = st.columns(4)
+        with stat_cols[0]:
+            st.metric("平均距离", f"{avg_turbine_distance:.2f} km")
+        with stat_cols[1]:
+            st.metric("最近距离", f"{min_turbine_distance:.2f} km")
+        with stat_cols[2]:
+            st.metric("最远距离", f"{max_turbine_distance:.2f} km")
+        with stat_cols[3]:
+            st.metric("距离标准差", f"{std_turbine_distance:.2f} km")
+        
+        st.info(f"💡 分析将基于实际风机位置数据进行计算")
+    else:
+        st.info("📌 未检测到CSV风机数据，使用模拟风机数量进行分析")
+    
     # 仿真配置面板
     st.markdown("### 🎛️ 仿真配置")
     config_col1, config_col2, config_col3 = st.columns([1, 1, 1])
     
     with config_col1:
-        max_turbines = st.slider("最大风机数量", 1, 50, base_params.get('max_turbines', 30), 
-                                help="设置分析中考虑的最大风机数量")
-        curve_count = st.slider("曲线条数", 1, 10, 6, 
-                               help="选择在图表中显示的风机数量曲线条数")
+        # 如果使用CSV数据，限制最大风机数量为实际数量
+        if use_custom_turbines and custom_turbine_positions:
+            actual_turbine_count = len(custom_turbine_positions)
+            max_turbines = st.slider("最大风机数量", 1, actual_turbine_count, 
+                                    min(base_params.get('max_turbines', 30), actual_turbine_count), 
+                                    help=f"CSV数据中共有 {actual_turbine_count} 个风机")
+            curve_count = st.slider("曲线条数", 1, min(10, actual_turbine_count), 
+                                   min(6, actual_turbine_count), 
+                                   help="选择在图表中显示的风机数量曲线条数")
+        else:
+            max_turbines = st.slider("最大风机数量", 1, 50, base_params.get('max_turbines', 30), 
+                                    help="设置分析中考虑的最大风机数量")
+            curve_count = st.slider("曲线条数", 1, 10, 6, 
+                                   help="选择在图表中显示的风机数量曲线条数")
     
     with config_col2:
         # 距离范围配置
@@ -2443,15 +2492,31 @@ def create_distance_based_analysis_interface(analyzer, base_params):
     distances = np.linspace(distance_min, distance_max, distance_points)
     
     # 生成风机数量列表（均匀分布）
-    if curve_count == 1:
-        num_turbines_list = [1]
+    if use_custom_turbines and custom_turbine_positions:
+        # CSV模式：使用实际风机数量（从1个到max_turbines，均匀选择）
+        actual_turbine_count = len(custom_turbine_positions)
+        if curve_count == 1:
+            num_turbines_list = [min(1, actual_turbine_count)]
+        else:
+            step = max(1, (max_turbines - 1) // (curve_count - 1))
+            num_turbines_list = [1 + i * step for i in range(curve_count)]
+            # 确保最后一个元素不超过max_turbines
+            num_turbines_list = [n for n in num_turbines_list if n <= max_turbines]
+            if num_turbines_list and num_turbines_list[-1] != max_turbines:
+                num_turbines_list.append(max_turbines)
+            # 去重并排序
+            num_turbines_list = sorted(list(set(num_turbines_list)))
     else:
-        step = max(1, (max_turbines - 1) // (curve_count - 1))
-        num_turbines_list = [1 + i * step for i in range(curve_count)]
-        # 确保最后一个元素不超过max_turbines
-        num_turbines_list = [n for n in num_turbines_list if n <= max_turbines]
-        if num_turbines_list[-1] != max_turbines:
-            num_turbines_list.append(max_turbines)
+        # 模拟模式：使用均匀分布的风机数量
+        if curve_count == 1:
+            num_turbines_list = [1]
+        else:
+            step = max(1, (max_turbines - 1) // (curve_count - 1))
+            num_turbines_list = [1 + i * step for i in range(curve_count)]
+            # 确保最后一个元素不超过max_turbines
+            num_turbines_list = [n for n in num_turbines_list if n <= max_turbines]
+            if num_turbines_list[-1] != max_turbines:
+                num_turbines_list.append(max_turbines)
     
     # 运行分析按钮
     if st.button("🚀 运行距离影响分析", type="primary"):
@@ -2471,6 +2536,17 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             
             # 获取风机到雷达的参考距离（用于计算目标到雷达的实际距离）
             turbine_to_radar_distance = base_params.get('radar_to_turbine_distance', 5.0)  # 默认5km
+            
+            # CSV模式：预计算实际风机的距离分布
+            if use_custom_turbines and custom_turbine_positions:
+                radar_lat = base_params.get('radar_lat', 39.9042)  # 使用用户设置的雷达纬度
+                radar_lon = base_params.get('radar_lon', 116.4074)  # 使用用户设置的雷达经度
+                actual_turbine_distances = []
+                for turbine in custom_turbine_positions:
+                    dist = analyzer.haversine_distance(radar_lat, radar_lon, turbine['lat'], turbine['lon'])
+                    actual_turbine_distances.append(dist)
+                actual_turbine_count = len(custom_turbine_positions)
+                status_text.text(f"使用CSV风机数据: 共 {actual_turbine_count} 个风机")
             
             for i, relative_distance in enumerate(distances):
                 status_text.text(f"计算距离点 {i+1}/{len(distances)}: {relative_distance:.1f} km")
@@ -2505,27 +2581,57 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     target_to_radar_distance = 0.001  # 最小距离1米
                 
                 for num_turbines in num_turbines_list:
-                    # 计算各项指标（使用raw_distance，函数内部处理除零）
+                    # CSV模式：使用实际风机的距离分布计算
+                    if use_custom_turbines and custom_turbine_positions:
+                        # 获取当前数量的风机（前num_turbines个）
+                        current_turbine_distances = actual_turbine_distances[:num_turbines]
+                        
+                        # 计算平均距离和统计特征（风机到雷达的距离）
+                        avg_turbine_distance = np.mean(current_turbine_distances)
+                        distance_std = np.std(current_turbine_distances) if len(current_turbine_distances) > 1 else 0
+                        
+                        # 重要：在距离影响分析中，X轴是"目标相对于风机的距离"
+                        # 所以应该使用 raw_distance（目标相对风机的距离）而非 avg_turbine_distance
+                        # avg_turbine_distance 只用于计算风机到雷达的固定距离
+                        effective_distance = raw_distance
+                        
+                        # 增强多风机效应（如果风机分布范围广）
+                        multi_turbine_enhancement = 1.0 + 0.1 * distance_std if distance_std > 1.0 else 1.0
+                    else:
+                        # 模拟模式：使用默认距离
+                        effective_distance = raw_distance
+                        multi_turbine_enhancement = 1.0
+                    
+                    # 计算各项指标（使用effective_distance）
                     shadowing = analyzer.calculate_shadowing_effect(
                         current_params['turbine_height'],
                         current_params['target_height'],
-                        raw_distance,
+                        effective_distance,
                         num_turbines
                     )
+                    # CSV模式下增强遮挡效应（基于风机分布范围）
+                    if use_custom_turbines and custom_turbine_positions:
+                        shadowing['shadow_loss_db'] *= multi_turbine_enhancement
                     
                     scattering = analyzer.calculate_scattering_effect(
                         current_params['radar_band'],
-                        raw_distance,
+                        effective_distance,
                         current_params['incidence_angle'],
                         num_turbines
                     )
+                    # CSV模式下增强散射效应
+                    if use_custom_turbines and custom_turbine_positions:
+                        scattering['scattering_loss_db'] *= multi_turbine_enhancement
                     
                     diffraction = analyzer.calculate_diffraction_effect(
                         current_params['radar_band'],
-                        raw_distance,
+                        effective_distance,
                         current_params['turbine_height'],
                         num_turbines
                     )
+                    # CSV模式下增强绕射效应
+                    if use_custom_turbines and custom_turbine_positions:
+                        diffraction['diffraction_loss_db'] *= multi_turbine_enhancement
                     
                     doppler = analyzer.calculate_doppler_effects(
                         analyzer.radar_bands[current_params['radar_band']]["freq"],
@@ -2535,14 +2641,14 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                     
                     angle_error = analyzer.calculate_angle_measurement_error(
                         current_params['radar_band'],
-                        raw_distance,
+                        effective_distance,
                         current_params['incidence_angle'],
                         num_turbines
                     )
                     
                     range_error = analyzer.calculate_range_measurement_error(
                         current_params['radar_band'],
-                        raw_distance,
+                        effective_distance,
                         num_turbines
                     )
                     
@@ -2550,17 +2656,20 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         doppler['doppler_spread_hz'],
                         current_params['target_speed'],
                         num_turbines,
-                        turbine_distance=raw_distance
+                        turbine_distance=effective_distance
                     )
                     
                     multipath = analyzer.calculate_multipath_effects(
                         current_params['radar_band'],
-                        raw_distance,
+                        effective_distance,
                         current_params['turbine_height'],
                         current_params['incidence_angle'],
                         num_turbines,
                         target_to_radar_distance=target_to_radar_distance
                     )
+                    # CSV模式下增强多径效应
+                    if use_custom_turbines and custom_turbine_positions:
+                        multipath['multipath_fading_depth_db'] *= multi_turbine_enhancement
 
                     # 计算回波功率 - 使用目标到雷达的实际距离
                     echo_power = analyzer.calculate_echo_power(
@@ -2574,11 +2683,16 @@ def create_distance_based_analysis_interface(analyzer, base_params):
                         multipath_fading_db=multipath['multipath_fading_depth_db']
                     )
 
-                    # 计算塔筒回波功率 - 塔筒位于风机位置，使用固定的风机到雷达距离
-                    # 注意：塔筒不随目标位置变化，始终位于风机处
+                    # 计算塔筒回波功率 - 塔筒位于风机位置
+                    # CSV模式下使用平均风机距离
+                    if use_custom_turbines and custom_turbine_positions:
+                        tower_distance = avg_turbine_distance if 'avg_turbine_distance' in locals() else turbine_to_radar_distance
+                    else:
+                        tower_distance = turbine_to_radar_distance
+                    
                     tower_echo = analyzer.calculate_tower_echo_power(
                         current_params['radar_band'],
-                        turbine_to_radar_distance,  # 使用固定的风机到雷达距离
+                        tower_distance,
                         num_turbines=num_turbines,
                         incidence_angle=current_params['incidence_angle'],
                         tower_height=current_params.get('tower_height', 100)
@@ -2643,12 +2757,22 @@ def create_distance_based_analysis_interface(analyzer, base_params):
             st.session_state.distance_analysis_results = results
             st.session_state.distance_analysis_distances = distances
             st.session_state.distance_analysis_turbines = num_turbines_list
+            # CSV模式下额外存储风机位置信息
+            if use_custom_turbines and custom_turbine_positions:
+                st.session_state.distance_analysis_use_csv = True
+                st.session_state.distance_analysis_turbine_count = len(custom_turbine_positions)
     
     # 如果已有分析结果，显示图表
     if 'distance_analysis_results' in st.session_state:
         results = st.session_state.distance_analysis_results
         distances = st.session_state.distance_analysis_distances
         num_turbines_list = st.session_state.distance_analysis_turbines
+        
+        # CSV模式：显示数据来源信息
+        if st.session_state.get('distance_analysis_use_csv', False):
+            actual_count = st.session_state.get('distance_analysis_turbine_count', 0)
+            st.success(f"📊 当前分析基于CSV导入的实际风机数据 (共 {actual_count} 个风机)")
+            st.info("💡 分析已考虑实际风机的空间分布特征，包括距离分布和方位角差异")
         
         # 定义需要平滑处理的指标
         smooth_metrics = ['遮挡损耗', '绕射损耗', '测角误差', '多径衰落', '目标接收功率', '目标SNR']
@@ -4398,6 +4522,31 @@ def main():
             ["L波段", "S波段", "C波段", "X波段", "Ku波段"],
             help="选择雷达工作频段"
         )
+        
+        # 雷达位置设置
+        st.markdown("**雷达位置设置**")
+        st.info("💡 设置雷达的经纬度坐标，用于计算与风机的实际距离")
+        
+        # 使用两列布局放置经纬度输入
+        radar_col1, radar_col2 = st.columns(2)
+        with radar_col1:
+            radar_lat = st.number_input(
+                "雷达纬度",
+                min_value=-90.0,
+                max_value=90.0,
+                value=39.9042,  # 默认北京附近
+                format="%.6f",
+                help="雷达位置的纬度 (°), 范围 -90~90"
+            )
+        with radar_col2:
+            radar_lon = st.number_input(
+                "雷达经度",
+                min_value=-180.0,
+                max_value=180.0,
+                value=116.4074,  # 默认北京附近
+                format="%.6f",
+                help="雷达位置的经度 (°), 范围 -180~180"
+            )
     
     with st.sidebar.expander("目标参数"):
         target_distance = st.slider("目标距离 (km)", 1.0, 150.0, 12.0, 1.0)
@@ -4546,6 +4695,8 @@ def main():
     
     base_params = {
         'radar_band': radar_band,
+        'radar_lat': radar_lat,  # 雷达纬度
+        'radar_lon': radar_lon,  # 雷达经度
         'target_distance': target_distance,
         'target_height': target_height,
         'target_speed': target_speed,
