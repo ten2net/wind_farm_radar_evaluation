@@ -487,8 +487,9 @@ class AdvancedRadarImpactAnalyzer:
             peak_diffraction = 3.0
         
         # 指数衰减模型：0km处最大，平缓下降
-        # 特征距离6km：在6km处衰减到37%，衰减更平缓
-        characteristic_distance = 6.0
+        # 特征距离20km：在20km处衰减到37%，使绕射效应影响范围更符合实际
+        # 物理依据：风机塔筒作为大型圆柱体，其绕射场随距离衰减较慢
+        characteristic_distance = 20.0
         distance_factor = np.exp(-abs_distance / characteristic_distance)
         
         # 综合绕射损耗
