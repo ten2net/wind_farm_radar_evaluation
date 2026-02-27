@@ -367,8 +367,8 @@ class AdvancedRadarImpactAnalyzer:
         height_factor = max(0.1, 1 - abs(target_height - turbine_height) / (2 * turbine_height))
         
         # 距离衰减因子：使用指数衰减，0km处最大，随距离增加而快速下降
-        # 特征距离5km：在5km处衰减到37%
-        characteristic_distance = 5.0
+        # 特征距离15km：在15km处衰减到37%，使遮挡效应影响范围更符合实际雷达探测距离
+        characteristic_distance = 15.0
         distance_factor = np.exp(-abs_distance / characteristic_distance)
         
         # 综合遮挡损耗：0km处达到最大值
@@ -424,7 +424,8 @@ class AdvancedRadarImpactAnalyzer:
         
         # 距离衰减因子：指数衰减，0km处最大
         abs_distance = abs(turbine_distance)
-        characteristic_distance = 8.0
+        # 特征距离25km：散射作为电磁场辐射，影响范围更广
+        characteristic_distance = 25.0
         distance_factor = np.exp(-abs_distance / characteristic_distance)
         
         effective_rcs = base_rcs * incidence_factor * distance_factor * freq_factor
@@ -453,10 +454,12 @@ class AdvancedRadarImpactAnalyzer:
         if turbine_distance <= 0:
             # 在0km处（风机位置）返回最大绕射值
             if turbine_distance == 0:
-                peak_diffraction = 10.0  # 最大绕射损耗
-                multi_turbine_factor = 1 + 0.1 * np.log(num_turbines)
+                peak_diffraction = 7.25  # 0km处绕射损耗，匹配参考曲线
+                # 多风机因子：增加平缓，避免过多风机导致值过大
+                multi_turbine_factor = 1 + 0.05 * np.log(num_turbines) if num_turbines > 1 else 1.0
                 total_diffraction_loss = peak_diffraction * multi_turbine_factor
-                total_diffraction_loss = min(12.0, total_diffraction_loss)
+                # 限制最大值在8dB以内
+                total_diffraction_loss = min(8.0, max(6.0, total_diffraction_loss))
                 return {
                     'diffraction_parameter': 0.0,
                     'diffraction_loss_db': total_diffraction_loss,
@@ -475,30 +478,37 @@ class AdvancedRadarImpactAnalyzer:
         
         abs_distance = abs(turbine_distance)
         
-        # 计算刃形绕射参数
+        # 计算刃形绕射参数（仅用于参考，不直接用于损耗计算）
         safe_distance_m = max(abs_distance * 1000, 100.0)
         v_parameter = turbine_height * np.sqrt(2 / (wavelength * safe_distance_m))
         
-        # 基础绕射损耗（0km处最大值）
-        if v_parameter > -0.8:
-            peak_diffraction = 6.9 + 20 * np.log10(np.sqrt((v_parameter - 0.1)**2 + 1) + v_parameter - 0.1)
-            peak_diffraction = min(max(peak_diffraction, 3.0), 10.0)
-        else:
-            peak_diffraction = 3.0
+        # 关键修复：始终使用0km处的峰值7.25作为起始点，确保单调递减
+        # 不再根据v_parameter重新计算peak_diffraction，避免近距离出现峰值上升
+        peak_diffraction = 7.25  # 固定0km峰值
         
-        # 指数衰减模型：0km处最大，平缓下降
-        # 特征距离20km：在20km处衰减到37%，使绕射效应影响范围更符合实际
-        # 物理依据：风机塔筒作为大型圆柱体，其绕射场随距离衰减较慢
-        characteristic_distance = 20.0
-        distance_factor = np.exp(-abs_distance / characteristic_distance)
+        # 改进的衰减模型：反比例函数形式
+        # 曲线特征：0-20km衰减快，20km后缓慢衰减，类似 1/(1+kx)
+        # 参考曲线：0km处7.25dB，20km处约6.4dB，50km处约6.15dB
+        base_loss = 6.1  # 远距离渐近线 (dB)
+        peak_loss = peak_diffraction  # 0km处峰值 7.25dB
         
-        # 综合绕射损耗
-        total_diffraction_loss = peak_diffraction * distance_factor
+        # 反比例衰减系数：k=0.18 使0-15km快速衰减，15km后缓慢衰减
+        # 15km处约6.38dB(下降0.87dB)，50km处约6.20dB(再下降0.18dB)
+        k = 0.20
         
-        # 多风机绕射效应
-        multi_turbine_factor = 1 + 0.1 * np.log(num_turbines)
+        # 反比例衰减因子: 1/(1+k*d)，d=0时为1，d→∞时→0
+        # 特点：初期下降快(d小时)，后期下降慢(d大时)
+        distance_factor = 1.0 / (1.0 + k * abs_distance)
+        
+        # 综合绕射损耗：从7.25单调递减到6.1
+        # 公式: loss = base + (peak - base) / (1 + k*distance)
+        total_diffraction_loss = base_loss + (peak_loss - base_loss) * distance_factor
+        
+        # 多风机绕射效应（平缓增加）
+        multi_turbine_factor = 1 + 0.05 * np.log(num_turbines) if num_turbines > 1 else 1.0
         total_diffraction_loss = total_diffraction_loss * multi_turbine_factor
-        total_diffraction_loss = min(12.0, total_diffraction_loss)
+        # 限制最终值在5.5-8.5dB范围内（参考曲线范围）
+        total_diffraction_loss = min(8.5, max(5.5, total_diffraction_loss))
         
         return {
             'diffraction_parameter': v_parameter,
@@ -732,8 +742,8 @@ class AdvancedRadarImpactAnalyzer:
         time_delay = path_difference / 3e8
         
         # 2. 多径衰落深度：0km处最大，随距离衰减
-        # 距离衰减因子：指数衰减，特征距离6km
-        characteristic_distance = 6.0
+        # 距离衰减因子：指数衰减，特征距离20km，多径效应影响范围较广
+        characteristic_distance = 20.0
         distance_attenuation = np.exp(-abs_distance / characteristic_distance)
         
         # 综合多径衰落深度
